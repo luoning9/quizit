@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import {useLocation, useNavigate} from "react-router-dom";
 
@@ -7,7 +7,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-    const location = useLocation<{ from?: string }>();
+    const location = useLocation();
     const navigate = useNavigate();
 
     async function handleLogin(e: React.FormEvent) {
