@@ -82,10 +82,6 @@ export function AppLayout() {
                     <nav className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-200">
                         <TimerBar />
 
-                        <Link to="/decks" className="hover:text-brand">
-                            管理闪卡
-                        </Link>
-
                         {/* 登录 / 用户信息 */}
                         {user ? (
                             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-300">
