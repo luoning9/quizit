@@ -1,0 +1,220 @@
+-- 👉 先把这里替换成你在 Auth → Users 里看到的某个用户 id
+--    例如 'b3f0a4d5-1234-5678-9abc-0123456789ab'
+--
+--    如果已经有 profiles 记录，这条会 on conflict 不报错
+insert into public.profiles(id, display_name, role)
+values ('c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid, 'Test Teacher', 'teacher')
+on conflict (id) do nothing;
+
+------------------------------------------------------------
+-- 1. 插入几道测试题（cards）
+------------------------------------------------------------
+
+insert into public.cards(id, owner_id, front, back, card_type, explanation, meta)
+values
+  ('11111111-1111-1111-1111-111111111111'::uuid, 'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+   '声音是由什么产生的？',
+   '声音是由物体振动产生的。',
+   'basic',
+   '初中物理必背结论：声音来自振动。',
+   null),
+
+  ('22222222-2222-2222-2222-222222222222'::uuid, 'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+   '声音在什么环境中不能传播？',
+   '在真空中不能传播。',
+   'single_choice',
+   '真空泵实验：抽空后听不到铃声。',
+   jsonb_build_object(
+     'options', array['空气中','水中','固体中','真空中'],
+     'correct_index', 3
+   )),
+
+  ('33333333-3333-3333-3333-333333333333'::uuid, 'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+   '影响音调高低的主要物理量是什么？',
+   '频率，频率越大音调越高。',
+   'basic',
+   '音调 ↔ 振动频率。',
+   null),
+
+  ('44444444-4444-4444-4444-444444444444'::uuid, 'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+   '判断对错：振幅越大，声音越响。',
+   '对。',
+   'basic',
+   '响度主要与振幅有关。',
+   null),
+
+  ('55555555-5555-5555-5555-555555555555'::uuid, 'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+   '生活中减小噪声的方法不包括下列哪一项？',
+   '在教室里大声说话。',
+   'single_choice',
+   '控制声源、传播途径或接收处都可以减小噪声，选项中只有“大声说话”是相反操作。',
+   jsonb_build_object(
+     'options', array['在马路边安装隔音墙','戴上防噪耳塞','在教室里大声说话','给机器加装消音罩'],
+     'correct_index', 2
+   ));
+
+------------------------------------------------------------
+-- 2. 插入一个测试用题库（decks）
+--    items 字段里直接写 card_id 列表
+------------------------------------------------------------
+
+insert into public.decks(
+  id, owner_id, title, description, subject, grade, tags, is_public, items
+) values (
+  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+  'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+  '初二物理 · 声现象 · 闪卡示例',
+  '用于测试 React + Supabase 闪卡练习的示例题库。',
+  '物理',
+  '八年级',
+  array['声现象','测试'],
+  true,
+  '{
+    "items": [
+      { "card_id": "11111111-1111-1111-1111-111111111111", "order": 1 },
+      { "card_id": "22222222-2222-2222-2222-222222222222", "order": 2 },
+      { "card_id": "33333333-3333-3333-3333-333333333333", "order": 3 },
+      { "card_id": "44444444-4444-4444-4444-444444444444", "order": 4 },
+      { "card_id": "55555555-5555-5555-5555-555555555555", "order": 5 }
+    ]
+  }'::jsonb
+);
+
+------------------------------------------------------------
+-- 3. 插入一张试卷模板（quiz_templates）
+------------------------------------------------------------
+
+insert into public.quiz_templates(
+  id, owner_id, title, description, related_deck_id, mode, items, config
+) values (
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
+  'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+  '声现象小测（示例卷）',
+  '包含 5 道基础题，用于测试测验流程。',
+  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,  -- 关联上面的题库
+  'mixed',
+  '{
+    "items": [
+      { "card_id": "11111111-1111-1111-1111-111111111111", "position": 1, "score": 2 },
+      { "card_id": "22222222-2222-2222-2222-222222222222", "position": 2, "score": 2 },
+      { "card_id": "33333333-3333-3333-3333-333333333333", "position": 3, "score": 2 },
+      { "card_id": "44444444-4444-4444-4444-444444444444", "position": 4, "score": 2 },
+      { "card_id": "55555555-5555-5555-5555-555555555555", "position": 5, "score": 2 }
+    ]
+  }'::jsonb,
+  jsonb_build_object('total_score', 10, 'source', 'test_seed')
+);
+
+------------------------------------------------------------
+-- 4. 插入一条测试测验记录（quizzes + quiz_items）
+--    模拟这个用户做了一次试卷，答对 4 题、错 1 题
+------------------------------------------------------------
+
+-- quizzes
+insert into public.quizzes(
+  id, template_id, user_id, started_at, finished_at,
+  score, total_items, correct_items, config
+) values (
+  'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
+  'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+  now() - interval '10 minutes',
+  now(),
+  8.0,              -- 10 分满分，答对 4 题
+  5,
+  4,
+  jsonb_build_object('mode', 'mixed', 'seed', 'test_run_1')
+);
+
+-- quiz_items
+insert into public.quiz_items(
+  id, quiz_id, card_id, position,
+  user_answer, is_correct,
+  question_snapshot, correct_answer_snapshot, meta
+) values
+(
+  'd1111111-1111-1111-1111-111111111111'::uuid,
+  'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  1,
+  '声音是由物体振动产生的。',
+  true,
+  '声音是由什么产生的？',
+  '声音是由物体振动产生的。',
+  null
+),
+(
+  'd2222222-2222-2222-2222-222222222222'::uuid,
+  'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  2,
+  '真空中',
+  true,
+  '声音在什么环境中不能传播？',
+  '在真空中不能传播。',
+  null
+),
+(
+  'd3333333-3333-3333-3333-333333333333'::uuid,
+  'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+  '33333333-3333-3333-3333-333333333333'::uuid,
+  3,
+  '频率越大音调越高。',
+  true,
+  '影响音调高低的主要物理量是什么？',
+  '频率，频率越大音调越高。',
+  null
+),
+(
+  'd4444444-4444-4444-4444-444444444444'::uuid,
+  'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+  '44444444-4444-4444-4444-444444444444'::uuid,
+  4,
+  '错。',
+  false,
+  '判断对错：振幅越大，声音越响。',
+  '对。',
+  null
+),
+(
+  'd5555555-5555-5555-5555-555555555555'::uuid,
+  'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+  '55555555-5555-5555-5555-555555555555'::uuid,
+  5,
+  '在教室里大声说话。',
+  true,
+  '生活中减小噪声的方法不包括下列哪一项？',
+  '在教室里大声说话。',
+  null
+);
+
+------------------------------------------------------------
+-- 5. 可选：插入一条 card_stats / card_reviews 作为样例
+------------------------------------------------------------
+
+insert into public.card_stats(
+  id, user_id, card_id, last_reviewed_at,
+  review_count, correct_count, wrong_count, ease_factor, next_due_at
+) values (
+  gen_random_uuid(),
+  'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  now(),
+  3, 3, 0,
+  2.5,
+  now() + interval '1 day'
+)
+on conflict (user_id, card_id) do nothing;
+
+insert into public.card_reviews(
+  id, user_id, card_id, reviewed_at, user_answer, is_correct, time_spent, meta
+) values (
+  gen_random_uuid(),
+  'c3c49b3d-b6c9-4c38-86ad-f73fe07a07c0'::uuid,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  now() - interval '1 hour',
+  '声音由物体振动产生',
+  true,
+  12,
+  jsonb_build_object('source', 'seed_script')
+);
