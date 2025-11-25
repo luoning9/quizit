@@ -25,10 +25,19 @@ export function Button({
     const variants: Record<Variant, string> = {
         none:"",
         primary:
-            // 浅色模式
-            "bg-blue-600 text-white border border-blue-700 hover:bg-blue-500 hover:border-blue-600 " +
-            // 深色模式
-            "dark:bg-blue-500 dark:text-white dark:border-blue-400 dark:hover:bg-blue-400 dark:hover:border-blue-300",
+            [
+                // 浅色：低饱和深灰蓝，柔和阴影
+                "bg-slate-900 text-slate-50 border border-slate-800/90",
+                "hover:bg-slate-800 hover:border-slate-700",
+                "active:bg-slate-900",
+                "shadow-[0_8px_24px_-12px_rgba(15,23,42,0.45)]",
+
+                // 深色：与背景融合的中灰蓝
+                "dark:bg-slate-700 dark:text-slate-50",
+                "dark:border-slate-600/80",
+                "dark:hover:bg-slate-600 dark:hover:border-slate-500",
+                "dark:active:bg-slate-700",
+            ].join(" "),
         secondary:
         // 浅色
             "bg-slate-100 text-slate-800 hover:bg-slate-200 " +

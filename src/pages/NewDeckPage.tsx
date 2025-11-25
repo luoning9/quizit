@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { Button } from "../components/ui/Button";
 
 const NewDeckPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -78,13 +79,14 @@ const NewDeckPage: React.FC = () => {
                     </p>
                 </div>
 
-                <button
+                <Button
                     type="button"
+                    variant="link"
+                    className="text-xs px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
                     onClick={() => navigate(-1)}
-                    className="text-xs text-sky-400 hover:underline"
                 >
                     返回
-                </button>
+                </Button>
             </div>
 
             {/* 错误提示 */}
@@ -123,16 +125,14 @@ const NewDeckPage: React.FC = () => {
                 </div>
 
                 <div className="pt-2 flex justify-end">
-                    <button
+                    <Button
                         type="submit"
+                        variant="primary"
                         disabled={submitting || !title.trim()}
-                        className="px-4 py-2 rounded-xl text-sm font-medium
-                       bg-emerald-600 hover:bg-emerald-500
-                       disabled:bg-slate-700 disabled:text-slate-400
-                       disabled:cursor-not-allowed"
+                        className="text-sm font-medium px-4 py-2 rounded-xl"
                     >
                         {submitting ? "创建中…" : "创建 Deck"}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </div>

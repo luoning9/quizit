@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useTimer } from "../components/TimerContext";
+import { Button } from "../components/ui/Button";
 
 function TimerBar() {
     const { seconds } = useTimer();
@@ -88,22 +89,24 @@ export function AppLayout() {
                 <span className="max-w-[150px] truncate">
                   {user.email ?? ""}
                 </span>
-                                <button
+                                <Button
                                     type="button"
+                                    variant="secondary"
+                                    className="px-3 py-1.5 text-[11px] rounded-lg"
                                     onClick={handleLogout}
-                                    className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
                                 >
                                     退出
-                                </button>
+                                </Button>
                             </div>
                         ) : location.pathname !== "/login" ? (
-                            <button
+                            <Button
                                 type="button"
+                                variant="secondary"
+                                className="text-[11px] px-3 py-1.5 rounded-xl"
                                 onClick={handleLoginClick}
-                                className="text-[11px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
                             >
                                 登录
-                            </button>
+                            </Button>
                         ) : null}
                     </nav>
                 </div>

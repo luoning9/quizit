@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import {useLocation, useNavigate} from "react-router-dom";
+import { Button } from "../components/ui/Button";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -74,14 +75,14 @@ export default function LoginPage() {
                         <div className="text-red-400 text-sm text-center">{errorMsg}</div>
                     )}
 
-                    <button
+                    <Button
                         type="submit"
+                        variant="primary"
                         disabled={loading}
-                        className="w-full py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium
-                       disabled:bg-slate-500 transition"
+                        className="w-full py-2.5 rounded-lg font-medium text-sm"
                     >
                         {loading ? "登录中..." : "登录"}
-                    </button>
+                    </Button>
                 </form>
             </div>
         </div>

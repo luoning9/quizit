@@ -12,6 +12,7 @@ import {
     type UserAnswer
 } from "../../lib/quizFormat.ts";
 import { useTimer } from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
+import { Button } from "../components/ui/Button";
 
 interface QuizQuestion {
     cardId: string;
@@ -312,13 +313,14 @@ function QuizRunPage() {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-slate-300">
                 <div className="mb-2">{loadingError}</div>
-                <button
+                <Button
                     type="button"
-                    className="mt-2 px-4 py-2 rounded-xl bg-slate-700 text-white text-sm hover:bg-slate-600"
+                    variant="secondary"
+                    className="mt-2 px-4 py-2 rounded-xl text-sm"
                     onClick={() => navigate("/quizzes")}
                 >
                     返回测验列表
-                </button>
+                </Button>
             </div>
         );
     }
@@ -327,13 +329,14 @@ function QuizRunPage() {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-slate-300">
                 <div className="mb-2">该测验暂无题目。</div>
-                <button
+                <Button
                     type="button"
-                    className="mt-2 px-4 py-2 rounded-xl bg-slate-700 text-white text-sm hover:bg-slate-600"
+                    variant="secondary"
+                    className="mt-2 px-4 py-2 rounded-xl text-sm"
                     onClick={() => navigate("/quizzes")}
                 >
                     返回测验列表
-                </button>
+                </Button>
             </div>
         );
     }
@@ -401,15 +404,14 @@ function QuizRunPage() {
                         )}
                     </div>
                     {/* 统一一个按钮：未显示答案时是“提交答案”，显示答案后变成“下一题” */}
-                    <button
+                    <Button
                         type="button"
-                        className=
-                            {showAnswer ? "w-40 border border-slate-600 inline-flex justify-center px-4 py-2 rounded-lg bg-background text-white text-2xl hover:bg-slate-600"
-                                : "w-40 border border-slate-500 justify-center px-4 py-2 rounded-lg bg-background text-slate-100 text-lg hover:bg-sky-800"}
+                        variant={showAnswer ? "primary" : "outline"}
+                        className={showAnswer ? "w-40 text-2xl" : "w-40 text-lg"}
                         onClick={showAnswer ? handleNextQuestion : handleSubmitAnswer}
                     >
                         {showAnswer ? "➤" : "提交答案"}
-                    </button>
+                    </Button>
                 </div>
             </div>
 

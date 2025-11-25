@@ -580,19 +580,21 @@ function BreakScreen({
             </div>
 
             <div className="flex gap-4">
-                <button
-                    className="w-32 px-6 py-3 rounded-2xl border border-slate-500 text-slate-200 text-lg hover:bg-slate-800"
+                <Button
+                    variant="primary"
+                    className="w-32 px-6 py-3 rounded-2xl text-lg font-semibold"
                     onClick={onContinue}
                 >
                     继续练习
-                </button>
+                </Button>
 
-                <button
-                    className="w-32 px-6 py-3 rounded-2xl bg-slate-600 text-white text-lg font-semibold hover:bg-slate-500 active:bg-slate-700 transition-colors"
+                <Button
+                    variant="outline"
+                    className="w-32 px-6 py-3 rounded-2xl text-lg text-slate-100 border-slate-600 hover:bg-slate-800"
                     onClick={onFinish}
                 >
                     结束
-                </button>
+                </Button>
             </div>
         </div>
     );

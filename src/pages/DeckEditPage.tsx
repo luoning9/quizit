@@ -453,13 +453,14 @@ const DeckEditPage: React.FC = () => {
         return (
             <div className="px-4 py-6 space-y-4">
                 <div className="text-rose-400 text-sm">{error}</div>
-                <button
+                <Button
                     type="button"
+                    variant="link"
+                    className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
                     onClick={() => navigate(-1)}
-                    className="text-sm text-sky-400 hover:underline"
                 >
                     返回
-                </button>
+                </Button>
             </div>
         );
     }
@@ -469,13 +470,14 @@ const DeckEditPage: React.FC = () => {
             <div className="px-4 py-6 text-slate-200">
                 未找到对应的 deck。
                 <div className="mt-3">
-                    <button
+                    <Button
                         type="button"
+                        variant="link"
+                        className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
                         onClick={() => navigate(-1)}
-                        className="text-sm text-sky-400 hover:underline"
                     >
                         返回
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
@@ -491,13 +493,14 @@ const DeckEditPage: React.FC = () => {
                     <div className="text-xl font-semibold">Deck 编辑</div>
                     <div className="text-xs text-slate-400 mt-1">ID: {deck.id}</div>
                 </div>
-                <button
+                <Button
                     type="button"
+                    variant="link"
+                    className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
                     onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title)}`)}
-                    className="text-sm text-sky-400 hover:underline"
                 >
                     返回列表页
-                </button>
+                </Button>
             </div>
 
             {/* 错误提示（整体） */}

@@ -219,15 +219,12 @@ export function MainSelectPage() {
                         const isDeck = node?.isDeck ?? false;
 
                         return (
-                            <button
+                            <Button variant="outline"
                                 key={seg.fullPath || "__root__"}
                                 type="button"
                                 onClick={() => setSelectedPath(seg.fullPath)}
-                                className={
-                                    isActive
-                                        ? "flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-700 text-white border border-slate-500 text-xl font-semibold shadow-md"
-                                        : "flex items-center gap-3 px-5 py-3 rounded-2xl border border-slate-500 text-slate-200 hover:bg-slate-800 hover:text-white transition-colors text-xl"
-                                }
+                                className="px-5 py-3 text-xl"
+
                             >
                                 {isDeck ? (
                                     <Layers size={28} className="text-amber-300" />
@@ -235,7 +232,7 @@ export function MainSelectPage() {
                                     <Folder size={28} className="text-slate-300" />
                                 )}
                                 <span>{seg.name}</span>
-                            </button>
+                            </Button>
                         );
                     })}
                 </div>
@@ -244,38 +241,35 @@ export function MainSelectPage() {
                 <div className="flex items-center gap-4 shrink-0 ml-6">
 
                     {/* 学习：同字号，与目录节点对齐 */}
-                    <button
-                        type="button"
+                    <Button
+                        variant="primary"
                         disabled={!selectedPath}
-                        className="w-40 px-5 py-3 rounded-2xl bg-blue-600 text-white text-xl font-semibold
-                            shadow-md hover:bg-blue-500 active:bg-blue-700 transition-colors
-                            disabled:bg-slate-600/40 disabled:text-slate-400 disabled:cursor-not-allowed
-                        "
+                        className="w-40 px-5 py-3 text-xl font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => {
                             navigate(`/decks/${encodeURIComponent(selectedPath)}/practice`);}
                         }
                     >
                         学习
-                    </button>
+                    </Button>
                     {/* 左侧：查看 + 新增（上下排列） */}
-                    <div className="flex flex-col items-start gap-2">
+                    <div className="flex flex-col items-start gap-1">
                         {currentNode?.isDeck && (
-                            <button
-                                type="button"
-                                className="text-sm text-blue-300 underline underline-offset-4 hover:text-blue-200"
+                            <Button
+                                variant="link"
+                                className="text-sm px-1 py-0.5 h-auto leading-tight rounded-lg text-blue-300 underline underline-offset-4 hover:text-blue-200"
                                 onClick={() => navigate(`/decks/${currentNode.deckId}/edit`)}
                             >
-                                查看
-                            </button>
+                                Edit Cards
+                            </Button>
                         )}
 
-                        <button
-                            type="button"
-                            className="text-sm text-blue-300 underline underline-offset-4 hover:text-blue-200"
+                        <Button
+                            variant="link"
+                            className="text-sm px-1 py-0.5 h-auto leading-tight rounded-lg text-blue-300 underline underline-offset-4 hover:text-blue-200"
                             onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
                         >
-                            新增
-                        </button>
+                            New Deck
+                        </Button>
                     </div>
                 </div>
             </div>
