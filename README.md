@@ -8,3 +8,9 @@
 | 9175185 | 2025-11-25 | Update LoginPage |
 | 76b6a7b | 2025-11-25 | Initial commit |
 | 7349c19 | 2025-11-25 | Initial commit |
+
+## Changes (Past Two Days)
+
+- Added quiz creation page and polished light/dark theming across UI.
+- Unified button styling for consistent look and feel.
+- Refined Login page flows and copy.
