@@ -276,7 +276,7 @@ export function MainSelectPage() {
         </div>
 
         {/* 下方两列 */}
-        <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr] gap-6 items-start">
             {/* 左侧：子目录 */}
             <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
 
@@ -326,11 +326,22 @@ export function MainSelectPage() {
                                 </div>
                             </div>
 
-                            <Button variant="ghost" className="w-20 text-sm"
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    className="w-20 text-sm"
+                                    onClick={() => navigate(`/quiz-runs/${quiz.id}`)}
+                                >
+                                    查看
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="w-20 text-sm"
                                     onClick={() => navigate(`/quizzes/${quiz.id}/take`)}
-                            >
-                                开始
-                            </Button>
+                                >
+                                    开始
+                                </Button>
+                            </div>
                         </div>))}
                     </div>)}
                 </section>

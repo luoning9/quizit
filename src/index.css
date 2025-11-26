@@ -15,3 +15,30 @@
 .animate-grow-width-50 {
     animation: growWidth50 0.6s ease-out forwards;
 }
+
+/* Markdown table styling (used by MarkdownText) */
+.markdown-text table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0;
+}
+
+.markdown-text th,
+.markdown-text td {
+    border: 1px solid #cbd5e1; /* slate-300 */
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+}
+
+.markdown-text th {
+    background-color: #f8fafc; /* slate-50 */
+}
+
+.dark .markdown-text th,
+.dark .markdown-text td {
+    border-color: #475569; /* slate-600 */
+}
+
+.dark .markdown-text th {
+    background-color: #0f172a; /* slate-900 */
+}

@@ -161,9 +161,43 @@ function AiDialog({
   );
 }
 
+/**
+ * 在 JSON.parse 之前仅对数学公式外的特殊转义做加倍，避免 \t \n 被吞掉，
+ * 同时保留 $...$ 内的 LaTeX 反斜杠。
+ */
+function normalizeEscapesOutsideMath(text: string): string {
+  let inMath = false;
+  let result = "";
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (ch === "$") {
+      inMath = !inMath; // 简单切换，假定成对出现
+      result += ch;
+      continue;
+    }
+
+    // 只有在数学片段内，才加倍单反斜杠 + 特定转义字符，保护 \text 等
+    if (inMath && ch === "\\" && i + 1 < text.length) {
+      const next = text[i + 1];
+      if (/[btnrfu]/.test(next)) {
+        result += "\\\\" + next;
+        i++; // 跳过 next
+        continue;
+      }
+    }
+
+    result += ch;
+  }
+
+  return result;
+}
+
 function parseItems(text: string): DraftItem[] {
   try {
-    const parsed = JSON.parse(text);
+    const normalized = normalizeEscapesOutsideMath(text);
+    const parsed = JSON.parse(normalized);
     const arr: unknown = Array.isArray(parsed?.items) ? parsed.items : parsed;
     if (!Array.isArray(arr)) return [];
 

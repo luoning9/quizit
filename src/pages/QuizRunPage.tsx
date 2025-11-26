@@ -201,7 +201,7 @@ function QuizRunPage() {
             const scoreRatio = total > 0 ? earned / total : 0;
 
             const quizData = {
-                template_id: template?.id ?? null,
+                template_id: template?.id ?? templateId ?? null,
                 user_id: userId,
                 started_at: runResult.startedAt,
                 finished_at: runResult.finishedAt ?? new Date().toISOString(),
@@ -213,7 +213,7 @@ function QuizRunPage() {
                 },
             };
 
-            const { error } = await supabase
+            const { data: inserted, error } = await supabase
                 .from("quiz_runs")
                 .insert(quizData)
                 .select()
@@ -221,11 +221,15 @@ function QuizRunPage() {
 
             if (error) {
                 console.error("保存测验结果失败:", error);
+                return;
             }
             setResultSaved(true);
+            if (inserted?.id) {
+                navigate(`/quiz-runs/${template?.id ?? templateId ?? "unknown"}/${inserted.id}`);
+            }
         };
         void saveResult();
-    }, [finished, runResult, userId, template, resultSaved]);
+    }, [finished, runResult, userId, template, resultSaved, navigate, templateId]);
 
     // ===== 2. 用户作答逻辑 =====
     function handleSubmitAnswer() {
@@ -343,7 +347,11 @@ function QuizRunPage() {
 
     // ===== 4. 完成状态界面 =====
     if (finished) {
-        return renderFinishedArea(template, runResult, resultSaved);
+        return (!resultSaved && (
+            <div className="text-xs text-slate-500 dark:text-slate-500">
+                正在保存测验结果，请稍候…
+            </div>
+        ))
     }
 
     // ===== 5. 正常做题界面 =====

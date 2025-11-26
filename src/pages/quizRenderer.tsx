@@ -9,6 +9,11 @@ import {BookOpen} from "lucide-react";
 import {Link} from "react-router-dom";
 import { MarkdownText } from "../components/MarkdownText";
 
+// 去掉选项文本前面的 "A."、"B、" 等前缀，避免重复显示
+function stripChoicePrefix(text: string): string {
+    return text.replace(/^\s*[A-Ha-h][\.\:、，]?\s*/, "");
+}
+
 type PromptRenderOptions = {
     userAnswer: UserAnswer;
     setUserAnswer?: (next: UserAnswer) => void;
@@ -79,6 +84,7 @@ export function renderPrompt(
                     {front.options.map((opt, idx) => {
                         const code = indexToLetter(idx); // A/B/C...
                         const checked = current === code;
+                        const cleanText = stripChoicePrefix(opt);
 
                         return (
                             <label
@@ -97,7 +103,7 @@ export function renderPrompt(
                                     disabled={disabled}
                                 />
                                 <span className="font-semibold">{code}.</span>
-                                <MarkdownText inline content={opt} className="text-sm" />
+                                <MarkdownText inline content={cleanText} className="text-sm" />
                             </label>
                         );
                     })}
@@ -114,6 +120,7 @@ export function renderPrompt(
                     {front.options.map((opt, idx) => {
                         const code = indexToLetter(idx);
                         const checked = ua.includes(code);
+                        const cleanText = stripChoicePrefix(opt);
 
                         const handleToggle = () => {
                             if (disabled) return;
@@ -139,7 +146,7 @@ export function renderPrompt(
                                     disabled={disabled}
                                 />
                                 <span className="font-semibold">{code}.</span>
-                                <MarkdownText inline content={opt} className="text-sm" />
+                                <MarkdownText inline content={cleanText} className="text-sm" />
                             </label>
                         );
                     })}
@@ -219,11 +226,11 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
         const main = slots[0].join(" / ");
         return (
             <div className="space-y-2">
-                <div className="text-sm text-emerald-200">
+                <div className="text-sm text-emerald-700 dark:text-emerald-200">
                     <MarkdownText content={main} />
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300">
+                    <div className="text-xs text-slate-700 dark:text-slate-300">
                         <MarkdownText content={back.explanation} />
                     </div>
                 )}
@@ -235,11 +242,11 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
         const codes = slots[0];
         return (
             <div className="space-y-2">
-                <div className="text-sm text-emerald-200">
+                <div className="text-sm text-emerald-700 dark:text-emerald-200">
                     正确选项：{codes.join(" / ")}
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300">
+                    <div className="text-xs text-slate-700 dark:text-slate-300">
                         <MarkdownText content={back.explanation} />
                     </div>
                 )}
@@ -251,11 +258,11 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
         const codes = slots.flat();
         return (
             <div className="space-y-2">
-                <div className="text-sm text-emerald-200">
+                <div className="text-sm text-emerald-700 dark:text-emerald-200">
                     正确选项：{codes.join(", ")}
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300">
+                    <div className="text-xs text-slate-700 dark:text-slate-300">
                         <MarkdownText content={back.explanation} />
                     </div>
                 )}
@@ -266,7 +273,7 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
     if (type === "fill_in_blank") {
         return (
             <div className="space-y-2">
-                <div className="space-y-1 text-sm text-emerald-200">
+                <div className="space-y-1 text-sm text-emerald-700 dark:text-emerald-200">
                     {slots.map((slot, idx) => (
                         <div key={idx} className="flex items-start gap-2">
                             <span>空{idx + 1}：</span>
@@ -277,7 +284,7 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
                     ))}
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300">
+                    <div className="text-xs text-slate-700 dark:text-slate-300">
                         <MarkdownText content={back.explanation} />
                     </div>
                 )}
@@ -287,7 +294,7 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
 
     // 兜底
     return (
-        <div className="text-sm text-emerald-200">
+        <div className="text-sm text-emerald-700 dark:text-emerald-200">
             <MarkdownText content={slots.flat().join(" / ")} />
         </div>
     );
@@ -333,33 +340,33 @@ export function renderFinishedArea(template: QuizTemplate,
     return (
         <div className="max-w-3xl mx-auto py-10 px-4">
             <div className="mb-6 flex items-center gap-3">
-                <BookOpen className="w-7 h-7 text-emerald-400"/>
+                <BookOpen className="w-7 h-7 text-emerald-600 dark:text-emerald-400"/>
                 <div>
-                    <div className="text-xl font-semibold text-white">
+                    <div className="text-xl font-semibold text-slate-900 dark:text-white">
                         {template.title}
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">测验完成 ✅</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">测验完成 ✅</div>
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 text-slate-100">
-                <div className="text-lg mb-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100">
+                <div className="text-lg mb-3 text-slate-900 dark:text-slate-100">
                     正确题数：{" "}
-                    <span className="font-semibold text-emerald-400">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
               {correctCount}
             </span>{" "}
                     / {totalQuestions}
                 </div>
-                <div className="text-sm text-slate-400 mb-6">
+                <div className="text-sm text-slate-600 dark:text-slate-400 mb-6">
                     正确率{" "}
-                    <span className="font-semibold text-sky-400">
+                    <span className="font-semibold text-emerald-600 dark:text-sky-400">
               {Math.round((correctCount / totalQuestions) * 100)}%
             </span>
                 </div>
 
                 {/* 这里根据 hasSaved 来决定是否显示按钮 / 提示文案 */}
                 {!resultSaved && (
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-500">
                         正在保存测验结果，请稍候…
                     </div>
                 )}
@@ -368,7 +375,7 @@ export function renderFinishedArea(template: QuizTemplate,
                     <div className="flex flex-wrap gap-3 mt-4">
                         <Link
                             to="/quizzes"
-                            className="px-5 py-2.5 rounded-2xl border border-slate-500 text-slate-200 text-sm hover:bg-slate-800 inline-flex items-center justify-center"
+                            className="px-5 py-2.5 rounded-2xl border border-slate-300 text-slate-800 text-sm hover:bg-slate-50 dark:border-slate-500 dark:text-slate-200 dark:hover:bg-slate-800 inline-flex items-center justify-center"
                         >
                             返回测验列表
                         </Link>

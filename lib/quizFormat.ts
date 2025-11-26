@@ -321,9 +321,16 @@ export function parseBack(raw: string): BackSchema {
 
         const answersRaw = Array.isArray(rec.answers) ? rec.answers : [];
         const answers: string[][] = answersRaw.map((slot) => {
-            if (!Array.isArray(slot)) return [];
-            return slot;
-        });
+            if (Array.isArray(slot)) {
+                return slot
+                    .map((s) => (typeof s === "string" ? s : String(s)))
+                    .filter((s) => s.trim().length > 0);
+            }
+            if (typeof slot === "string") {
+                return [slot];
+            }
+            return [];
+        }).filter((slot) => slot.length > 0);
 
         const explanation =
             typeof rec.explanation === "string" ? rec.explanation : undefined;
