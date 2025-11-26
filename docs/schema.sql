@@ -1,6 +1,6 @@
 create table public.card_reviews (
                                      id uuid not null default gen_random_uuid (),
-                                     user_id uuid not null,
+                                     user_id uuid not null default auth.uid(),
                                      card_id uuid not null,
                                      reviewed_at timestamp with time zone null default now(),
                                      user_answer text null,
@@ -21,7 +21,7 @@ create index IF not exists idx_card_reviews_time on public.card_reviews using bt
 
 create table public.card_stats (
                                    id uuid not null default gen_random_uuid (),
-                                   user_id uuid not null,
+                                   user_id uuid not null default auth.uid(),
                                    card_id uuid not null,
                                    last_reviewed_at timestamp with time zone null,
                                    review_count integer null default 0,
@@ -44,7 +44,7 @@ create index IF not exists idx_card_stats_due on public.card_stats using btree (
 
 create table public.cards (
                               id uuid not null default gen_random_uuid (),
-                              owner_id uuid not null,
+                              owner_id uuid not null default auth.uid(),
                               front text not null,
                               back text not null,
                               card_type public.card_type_enum null default 'basic'::card_type_enum,
@@ -72,6 +72,7 @@ with
         where
             d.title is not null
           and btrim(d.title) <> ''::text
+          and d.owner_id = auth.uid()
         ),
         deck_cards as (
         select
@@ -91,7 +92,7 @@ with
         end as ef
         from
         deck_cards dc
-        left join card_stats cs on cs.card_id = dc.card_id
+        left join card_stats cs on cs.card_id = dc.card_id and cs.user_id = auth.uid()
         ),
         deck_ease as (
         select
@@ -131,8 +132,8 @@ select
             decks d
         where
             d.title = p.path
-        limit
-    1
+          and d.owner_id = auth.uid()
+        limit 1
     ) as deck_id,
   count(distinct deck_id) as deck_count,
   sum(item_count) as total_items,
@@ -145,6 +146,7 @@ select
         decks d
       where
         d.title = p.path
+        and d.owner_id = auth.uid()
     )
   ) as is_deck
 from
@@ -157,7 +159,7 @@ order by
 
 create table public.decks (
                               id uuid not null default gen_random_uuid (),
-                              owner_id uuid not null,
+                              owner_id uuid not null default auth.uid(),
                               title text not null,
                               description text null,
                               subject text null,
@@ -190,7 +192,7 @@ create table public.profiles (
 create table public.quiz_runs (
                                   id uuid not null default gen_random_uuid (),
                                   template_id uuid null,
-                                  user_id uuid not null,
+                                  user_id uuid not null default auth.uid(),
                                   started_at timestamp with time zone null default now(),
                                   finished_at timestamp with time zone null,
                                   score numeric(5, 2) null,
@@ -235,6 +237,7 @@ from
                     quiz_runs qr
                 where
                     qr.template_id = qr_outer.template_id
+                      and qr.user_id = auth.uid()
                 order by
                     qr.finished_at desc nulls last
                 limit
@@ -242,16 +245,18 @@ from
     ) as last_score
     from
       quiz_runs qr_outer
+    where qr_outer.user_id = auth.uid()
     group by
       qr_outer.template_id
   ) qs on qs.template_id = qt.id
+where qt.owner_id = auth.uid()
 order by
   qt.created_at desc;
 
 
 create table public.quiz_templates (
                                        id uuid not null default gen_random_uuid (),
-                                       owner_id uuid not null,
+                                       owner_id uuid not null default auth.uid(),
                                        title text not null,
                                        description text null,
                                        mode public.quiz_mode_enum null default 'mixed'::quiz_mode_enum,
