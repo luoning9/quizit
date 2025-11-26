@@ -223,12 +223,6 @@ export function DeckPracticePage() {
 
 
     // 3. 切题 / 翻面
-    const prevCard = () => {
-        if (cards.length === 0) return;
-        setShowBack(false);
-        setIndex((i) => (i - 1 + cards.length) % cards.length);
-    };
-
     const nextCard = () => {
         if (cards.length === 0) return;
         setShowBack(false);

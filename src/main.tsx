@@ -12,6 +12,7 @@ import { MainSelectPage } from "./pages/MainSelectPage.tsx";
 import DeckEditPage from "./pages/DeckEditPage.tsx";
 import NewDeckPage from "./pages/NewDeckPage";
 import NewQuizTemplatePage from "./pages/NewQuizTemplatePage";
+import "katex/dist/katex.min.css";
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

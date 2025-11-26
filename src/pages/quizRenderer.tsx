@@ -7,6 +7,7 @@ import {
 } from "../../lib/quizFormat";
 import {BookOpen} from "lucide-react";
 import {Link} from "react-router-dom";
+import { MarkdownText } from "../components/MarkdownText";
 
 type PromptRenderOptions = {
     userAnswer: UserAnswer;
@@ -35,34 +36,28 @@ export function renderPrompt(
 
     // ===== 仅题干文本部分 =====
     const renderPromptText = () => {
+        const promptTextClass = "text-base text-slate-900 dark:text-slate-50";
+        const renderFillPrompt = () => {
+            const rendered = front.prompt.replace(/\{\{(\d+)}}/g, (_, num) => `[blank ${num}]`);
+            return (
+                <MarkdownText
+                    content={rendered}
+                    className={promptTextClass}
+                />
+            );
+        };
+
         switch (type) {
-            case "basic":
-            case "single_choice":
-            case "multiple_choice":
-                return (
-                    <p className="whitespace-pre-wrap">
-                        {front.prompt}
-                    </p>
-                );
-
             case "fill_in_blank": {
-                const rendered = front.prompt.replace(/\{\{\d+}}/g, (m) => {
-                    const num = m.match(/\d+/)?.[0] ?? "";
-                    return `____(${num})____`;
-                });
-
-                return (
-                    <p className="whitespace-pre-wrap">
-                        {rendered}
-                    </p>
-                );
+                return renderFillPrompt();
             }
 
             default:
                 return (
-                    <p className="whitespace-pre-wrap">
-                        {front.prompt}
-                    </p>
+                    <MarkdownText
+                        content={front.prompt}
+                        className={promptTextClass}
+                    />
                 );
         }
     };
@@ -80,7 +75,7 @@ export function renderPrompt(
             const current = ua[0] ?? "";
 
             return (
-                <div className="mt-4 space-y-1 text-sm text-slate-100">
+                <div className="mt-4 space-y-1 text-sm text-slate-900 dark:text-slate-100">
                     {front.options.map((opt, idx) => {
                         const code = indexToLetter(idx); // A/B/C...
                         const checked = current === code;
@@ -102,7 +97,7 @@ export function renderPrompt(
                                     disabled={disabled}
                                 />
                                 <span className="font-semibold">{code}.</span>
-                                <span>{opt}</span>
+                                <MarkdownText inline content={opt} className="text-sm" />
                             </label>
                         );
                     })}
@@ -115,7 +110,7 @@ export function renderPrompt(
             const ua = userAnswer;
 
             return (
-                <div className="mt-4 space-y-1 text-sm text-slate-100">
+                <div className="mt-4 space-y-1 text-sm text-slate-900 dark:text-slate-100">
                     {front.options.map((opt, idx) => {
                         const code = indexToLetter(idx);
                         const checked = ua.includes(code);
@@ -144,7 +139,7 @@ export function renderPrompt(
                                     disabled={disabled}
                                 />
                                 <span className="font-semibold">{code}.</span>
-                                <span>{opt}</span>
+                                <MarkdownText inline content={opt} className="text-sm" />
                             </label>
                         );
                     })}
@@ -224,12 +219,12 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
         const main = slots[0].join(" / ");
         return (
             <div className="space-y-2">
-                <div className="text-sm text-emerald-200 whitespace-pre-wrap">
-                    {main}
+                <div className="text-sm text-emerald-200">
+                    <MarkdownText content={main} />
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300 whitespace-pre-wrap">
-                        {back.explanation}
+                    <div className="text-xs text-slate-300">
+                        <MarkdownText content={back.explanation} />
                     </div>
                 )}
             </div>
@@ -244,8 +239,8 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
                     正确选项：{codes.join(" / ")}
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300 whitespace-pre-wrap">
-                        {back.explanation}
+                    <div className="text-xs text-slate-300">
+                        <MarkdownText content={back.explanation} />
                     </div>
                 )}
             </div>
@@ -260,8 +255,8 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
                     正确选项：{codes.join(", ")}
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300 whitespace-pre-wrap">
-                        {back.explanation}
+                    <div className="text-xs text-slate-300">
+                        <MarkdownText content={back.explanation} />
                     </div>
                 )}
             </div>
@@ -273,14 +268,17 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
             <div className="space-y-2">
                 <div className="space-y-1 text-sm text-emerald-200">
                     {slots.map((slot, idx) => (
-                        <div key={idx}>
-                            空{idx + 1}：{slot.join(" / ")}
+                        <div key={idx} className="flex items-start gap-2">
+                            <span>空{idx + 1}：</span>
+                            <div className="flex-1">
+                                <MarkdownText inline content={slot.join(" / ")} />
+                            </div>
                         </div>
                     ))}
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-300 whitespace-pre-wrap">
-                        {back.explanation}
+                    <div className="text-xs text-slate-300">
+                        <MarkdownText content={back.explanation} />
                     </div>
                 )}
             </div>
@@ -289,8 +287,8 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
 
     // 兜底
     return (
-        <div className="text-sm text-emerald-200 whitespace-pre-wrap">
-            {slots.flat().join(" / ")}
+        <div className="text-sm text-emerald-200">
+            <MarkdownText content={slots.flat().join(" / ")} />
         </div>
     );
 }

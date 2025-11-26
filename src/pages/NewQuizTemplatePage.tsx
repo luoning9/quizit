@@ -19,23 +19,6 @@ const SAMPLE_JSON = `{
   ]
 }`;
 
-const PROMPT_TEMPLATE = `你是一名出题助理，请生成测验题目并返回 JSON（仅 JSON），格式为：
-{
-  "items": [
-    { "front": "<题干>", "back": "<答案>", "score": 1 },
-    ...
-  ]
-}
-
-要求：
-- 题目数量：{count_placeholder} 道（少量=5 / 适中=10 / 多些=20）
-- 难度：{difficulty_placeholder}（易/中/难）
-- 题型：基础问答（可用简洁文本），如需多选/单选可在 front 中写清选项，back 写标准答案。
-- 语言：中文
-- 主题/范围：{topic_placeholder}
-- 内容质量：题干清晰，不要重复；答案准确简洁；如涉及数据请合理化。
-- 输出规范：仅返回 JSON，不要附带解释；score 统一为 1，front/back 使用字符串。`;
-
 interface AiDialogProps {
   open: boolean;
   prompt: string;
