@@ -54,12 +54,30 @@ function easeFactorToColor(ease_factor: number | null | undefined): string {
 }
 type CardStatsMap = Record<string, CardStatsRow | undefined>;
 
+function getContentSizeClass(content: string): { sizeClass: string; alignClass: string } {
+    const trimmed = content.trim();
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim() !== "");
+    const lineCount = lines.length;
+    const len = trimmed.length;
+
+    if (lineCount > 10 || len > 600) return { sizeClass: "text-sm leading-relaxed", alignClass: "text-left items-start" };
+    if (lineCount > 6 || len > 300) return { sizeClass: "text-base leading-relaxed", alignClass: "text-left items-start" };
+    return { sizeClass: "text-lg leading-relaxed", alignClass: "text-center items-center" };
+}
+
+function trimEmptyLines(content: string): string {
+    const lines = content.split(/\r?\n/);
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    return lines.join("\n");
+}
+
 export function DeckPracticePage() {
     const navigate = useNavigate();
     const { deckName } = useParams();
     const decodedName = decodeURIComponent(deckName || "");
     // 每轮练习取多少张卡
-    const CARD_THRESHOLD = 4;
+    const CARD_THRESHOLD = 10;
 
     // 已完成题数（本轮）
     const [answersSinceBreak, setAnswersSinceBreak] = useState(0);
@@ -339,6 +357,14 @@ export function DeckPracticePage() {
             / ((folderStats?.total_items ?? 0) * 4);
     })();
     const completionText = (completionRatio * 100).toFixed(0) + "%";
+    const frontClean = trimEmptyLines(current.front);
+    const backClean = trimEmptyLines(current.back);
+    const { sizeClass: frontSizeClass, alignClass: frontAlign } = getContentSizeClass(frontClean);
+    const { sizeClass: backSizeClass, alignClass: backAlign } = getContentSizeClass(backClean);
+    const isDarkMode =
+        typeof document !== "undefined" &&
+        document.documentElement.classList.contains("dark");
+    const ringBgColor = isDarkMode ? "#1f2937" : "#e2e8f0";
 
     if (isBreak) {
         return (
@@ -401,44 +427,33 @@ export function DeckPracticePage() {
                     })}
                 </div>
                 <div
-                    className="relative w-15 h-15 rounded-full flex items-center justify-center"
+                    className="relative w-16 h-16 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800"
                     style={{
                         background: `conic-gradient(
       var(--ring-color) ${completionRatio * 360}deg,
       var(--ring-bg) 0deg
     )`,
-                        '--ring-color': completionColor(completionRatio),      // 你可以改成 tailwind 的颜色值
-                        '--ring-bg': '#4B5563',         // gray-300
+                        '--ring-color': completionColor(completionRatio),
+                        '--ring-bg': ringBgColor,
                     } as React.CSSProperties}
                 >
-                    <div className="absolute w-10 h-10 bg-slate-500 rounded-full flex items-center justify-center text-xs">
+                    <div className="absolute w-10 h-10 rounded-full flex items-center justify-center text-xs bg-white text-slate-800 dark:bg-slate-700 dark:text-slate-50 shadow-sm">
                         {completionText}
                     </div>
                 </div>
             </div>
 
-            {/* 主区域：左右箭头 + 闪卡 */}
+            {/* 主区域：闪卡 */}
             <div className="flex items-center justify-center gap-4 mt-6">
-                {/* 左箭头 */}
-                <Button
-                    variant="ghost"
-                    className="p-5 text-6xl rounded-full bg-slate-200/40 dark:bg-slate-700/40 hover:bg-slate-300/60 dark:hover:bg-slate-600/60 transition"
-                    onClick={prevCard}
-                >
-                    ←
-                </Button>
-
-                {/* 闪卡：3D 翻转 + 底部“看答案/看题目”链接 */}
                 <Card
-                    // 外层只做容器，背景设为透明，内部两面自己控制背景
                     className={clsx(
-                        "w-[30rem] md:w-[34rem] ",
+                        "w-[38rem] md:w-[42rem]",
                         "group cursor-pointer select-none",
-                        "p-0 bg-transparent shadow-none border-0"
+                        "p-0 border border-slate-300 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_16px_36px_-14px_rgba(0,0,0,0.7)]"
                     )}
                 >
                     {/* ✅ 顶部状态栏：难度 + 练习次数 */}
-                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-300 mb-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-300 mb-0">
                         {/* 难度颜色条 */}
                         <div className="flex-1 mr-3">
                             {current.deck_title}
@@ -468,16 +483,19 @@ export function DeckPracticePage() {
                             className={clsx(
                                 "absolute inset-0",
                                 "flex flex-col",
-                                "px-8 pt-6 pb-1 md:px-10 md:pt-8 md:pb-1",
-                                "text-lg",
+                                "px-8 pt-2 pb-1 md:px-10 md:pt-3 md:pb-1",
                                 "rounded-2xl",
-                                "bg-white dark:bg-slate-800 dark:text-slate-100",
+                                "bg-transparent text-slate-900 dark:bg-transparent dark:text-slate-100",
                                 "[backface-visibility:hidden]"
                             )}
                         >
                             {/* 内容居中 */}
-                            <div className="flex-1 flex items-center justify-center text-center whitespace-pre-line px-2">
-                                {current.front}
+                            <div className={clsx(
+                                "flex-1 flex justify-center whitespace-pre-line px-2 max-h-[24rem] overflow-y-auto",
+                                frontSizeClass,
+                                frontAlign
+                            )}>
+                                {frontClean}
                             </div>
 
                             {/* 底部提示：看答案 */}
@@ -493,16 +511,19 @@ export function DeckPracticePage() {
                             className={clsx(
                                 "absolute inset-0",
                                 "flex flex-col",
-                                "px-8 pt-6 pb-1 md:px-10 md:pt-8 md:pb-1",
-                                "text-lg",
+                                "px-8 pt-2 pb-1 md:px-10 md:pt-3 md:pb-1",
                                 "rounded-2xl",
-                                "bg-slate-50 dark:bg-slate-700 dark:text-slate-100",
+                                "bg-emerald-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100",
                                 "[backface-visibility:hidden]",
                                 "[transform:rotateY(180deg)]"
                             )}
                         >
-                            <div className="flex-1 flex items-center justify-center text-center whitespace-pre-line px-2">
-                                {current.back}
+                            <div className={clsx(
+                                "flex-1 flex justify-center whitespace-pre-line px-2 max-h-[24rem] overflow-y-auto",
+                                backSizeClass,
+                                backAlign
+                            )}>
+                                {backClean}
                             </div>
 
                             {/* 底部链接：看题目 */}
@@ -514,15 +535,6 @@ export function DeckPracticePage() {
                         </div>
                     </div>
                 </Card>
-
-                {/* 右箭头 */}
-                <Button
-                    variant="ghost"
-                    className="p-5 text-6xl rounded-full bg-slate-200/40 dark:bg-slate-700/40 hover:bg-slate-300/60 dark:hover:bg-slate-600/60 transition"
-                    onClick={nextCard}
-                >
-                    →
-                </Button>
             </div>
 
             {/* 一排四个掌握程度按钮 */}

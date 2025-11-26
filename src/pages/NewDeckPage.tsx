@@ -69,12 +69,12 @@ const NewDeckPage: React.FC = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto px-4 py-6 text-slate-100 space-y-6">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 text-slate-900 dark:text-slate-100">
             {/* 顶部标题 */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-xl font-semibold">新建 Deck</h1>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         只需填写标题和简介，创建后可以在编辑页添加卡片。
                     </p>
                 </div>
@@ -82,7 +82,7 @@ const NewDeckPage: React.FC = () => {
                 <Button
                     type="button"
                     variant="link"
-                    className="text-xs px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
+                    className="text-xs px-0 text-emerald-700 hover:text-emerald-800 underline underline-offset-4 dark:text-sky-300 dark:hover:text-sky-200"
                     onClick={() => navigate(-1)}
                 >
                     返回
@@ -91,7 +91,7 @@ const NewDeckPage: React.FC = () => {
 
             {/* 错误提示 */}
             {error && (
-                <div className="text-sm text-rose-400 border border-rose-500/50 bg-rose-950/40 rounded-xl px-3 py-2">
+                <div className="text-sm text-rose-600 border border-rose-200 bg-rose-50 rounded-xl px-3 py-2 dark:text-rose-400 dark:border-rose-500/50 dark:bg-rose-950/40">
                     {error}
                 </div>
             )}
@@ -99,15 +99,15 @@ const NewDeckPage: React.FC = () => {
             {/* 表单 */}
             <form
                 onSubmit={handleSubmit}
-                className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 space-y-4"
+                className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
             >
                 <div className="space-y-1.5">
-                    <label className="block text-sm text-slate-200">
-                        标题 <span className="text-rose-400">*</span>
+                    <label className="block text-sm text-slate-700 dark:text-slate-200">
+                        标题 <span className="text-rose-500">*</span>
                     </label>
                     <input
                         type="text"
-                        className="w-full rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500"
+                        className="w-full rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
                         placeholder="例如：physics/八年级/声现象基础卡片"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
@@ -115,9 +115,9 @@ const NewDeckPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="block text-sm text-slate-200">简介（可选）</label>
+                    <label className="block text-sm text-slate-700 dark:text-slate-200">简介（可选）</label>
                     <textarea
-                        className="w-full h-24 rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500 resize-none"
+                        className="w-full h-24 rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 resize-none dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
                         placeholder="简单描述这个 deck 的内容和用途。"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}

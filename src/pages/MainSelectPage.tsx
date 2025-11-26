@@ -214,7 +214,7 @@ export function MainSelectPage() {
                 {/* 左边：当前目录 / 面包屑按钮 */}
                 <div className="flex items-center flex-wrap gap-3">
                     {breadcrumbButtons.map((seg) => {
-                        const isActive = selectedPath === seg.fullPath;
+                        //const isActive = selectedPath === seg.fullPath;
                         const node = findNodeByPath(tree, seg.fullPath);
                         const isDeck = node?.isDeck ?? false;
 
@@ -223,7 +223,7 @@ export function MainSelectPage() {
                                 key={seg.fullPath || "__root__"}
                                 type="button"
                                 onClick={() => setSelectedPath(seg.fullPath)}
-                                className="px-5 py-3 text-xl"
+                                className="px-4 py-2.5 text-xl gap-1"
 
                             >
                                 {isDeck ? (
@@ -265,7 +265,7 @@ export function MainSelectPage() {
 
                         <Button
                             variant="link"
-                            className="text-sm px-1 py-0.5 h-auto leading-tight rounded-lg text-blue-300 underline underline-offset-4 hover:text-blue-200"
+                            className="text-sm px-1 py-0.5 h-auto leading-tight rounded-lg text-blue-700 underline underline-offset-4 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200"
                             onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
                         >
                             New Deck
@@ -276,9 +276,9 @@ export function MainSelectPage() {
         </div>
 
         {/* 下方两列 */}
-        <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6 items-start">
             {/* 左侧：子目录 */}
-            <section className="rounded-2xl border border-slate-700/70 bg-slate-900/60 p-4">
+            <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
 
                 {loading ? (
                     <div className="text-xs text-muted">正在载入目录统计…</div>) : childNodes.length === 0 ? (
@@ -287,52 +287,63 @@ export function MainSelectPage() {
                         {childNodes.map((node) => (<button
                             key={node.fullPath}
                             onClick={() => setSelectedPath(node.fullPath)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-700 bg-slate-900/80 text-slate-100 hover:bg-slate-800/70 transition-colors"
+                            className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-slate-800/70"
                         >
                             <div className="grid grid-cols-[0.6fr_2fr_2fr_2fr] items-center gap-2 w-full">
                                 {node.isDeck ? (
-                                    <Layers size={18} className="text-amber-300"/>     // ⭐ deck 图标
+                                    <Layers size={18} className="text-amber-500"/>     // ⭐ deck 图标
                                 ) : (
-                                    <Folder size={18} className="text-slate-300"/>   // ⭐ 目录图标
+                                    <Folder size={18} className="text-slate-500"/>   // ⭐ 目录图标
                                 )}
                                 {/* 名称 + 统计信息 同一行 */}
                                 <span className="text-sm  text-left">{node.name}</span>
                                 <span
-                                    className="ml-2 text-[11px] text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
+                                    className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
                                 <span>{calcProgress(node)}%</span>
                             </div>
                         </button>))}
                     </div>)}
             </section>
 
-            {/* 右侧：测验列表（固定模拟数据） */}
-            <section
-                className="rounded-2xl border border-blue-600/80 bg-blue-900/40 backdrop-blur-md p-4 shadow-lg">
-                <h2 className="text-sm font-medium text-slate-100 mb-3"/>
-                {quizzesInCurrentDir.length === 0 ? (<div className="text-xs text-muted">
-                    暂无测验。
-                </div>) : (<div className="space-y-3">
-                    {quizzesInCurrentDir.map((quiz) => (<div
-                        key={quiz.id}
-                        className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2"
-                    >
-                        <div>
-                            <div className="text-sm font-medium text-slate-100">
-                                {quiz.title}
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                                {quiz.itemCount} 道题, 已练习{quiz.attemptCount}次，最后得分{quiz.lastScore}
-                            </div>
-                        </div>
-
-                        <Button variant="ghost" className="w-20 text-sm"
-                                onClick={() => navigate(`/quizzes/${quiz.id}/take`)}
+            {/* 右侧：测验列表 + 新增按钮 */}
+            <div className="flex flex-col gap-3">
+                <section
+                    className="rounded-2xl border border-blue-200 bg-blue-50/70 backdrop-blur-md p-4 shadow-sm dark:border-blue-600/80 dark:bg-blue-900/40">
+                    <h2 className="text-sm font-medium text-slate-900 mb-3 dark:text-slate-100"/>
+                    {quizzesInCurrentDir.length === 0 ? (<div className="text-xs text-muted">
+                        暂无测验。
+                    </div>) : (<div className="space-y-3">
+                        {quizzesInCurrentDir.map((quiz) => (<div
+                            key={quiz.id}
+                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm hover:border-slate-300 hover:bg-slate-50 transition-colors dark:border-slate-700 dark:bg-slate-900/80 dark:hover:bg-slate-800/70"
                         >
-                            开始
-                        </Button>
-                    </div>))}
-                </div>)}
-            </section>
+                            <div>
+                                <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                    {quiz.title}
+                                </div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                    {quiz.itemCount} 道题, 已练习{quiz.attemptCount}次，最后得分{quiz.lastScore}
+                                </div>
+                            </div>
+
+                            <Button variant="ghost" className="w-20 text-sm"
+                                    onClick={() => navigate(`/quizzes/${quiz.id}/take`)}
+                            >
+                                开始
+                            </Button>
+                        </div>))}
+                    </div>)}
+                </section>
+                <div className="flex justify-end">
+                    <Button
+                        variant="outline"
+                        className="text-sm"
+                        onClick={() => navigate(`/quizzes/new?path=${encodeURIComponent(selectedPath)}`)}
+                    >
+                        新增测验
+                    </Button>
+                </div>
+            </div>
         </div>
     </div>);
 }

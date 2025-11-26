@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage.tsx";
 import { MainSelectPage } from "./pages/MainSelectPage.tsx";
 import DeckEditPage from "./pages/DeckEditPage.tsx";
 import NewDeckPage from "./pages/NewDeckPage";
+import NewQuizTemplatePage from "./pages/NewQuizTemplatePage";
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/decks" element={<DeckListPage />} />
                     <Route path="/decks/:deckName/practice" element={<DeckPracticePage />} />
                     <Route path="/quizzes" element={<MainSelectPage />} />
+                    <Route path="/quizzes/new" element={<NewQuizTemplatePage />} />
                     <Route path="/quizzes/:templateId/take" element={<QuizRunPage />} />
                     <Route path="/decks/:deckId/edit" element={<DeckEditPage />} />
                     <Route path="/decks/new" element={<NewDeckPage />} />

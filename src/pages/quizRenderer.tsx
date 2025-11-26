@@ -157,9 +157,8 @@ export function renderPrompt(
             const ua = userAnswer[0] ?? "";
 
             return (
-                <textarea
-                    className="mt-4 w-full rounded-md border border-slate-600 bg-slate-800/60 p-2 text-sm text-slate-100"
-                    rows={3}
+                <input
+                    className="mt-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100"
                     placeholder="在这里作答…"
                     value={ua}
                     onChange={(e) => {

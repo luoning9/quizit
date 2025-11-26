@@ -302,7 +302,7 @@ function QuizRunPage() {
     // ===== 3. 状态渲染 =====
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+            <div className="flex flex-col items-center justify-center py-12 text-slate-700 dark:text-slate-300">
                 <Loader2 className="w-6 h-6 animate-spin mb-3"/>
                 正在加载测验…
             </div>
@@ -311,7 +311,7 @@ function QuizRunPage() {
 
     if (loadingError) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+            <div className="flex flex-col items-center justify-center py-12 text-slate-700 dark:text-slate-300">
                 <div className="mb-2">{loadingError}</div>
                 <Button
                     type="button"
@@ -327,7 +327,7 @@ function QuizRunPage() {
 
     if (!template || !totalQuestions) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+            <div className="flex flex-col items-center justify-center py-12 text-slate-700 dark:text-slate-300">
                 <div className="mb-2">该测验暂无题目。</div>
                 <Button
                     type="button"
@@ -349,23 +349,23 @@ function QuizRunPage() {
     // ===== 5. 正常做题界面 =====
 
     return (
-        <div className="w-fit max-w-4xl mx-auto py-8 px-4">
+        <div className="w-fit max-w-4xl mx-auto py-8 px-4 text-slate-900 dark:text-slate-100">
             {/* 头部 */}
             <header className="mb-6 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <BookOpen className="w-7 h-7 text-sky-400"/>
+                    <BookOpen className="w-7 h-7 text-emerald-600 dark:text-sky-400"/>
                     <div>
-                        <div className="text-xl font-semibold text-white">
+                        <div className="text-xl font-semibold text-slate-900 dark:text-white">
                             {template.title}
                         </div>
                         {template.description && (
-                            <div className="text-xs text-slate-400 mt-1">
+                            <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                                 {template.description}
                             </div>
                         )}
                     </div>
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-600 dark:text-slate-400">
                     题目 {currentIndex + 1} / {totalQuestions}
                 </div>
             </header>
@@ -373,9 +373,9 @@ function QuizRunPage() {
             {/* 题卡 + 右侧按钮 */}
             <div className="w-full flex items-start gap-4 mb-6">
                 {/* 问题卡片 */}
-                <div className="min-h-32 flex-1 min-w-0 rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
-                    <div className="text-xs text-slate-400 mb-2">题目</div>
-                    <div className="text-base text-slate-50">
+                <div className="min-h-32 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm p-6 dark:border-slate-700 dark:bg-slate-900/80">
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">题目</div>
+                    <div className="text-base text-slate-900 dark:text-slate-50">
                         {currentQuestion &&
                             renderPrompt(currentQuestion.front, {
                                 userAnswer: currentUserAnswer,
@@ -385,8 +385,8 @@ function QuizRunPage() {
                     </div>
 
                     {showAnswer && (
-                        <div className="mt-6 border-t border-slate-700 pt-4">
-                            <div className="text-xs text-slate-400 mb-1">答案</div>
+                        <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-700">
+                            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">答案</div>
                             {renderAnswer(currentQuestion.front, currentQuestion.back)}
                         </div>
                     )}

@@ -1,9 +1,10 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
+import { Trash2 } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -59,6 +60,16 @@ function decodeEscapedString(s: string): string {
     }
 }
 
+function normalizeCsvRowKeys(
+    row: Record<string, string | undefined>
+): Record<string, string> {
+    const normalized: Record<string, string> = {};
+    Object.entries(row).forEach(([key, value]) => {
+        normalized[key.trim().toLowerCase()] = value ?? "";
+    });
+    return normalized;
+}
+
 function parseCardsText(raw: string): ImportedCardLite[] {
     const text = raw.trim();
     if (!text) return [];
@@ -83,8 +94,8 @@ function parseCardsText(raw: string): ImportedCardLite[] {
     }
 
     // ② 使用 PapaParse 解析 CSV（front,back）
-    const result: ParseResult<Record<string, string>> =
-        Papa.parse<Record<string, string>>(text, {
+    const result: ParseResult<Record<string, string | undefined>> =
+        Papa.parse<Record<string, string | undefined>>(text, {
             header: true,
             skipEmptyLines: true,
             escapeChar: "\\",
@@ -94,12 +105,26 @@ function parseCardsText(raw: string): ImportedCardLite[] {
         return [];
     }
 
-    const rows: Record<string, string>[] = result.data;
+    const rows: Record<string, string | undefined>[] = result.data;
 
     return rows
-        .map((row: Record<string, string>): ImportedCardLite => {
-            const front = decodeEscapedString(row.front);
-            const back = decodeEscapedString(row.back);
+        .map((row: Record<string, string | undefined>): ImportedCardLite => {
+            // 支持 front/back 表头大小写、前后空格
+            const normalized = normalizeCsvRowKeys(row);
+            const frontKey =
+                normalized.front ??
+                normalized.question ??
+                normalized.q ??
+                normalized.f ??
+                "";
+            const backKey =
+                normalized.back ??
+                normalized.answer ??
+                normalized.a ??
+                normalized.b ??
+                "";
+            const front = decodeEscapedString(frontKey);
+            const back = decodeEscapedString(backKey);
             return {front, back};
         })
         .filter((c) => c.front.length > 0 || c.back.length > 0);
@@ -117,6 +142,8 @@ const DeckEditPage: React.FC = () => {
     );
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showDeleteDeckConfirm, setShowDeleteDeckConfirm] = useState(false);
+    const [deletingDeck, setDeletingDeck] = useState(false);
 
     const [deck, setDeck] = useState<DeckRow | null>(null);
     const [cards, setCards] = useState<CardRow[]>([]);
@@ -128,6 +155,7 @@ const DeckEditPage: React.FC = () => {
     const [descriptionInput, setDescriptionInput] = useState("");
     const [savingMeta, setSavingMeta] = useState(false);
     const [saveMetaMessage, setSaveMetaMessage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     // 1. 载入 deck + cards
     useEffect(() => {
@@ -359,6 +387,31 @@ const DeckEditPage: React.FC = () => {
         }
     }
 
+    function handleImportFileClick() {
+        fileInputRef.current?.click();
+    }
+
+    function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const text = ev.target?.result;
+            if (typeof text === "string") {
+                setExportJson(text);
+            } else {
+                setError("无法读取文件内容。");
+            }
+        };
+        reader.onerror = () => {
+            setError("读取文件失败，请重试。");
+        };
+        reader.readAsText(file, "utf-8");
+        // 清空，方便下次选择同一文件
+        e.target.value = "";
+    }
+
 // 5. 切换某张卡是否选中
     function toggleSelectCard(id: string) {
         setSelectedIds((prev) => {
@@ -441,22 +494,44 @@ const DeckEditPage: React.FC = () => {
         }
     }
 
+    async function handleDeleteDeck() {
+        if (!deckId) return;
+        setDeletingDeck(true);
+        setError(null);
+
+        const { error: deleteError } = await supabase
+            .from("decks")
+            .delete()
+            .eq("id", deckId);
+
+        if (deleteError) {
+            console.error("delete deck error", deleteError);
+            setError("删除 deck 失败，请稍后再试。");
+            setDeletingDeck(false);
+            return;
+        }
+
+        navigate(`/`);
+    }
+
     if (!deckId) {
-        return <div className="text-slate-200 px-4 py-6">缺少 deckId 参数。</div>;
+        return <div className="text-slate-700 dark:text-slate-200 px-4 py-6">缺少 deckId 参数。</div>;
     }
 
     if (loading) {
-        return <div className="text-slate-200 px-4 py-6">正在加载 deck…</div>;
+        return <div className="text-slate-700 dark:text-slate-200 px-4 py-6">正在加载 deck…</div>;
     }
 
     if (error && !deck) {
         return (
             <div className="px-4 py-6 space-y-4">
-                <div className="text-rose-400 text-sm">{error}</div>
+                <div className="text-sm text-rose-600 border border-rose-200 bg-rose-50 rounded-xl px-3 py-2 dark:text-rose-400 dark:border-rose-500/50 dark:bg-rose-950/40">
+                    {error}
+                </div>
                 <Button
                     type="button"
                     variant="link"
-                    className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
+                    className="text-sm px-0 text-emerald-700 hover:text-emerald-800 underline underline-offset-4 dark:text-sky-300 dark:hover:text-sky-200"
                     onClick={() => navigate(-1)}
                 >
                     返回
@@ -467,13 +542,13 @@ const DeckEditPage: React.FC = () => {
 
     if (!deck) {
         return (
-            <div className="px-4 py-6 text-slate-200">
+            <div className="px-4 py-6 text-slate-700 dark:text-slate-200">
                 未找到对应的 deck。
                 <div className="mt-3">
                     <Button
                         type="button"
                         variant="link"
-                        className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
+                        className="text-sm px-0 text-emerald-700 hover:text-emerald-800 underline underline-offset-4 dark:text-sky-300 dark:hover:text-sky-200"
                         onClick={() => navigate(-1)}
                     >
                         返回
@@ -486,7 +561,7 @@ const DeckEditPage: React.FC = () => {
         cards.length > 0 && selectedIds.size === cards.length;
 
     return (
-        <div className="space-y-6 text-slate-100 px-4 py-6">
+        <div className="space-y-6 text-slate-900 dark:text-slate-100 px-4 py-6">
             {/* 顶部标题区 */}
             <div className="flex items-center justify-between">
                 <div>
@@ -505,7 +580,7 @@ const DeckEditPage: React.FC = () => {
 
             {/* 错误提示（整体） */}
             {error && (
-                <div className="text-sm text-rose-400 border border-rose-500/50 bg-rose-950/40 rounded-xl px-3 py-2">
+                <div className="text-sm text-rose-600 border border-rose-200 bg-rose-50 rounded-xl px-3 py-2 dark:text-rose-400 dark:border-rose-500/50 dark:bg-rose-950/40">
                     {error}
                 </div>
             )}
@@ -513,22 +588,33 @@ const DeckEditPage: React.FC = () => {
             {/* 1️⃣ Deck 基本信息：可编辑 title / description */}
             <form
                 onSubmit={handleSaveMeta}
-                className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 space-y-4"
+                className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
             >
                 <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold">基本信息</div>
-                    {saveMetaMessage && (
-                        <div className="text-xs text-emerald-400">{saveMetaMessage}</div>
-                    )}
+                    <div className="flex items-center gap-3">
+                        {saveMetaMessage && (
+                            <div className="text-xs text-emerald-600 dark:text-emerald-400">{saveMetaMessage}</div>
+                        )}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                            onClick={() => setShowDeleteDeckConfirm(true)}
+                            aria-label="删除这个 deck"
+                        >
+                            <Trash2 size={18} />
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="block text-sm text-slate-200">
-                        标题 <span className="text-rose-400">*</span>
+                    <label className="block text-sm text-slate-700 dark:text-slate-200">
+                        标题 <span className="text-rose-500">*</span>
                     </label>
                     <input
                         type="text"
-                        className="w-full rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500"
+                        className="w-full rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
                         value={titleInput}
                         onChange={(e) => setTitleInput(e.target.value)}
                         placeholder="例如：physics/八年级/声现象基础卡片"
@@ -536,9 +622,9 @@ const DeckEditPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="block text-sm text-slate-200">简介（可选）</label>
+                    <label className="block text-sm text-slate-700 dark:text-slate-200">简介（可选）</label>
                     <textarea
-                        className="w-full h-20 rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500 resize-none"
+                        className="w-full h-20 rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 resize-none dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
                         value={descriptionInput}
                         onChange={(e) => setDescriptionInput(e.target.value)}
                         placeholder="简单描述这个 deck 的内容和用途。"
@@ -558,7 +644,7 @@ const DeckEditPage: React.FC = () => {
             </form>
 
             {/* 2️⃣ 导入 / 导出 cards */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
                 <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold">导入 / 导出卡片（cards）</div>
                     <div className="space-x-2">
@@ -578,11 +664,26 @@ const DeckEditPage: React.FC = () => {
                         >
                             导入这些卡片
                         </Button>
+                        <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={handleImportFileClick}
+                            className="text-sm"
+                        >
+                            从文件…
+                        </Button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".csv,text/csv"
+                            className="hidden"
+                            onChange={handleFileSelected}
+                        />
                     </div>
                 </div>
 
                 <textarea
-                    className="w-full h-48 text-xs font-mono bg-slate-950/80 border border-slate-700 rounded-xl p-2 text-slate-100"
+                    className="w-full h-48 text-xs font-mono bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/80 dark:border-slate-700 dark:text-slate-100"
                     placeholder={`支持两种格式（自动识别）：
 ① JSON：
 [
@@ -601,7 +702,7 @@ front,back
             </div>
 
             {/* 3️⃣ 卡片列表（预览 + 多选删除） */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
                 <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-semibold">
                         卡片预览（{cards.length} 条）
@@ -641,7 +742,7 @@ front,back
                         {cards.map((c, idx) => (
                             <li
                                 key={c.id}
-                                className="border border-slate-700 rounded-xl px-3 py-2 text-[11px] flex items-start gap-2"
+                                className="border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs flex items-start gap-2 shadow-sm dark:border-slate-700 dark:bg-slate-900"
                             >
                                 <input
                                     type="checkbox"
@@ -651,7 +752,7 @@ front,back
                                 />
                                 <div className="flex-1">
                                     {/* 顶部：编号 + id（缩短一点防止太长） */}
-                                    <div className="flex items-center justify-between mb-1 text-slate-400">
+                                    <div className="flex items-center justify-between mb-1 text-slate-500 dark:text-slate-400">
                                         <span>#{idx + 1}</span>
                                         <span className="truncate max-w-[200px]">{c.id}</span>
                                     </div>
@@ -660,14 +761,14 @@ front,back
                                     <div className="flex gap-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="text-[10px] text-slate-500 mb-0.5">front</div>
-                                            <div className="text-slate-100 whitespace-pre-wrap break-words">
+                                            <div className="text-slate-900 dark:text-slate-100 whitespace-pre-wrap break-words">
                                                 {c.front}
                                             </div>
                                         </div>
                                         <div className="flex-1 min-w-0 border-l border-slate-700 pl-3">
                                             <div className="text-[10px] text-slate-500 mb-0.5">back</div>
-                                            <div className="text-slate-300 whitespace-pre-wrap break-words">
-                                                {c.back || <span className="text-slate-500">（空）</span>}
+                                            <div className="text-slate-800 dark:text-slate-300 whitespace-pre-wrap break-words">
+                                                {c.back || <span className="text-slate-500 dark:text-slate-500">（空）</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -693,6 +794,23 @@ front,back
                     // 直接调用已有的删除逻辑
                     void handleDeleteSelected();
                     setShowDeleteConfirm(false);
+                }}
+            />
+            <ConfirmDialog
+                open={showDeleteDeckConfirm}
+                title="确认删除整个 Deck？"
+                description="删除后将移除当前 deck 及其关联关系（cards 记录保留）。"
+                confirmLabel={deletingDeck ? "删除中…" : "确认删除"}
+                cancelLabel="取消"
+                loading={deletingDeck}
+                onCancel={() => {
+                    if (!deletingDeck) {
+                        setShowDeleteDeckConfirm(false);
+                    }
+                }}
+                onConfirm={() => {
+                    void handleDeleteDeck();
+                    setShowDeleteDeckConfirm(false);
                 }}
             />
         </div>

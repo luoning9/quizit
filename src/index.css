@@ -1,3 +1,5 @@
+@config "../tailwind.config.ts";
+
 /* Tailwind v4 inline config */
 @import "tailwindcss";
 
