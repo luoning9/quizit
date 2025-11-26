@@ -2,7 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
 import {BookOpen, Loader2, CheckCircle, XCircle} from "lucide-react";
-import {type QuizTemplate, renderPrompt, renderAnswer, renderFinishedArea, type QuizRunResult} from "./quizRenderer";
+import {type QuizTemplate, renderPrompt, renderAnswer, type QuizRunResult} from "./quizRenderer";
 import {
     type BackSchema,
     checkAnswer,

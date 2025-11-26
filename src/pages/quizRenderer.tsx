@@ -5,13 +5,12 @@ import {
     indexToLetter,
     countBlanks,
 } from "../../lib/quizFormat";
-import {BookOpen} from "lucide-react";
-import {Link} from "react-router-dom";
+
 import { MarkdownText } from "../components/MarkdownText";
 
 // 去掉选项文本前面的 "A."、"B、" 等前缀，避免重复显示
 function stripChoicePrefix(text: string): string {
-    return text.replace(/^\s*[A-Ha-h][\.\:、，]?\s*/, "");
+    return text.replace(/^\s*[A-Ha-h][.:、，]?\s*/, "");
 }
 
 type PromptRenderOptions = {
@@ -327,61 +326,4 @@ export interface QuizRunResult {
 
     /** 每道题的作答结果 */
     answers: QuizItemResult[];
-}
-
-export function renderFinishedArea(template: QuizTemplate,
-                                   result: QuizRunResult | null,
-                                   resultSaved: boolean) {
-    if (!result) return null;
-
-    const totalQuestions = result?.answers.length || 0;
-    const correctCount = result?.answers.filter((it) => it.isCorrect).length;
-
-    return (
-        <div className="max-w-3xl mx-auto py-10 px-4">
-            <div className="mb-6 flex items-center gap-3">
-                <BookOpen className="w-7 h-7 text-emerald-600 dark:text-emerald-400"/>
-                <div>
-                    <div className="text-xl font-semibold text-slate-900 dark:text-white">
-                        {template.title}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">测验完成 ✅</div>
-                </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100">
-                <div className="text-lg mb-3 text-slate-900 dark:text-slate-100">
-                    正确题数：{" "}
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-              {correctCount}
-            </span>{" "}
-                    / {totalQuestions}
-                </div>
-                <div className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                    正确率{" "}
-                    <span className="font-semibold text-emerald-600 dark:text-sky-400">
-              {Math.round((correctCount / totalQuestions) * 100)}%
-            </span>
-                </div>
-
-                {/* 这里根据 hasSaved 来决定是否显示按钮 / 提示文案 */}
-                {!resultSaved && (
-                    <div className="text-xs text-slate-500 dark:text-slate-500">
-                        正在保存测验结果，请稍候…
-                    </div>
-                )}
-
-                {resultSaved && (
-                    <div className="flex flex-wrap gap-3 mt-4">
-                        <Link
-                            to="/quizzes"
-                            className="px-5 py-2.5 rounded-2xl border border-slate-300 text-slate-800 text-sm hover:bg-slate-50 dark:border-slate-500 dark:text-slate-200 dark:hover:bg-slate-800 inline-flex items-center justify-center"
-                        >
-                            返回测验列表
-                        </Link>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
 }
