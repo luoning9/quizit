@@ -260,7 +260,6 @@ export function DeckPracticePage() {
 
         // ------- 1) 记录 card_reviews（一条记录就插入一次） -------
         await supabase.from("card_reviews").insert({
-            user_id,
             card_id,
             reviewed_at: now,
             user_answer: null,         // 你目前没有输入作答内容

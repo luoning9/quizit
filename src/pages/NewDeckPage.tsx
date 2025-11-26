@@ -44,7 +44,6 @@ const NewDeckPage: React.FC = () => {
             const { data, error: insertError } = await supabase
                 .from("decks")
                 .insert({
-                    owner_id: user.id,
                     title: title.trim(),
                     description: description.trim() || null,
                     // 其它字段用默认值：items 默认为 {"items": []}

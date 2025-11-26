@@ -317,7 +317,6 @@ const DeckEditPage: React.FC = () => {
 
             // 3) 插入 cards 表（card_type 统一为 basic）
             const insertPayload = imported.map((c) => ({
-                owner_id: user.id,
                 front: c.front,
                 back: c.back,
                 card_type: "basic" as const,

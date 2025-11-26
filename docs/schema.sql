@@ -44,7 +44,7 @@ create index IF not exists idx_card_stats_due on public.card_stats using btree (
 
 create table public.cards (
                               id uuid not null default gen_random_uuid (),
-                              owner_id uuid null,
+                              owner_id uuid not null,
                               front text not null,
                               back text not null,
                               card_type public.card_type_enum null default 'basic'::card_type_enum,
@@ -53,7 +53,7 @@ create table public.cards (
                               created_at timestamp with time zone null default now(),
                               updated_at timestamp with time zone null default now(),
                               constraint cards_pkey primary key (id),
-                              constraint cards_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete set null
+                              constraint cards_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete cascade
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_cards_owner on public.cards using btree (owner_id) TABLESPACE pg_default;
@@ -187,25 +187,6 @@ create table public.profiles (
 ) TABLESPACE pg_default;
 
 
-create table public.quiz_items (
-                                   id uuid not null default gen_random_uuid (),
-                                   quiz_id uuid not null,
-                                   card_id uuid null,
-                                   position integer null,
-                                   user_answer text null,
-                                   is_correct boolean null,
-                                   question_snapshot text null,
-                                   correct_answer_snapshot text null,
-                                   meta jsonb null,
-                                   created_at timestamp with time zone null default now(),
-                                   constraint quiz_items_pkey primary key (id),
-                                   constraint quiz_items_card_id_fkey foreign KEY (card_id) references cards (id) on delete set null,
-                                   constraint quiz_items_quiz_id_fkey foreign KEY (quiz_id) references quiz_runs (id)
-) TABLESPACE pg_default;
-
-create index IF not exists idx_q_items_quiz on public.quiz_items using btree (quiz_id) TABLESPACE pg_default;
-
-
 create table public.quiz_runs (
                                   id uuid not null default gen_random_uuid (),
                                   template_id uuid null,
@@ -270,7 +251,7 @@ order by
 
 create table public.quiz_templates (
                                        id uuid not null default gen_random_uuid (),
-                                       owner_id uuid null,
+                                       owner_id uuid not null,
                                        title text not null,
                                        description text null,
                                        mode public.quiz_mode_enum null default 'mixed'::quiz_mode_enum,
@@ -280,7 +261,7 @@ create table public.quiz_templates (
                                        updated_at timestamp with time zone null default now(),
                                        deck_name text null,
                                        constraint quiz_templates_pkey primary key (id),
-                                       constraint quiz_templates_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete set null
+                                       constraint quiz_templates_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete cascade
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_quiz_templates_owner on public.quiz_templates using btree (owner_id) TABLESPACE pg_default;

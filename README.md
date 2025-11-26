@@ -18,8 +18,9 @@
 ## Latest Updates
 
 - Added QuizResultPage (`/quiz-runs/:quizId/:runId`) and wired QuizRunPage to jump there after saving a run.
-- Quiz results page shows friendly states for missing params or missing run data, fetches `quiz_template_stats` to display attempts/last score, and keeps a stats area.
-- Quiz list now has both “查看” (results) and “开始” (take quiz) buttons in MainSelectPage.
-- Markdown renderer supports tables with borders plus Markdown/LaTeX in prompts/answers; choice text strips leading A./B. prefixes.
-- back.answers now accepts simple `["A"]` JSON and Quiz template parsing keeps math escapes intact.
+- Quiz results page now reads `quiz_template_stats` to show template title/description, attempt count, and last score; missing params/run data show friendly states.
+- Quiz list entries have both “查看” (results) and “开始” buttons in MainSelectPage.
+- Markdown renderer supports table borders and renders Markdown/LaTeX; choice text auto-strips leading A./B. prefixes.
+- back.answers accepts simple `["A"]` JSON and keeps math escapes intact in quiz templates.
+- Database defaults: owner_id/user_id now rely on DB defaults (auth.uid()) for decks, cards, quiz_templates, quiz_runs, card_reviews; schema tightened (owner_id not null, cascade) and quiz_template_stats view documented.
  

@@ -279,7 +279,6 @@ export default function NewQuizTemplatePage() {
       }
 
       const insertPayload = items.map((it) => ({
-        owner_id: user.id,
         front: it.front,
         back: it.back,
         card_type: "basic" as const,
@@ -313,7 +312,6 @@ export default function NewQuizTemplatePage() {
       const { data: tmpl, error: tmplError } = await supabase
         .from("quiz_templates")
         .insert({
-          owner_id: user.id,
           title: trimmedTitle,
           description: description.trim() || null,
           deck_name: path || null,
