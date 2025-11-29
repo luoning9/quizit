@@ -100,9 +100,17 @@ export function DotRender({
 
     if (!svg) return null;
 
-    const mergedClass = clsx("bg-transparent rounded-md p-2", className);
+    const isDark =
+        typeof document !== "undefined" &&
+        document.documentElement.classList.contains("dark");
 
-    const themedSvg = svg;
+    const mergedClass = clsx(
+        "rounded-md p-2",
+        isDark ? "bg-slate-200" : "bg-slate-50",
+        className
+    );
+
+    //const themedSvg = svg;
 
     return (
         <div

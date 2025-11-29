@@ -101,6 +101,7 @@ export function DeckPracticePage() {
     const contentRef = useRef<HTMLDivElement | null>(null);
     const frontRef = useRef<HTMLDivElement | null>(null);
     const backRef = useRef<HTMLDivElement | null>(null);
+    const dividerRef = useRef<HTMLDivElement | null>(null);
 
     const [folderStats, setFolderStats] = useState<DeckFolderStatsRow | null>(null);
 
@@ -264,12 +265,14 @@ export function DeckPracticePage() {
         const container = contentRef.current;
         const front = frontRef.current;
         const back = backRef.current;
+        const divider = dividerRef.current;
 
         const currentlyHidden = back ? back.classList.contains("hidden") : true;
 
         if (currentlyHidden) {
             // 显示背面，并滚动到分割线附近
             if (back) back.classList.remove("hidden");
+            if (divider) divider.classList.remove("hidden");
             setShowBack(true);
             if (container && front) {
                 container.scrollTo({
@@ -280,6 +283,7 @@ export function DeckPracticePage() {
         } else {
             // 隐藏背面，回到顶部
             if (back) back.classList.add("hidden");
+            if (divider) divider.classList.add("hidden");
             setShowBack(false);
             if (container) {
                 container.scrollTo({ top: 0, behavior: "smooth" });
@@ -554,7 +558,10 @@ export function DeckPracticePage() {
                                 {frontClean}
                             </div>
                             {/* 卡片背面（始终显示） */}
-                            <div className="h-[2px] w-full bg-slate-300 dark:bg-slate-600 border-t border-slate-400 dark:border-slate-500" />
+                            <div
+                                ref={dividerRef}
+                                className="hidden h-[2px] w-full bg-slate-300 dark:bg-slate-600 border-t border-slate-400 dark:border-slate-500"
+                            />
                             <div
                                 className={clsx(
                                     "hidden flex flex-col gap-2 justify-start whitespace-pre-line",
@@ -568,7 +575,7 @@ export function DeckPracticePage() {
                                         <DotRender
                                             cardId={current.id}
                                             fileName={name}
-                                            className="w-full [&>svg]:w-full [&>svg]:h-auto "
+                                            className="w-full [&>svg]:w-full [&>svg]:h-auto"
                                         />
                                     </div>
                                 ))}
