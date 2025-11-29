@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useEffect, useState, useMemo} from "react";
 import {useParams, Link} from "react-router-dom";
 import {BookOpen, Trophy} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
@@ -22,14 +22,25 @@ type TemplateStats = {
     last_score: number | null;
 };
 
+type UserRunSummary = {
+    id: string;
+    template_id: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+    score: number | null;
+    config: Record<string, unknown> | null;
+};
+
 export default function QuizResultPage() {
     const {quizId, runId} = useParams<{ quizId?: string; runId?: string }>();
     const [result, setResult] = useState<QuizRunRecord | null>(null);
     const [templateStats, setTemplateStats] = useState<TemplateStats | null>();
-    //const [stats, setStats] = useState<TemplateStats | null>(null);
+    const [userRuns, setUserRuns] = useState<UserRunSummary[]>([]);
     const [loading, setLoading] = useState(true);
+    const [runsLoading, setRunsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [runMessage, setRunMessage] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         async function load() {
@@ -86,11 +97,57 @@ export default function QuizResultPage() {
                 setResult(null);
             }
 
+            const targetTemplateId = quizId ?? (run as any)?.template_id ?? null;
+            if (targetTemplateId) {
+                setRunsLoading(true);
+                const {data: runsData, error: runsErr} = await supabase
+                    .from("quiz_runs_user")
+                    .select("id, template_id, started_at, finished_at, score, config")
+                    .eq("template_id", targetTemplateId)
+                    .order("finished_at", {ascending: false});
+
+                if (!runsErr && runsData) {
+                    setUserRuns(runsData as UserRunSummary[]);
+                }
+                setRunsLoading(false);
+            }
+
             setLoading(false);
         }
 
         void load();
     }, [quizId, runId]);
+
+    const title = templateStats?.title;
+    const correct = result?.correct_items ?? 0;
+    const total = result?.total_items ?? 0;
+    const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const hasRun = Boolean(runId && result);
+    const hasHistory = userRuns.length > 0;
+    const avgScore = useMemo(() => {
+        if (!userRuns.length) return null;
+        const valid = userRuns.filter((r) => typeof r.score === "number");
+        if (!valid.length) return null;
+        const sum = valid.reduce((acc, r) => acc + ((r.score ?? 0) as number), 0);
+        return sum / valid.length;
+    }, [userRuns]);
+
+    async function handleDeleteTemplate() {
+        if (!quizId && !templateStats?.id) return;
+        const targetId = quizId ?? templateStats?.id;
+        if (!targetId) return;
+        const ok = window.confirm("确认删除该测验模板？此操作不可恢复。");
+        if (!ok) return;
+        setDeleting(true);
+        const {error: delErr} = await supabase.from("quiz_templates").delete().eq("id", targetId);
+        setDeleting(false);
+        if (delErr) {
+            alert("删除失败，请稍后再试");
+            console.error("delete template error", delErr);
+            return;
+        }
+        window.location.href = "/quizzes";
+    }
 
     if (loading) {
         return (
@@ -111,12 +168,6 @@ export default function QuizResultPage() {
             </div>
         );
     }
-
-    const title = templateStats?.title;
-    const correct = result?.correct_items ?? 0;
-    const total = result?.total_items ?? 0;
-    const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
-    const hasRun = Boolean(runId && result);
 
     return (
         <div className="max-w-3xl mx-auto py-10 px-4 text-slate-900 dark:text-slate-100 space-y-6">
@@ -194,15 +245,25 @@ export default function QuizResultPage() {
                 className="rounded-2xl border border-slate-200 bg-white/70 p-6 text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
 
                 {templateStats ? (
-                    <div className="space-y-2 text-sm">
-
-
-                        <div className="text-xs text-slate-600 dark:text-slate-400">
-                            测验次数：{templateStats.attempt_count ?? 0}
-                            {typeof templateStats.last_score === "number" && (
-                                <span
-                                    className="ml-4">最后成绩：{Math.round((templateStats.last_score ?? 0) * 100)}%</span>
-                            )}
+                    <div className="space-y-2 text-base">
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span>测验次数：{templateStats.attempt_count ?? 0}</span>
+                                {typeof templateStats.last_score === "number" && (
+                                    <span>最后成绩：{Math.round((templateStats.last_score ?? 0) * 100)}%</span>
+                                )}
+                                {typeof avgScore === "number" && (
+                                    <span>平均成绩：{Math.round(avgScore * 100)}%</span>
+                                )}
+                            </div>
+                            <Button
+                                variant="outline"
+                                disabled={deleting}
+                                onClick={handleDeleteTemplate}
+                                className="text-sm px-4 py-2"
+                            >
+                                {deleting ? "删除中…" : "删除测验"}
+                            </Button>
                         </div>
                     </div>
                 ) : (
@@ -210,6 +271,37 @@ export default function QuizResultPage() {
                         {runMessage ?? "暂无统计信息。"}
                     </div>
                 )}
+            </div>
+
+            {/* 历史测验记录 */}
+            <div
+                className="rounded-2xl border border-slate-200 bg-white/80 p-6 text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
+                <div className="text-sm font-semibold mb-3 text-slate-900 dark:text-slate-100">历史测验记录</div>
+                {runsLoading && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400">加载历史记录中…</div>
+                )}
+                {!runsLoading && hasHistory ? (
+                    <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                        {userRuns.map((r) => (
+                            <div
+                                key={r.id}
+                                className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50"
+                            >
+                                <div className="flex flex-col">
+                                    <span className="font-medium">
+                                        得分：{typeof r.score === "number"
+                                        ? Math.round((r.score ?? 0) * 100) + "%"
+                                        : "-"}
+                                    </span>
+                                    <span className="text-slate-500 dark:text-slate-400">开始：{r.started_at ?? "-"}</span>
+                                    <span className="text-slate-500 dark:text-slate-400">结束：{r.finished_at ?? "-"}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : !runsLoading ? (
+                    <div className="text-xs text-slate-500 dark:text-slate-400">暂无历史记录。</div>
+                ) : null}
             </div>
         </div>
     );

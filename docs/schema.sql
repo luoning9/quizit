@@ -209,6 +209,12 @@ create index IF not exists idx_quiz_runs_user on public.quiz_runs using btree (u
 
 create index IF not exists idx_quiz_runs_template on public.quiz_runs using btree (template_id) TABLESPACE pg_default;
 
+-- 当前用户的测验记录视图
+create or replace view public.quiz_runs_user as
+select *
+from public.quiz_runs
+where user_id = auth.uid();
+
 
 create view public.quiz_template_stats as
 select

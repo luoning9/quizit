@@ -1,17 +1,19 @@
 import React, {useEffect, useRef, useState} from "react";
-import { useNavigate } from "react-router-dom";
-import { useParams } from "react-router-dom";
-import { supabase } from "../../lib/supabaseClient";
-import { Card } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
+import {useNavigate} from "react-router-dom";
+import {useParams} from "react-router-dom";
+import {supabase} from "../../lib/supabaseClient";
+import {Card} from "../components/ui/Card";
+import {Button} from "../components/ui/Button";
 import clsx from "clsx";
-import { useTimer } from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
+import {useTimer} from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
+import {DotRender} from "../components/ui/DotRender";
 
 interface CardData {
     id: string;
     front: string;
     back: string;
     deck_title: string;
+    mediaList?: { name: string; id?: string }[];
 }
 
 interface CardStatsRow {
@@ -48,10 +50,11 @@ function easeFactorToColor(ease_factor: number | null | undefined): string {
     if (!ease_factor) return "bg-neutral-500";
 
     if (ease_factor < 1.5) return "bg-purple-700";      // 太难
-    if (ease_factor < 2.5)  return "bg-orange-500";   // 有点难
-    if (ease_factor < 3.5)  return "bg-green-600";     // 还行
+    if (ease_factor < 2.5) return "bg-orange-500";   // 有点难
+    if (ease_factor < 3.5) return "bg-green-600";     // 还行
     return "bg-blue-500";                             // 很容易
 }
+
 type CardStatsMap = Record<string, CardStatsRow | undefined>;
 
 function getContentSizeClass(content: string): { sizeClass: string; alignClass: string } {
@@ -60,9 +63,12 @@ function getContentSizeClass(content: string): { sizeClass: string; alignClass: 
     const lineCount = lines.length;
     const len = trimmed.length;
 
-    if (lineCount > 10 || len > 600) return { sizeClass: "text-sm leading-relaxed", alignClass: "text-left items-start" };
-    if (lineCount > 6 || len > 300) return { sizeClass: "text-base leading-relaxed", alignClass: "text-left items-start" };
-    return { sizeClass: "text-lg leading-relaxed", alignClass: "text-center items-center" };
+    if (lineCount > 10 || len > 600) return {sizeClass: "text-sm leading-relaxed", alignClass: "text-left items-start"};
+    if (lineCount > 6 || len > 300) return {
+        sizeClass: "text-base leading-relaxed",
+        alignClass: "text-left items-start"
+    };
+    return {sizeClass: "text-lg leading-relaxed", alignClass: "text-center items-center"};
 }
 
 function trimEmptyLines(content: string): string {
@@ -74,7 +80,7 @@ function trimEmptyLines(content: string): string {
 
 export function DeckPracticePage() {
     const navigate = useNavigate();
-    const { deckName } = useParams();
+    const {deckName} = useParams();
     const decodedName = decodeURIComponent(deckName || "");
     // 每轮练习取多少张卡
     const CARD_THRESHOLD = 10;
@@ -92,12 +98,16 @@ export function DeckPracticePage() {
 
     const [index, setIndex] = useState(0);
     const [showBack, setShowBack] = useState(false);
+    const contentRef = useRef<HTMLDivElement | null>(null);
+    const frontRef = useRef<HTMLDivElement | null>(null);
+    const backRef = useRef<HTMLDivElement | null>(null);
 
     const [folderStats, setFolderStats] = useState<DeckFolderStatsRow | null>(null);
 
     // 新增：当前用户这组卡片的 stats 映射
     const [cardStatsMap, setCardStatsMap] = useState<CardStatsMap>({});
     const [reloadKey, setReloadKey] = useState(0);
+
     useEffect(() => {
         async function loadPracticeCards() {
             setLoading(true);
@@ -107,7 +117,7 @@ export function DeckPracticePage() {
             try {
                 // 先读 deck_folder_stats 当前节点的数据
                 if (decodedName) {
-                    const { data: statsRow, error: statsError } = await supabase
+                    const {data: statsRow, error: statsError} = await supabase
                         .from("deck_folder_stats")
                         .select("path, deck_count, total_items, total_ease_factor, is_deck")
                         .eq("path", decodedName)
@@ -121,7 +131,7 @@ export function DeckPracticePage() {
                 } else {
                     setFolderStats(null);
                 }
-                const { data, error } = await supabase.rpc("select_practice_cards", {
+                const {data, error} = await supabase.rpc("select_practice_cards", {
                     _folder_path: decodedName || "", // 当前目录/卡组路径
                     _limit: CARD_THRESHOLD,                      // 一次抽多少张卡，先写死也行
                     _mode: "random",                 // "random" | "ordered" | "reverse"
@@ -149,6 +159,23 @@ export function DeckPracticePage() {
                     return;
                 }
 
+                // 检查 storage 中是否有 back 媒体
+                const cardIds = rows.map((r) => r.card_id);
+                const mediaMap: Record<string, { name: string; id?: string }[]> = {};
+                for (const cid of cardIds) {
+                    try {
+                        const {data: list, error: listErr} = await supabase
+                            .storage
+                            .from("quizit_card_medias")
+                            .list(`${cid}`);
+                        if (!listErr && list && list.length > 0) {
+                            mediaMap[cid] = list.map((f) => ({name: f.name, id: (f as any)?.id}));
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
                 // 用 RPC 返回的卡片填充 CardData[]
                 setCards(
                     rows.map((r) => ({
@@ -156,6 +183,7 @@ export function DeckPracticePage() {
                         front: r.front,
                         back: r.back,
                         deck_title: r.deck_title,
+                        mediaList: mediaMap[r.card_id] ?? [],
                     }))
                 );
                 // 每次重新抽卡，重置索引和正反面
@@ -182,7 +210,7 @@ export function DeckPracticePage() {
 
             const ids = cards.map((c) => c.id);
 
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from("card_stats")
                 .select("card_id, review_count, ease_factor, last_reviewed_at")
                 .gt("review_count", 0)
@@ -200,10 +228,11 @@ export function DeckPracticePage() {
                 setCardStatsMap(map);
             }
         }
+
         loadStats();
     }, [cards]);
     // 计时器：全局顶栏那个
-    const { reset, start, pause } = useTimer();
+    const {reset, start, pause} = useTimer();
     useEffect(() => {
         reset()
         // 离开页面：暂停计时器
@@ -211,7 +240,7 @@ export function DeckPracticePage() {
             pause();
         };
         // 我们就是想只在挂载/卸载时触发一次，所以依赖用 []
-    },[]);
+    }, []);
 // ② isBreak 控制计时器运行/暂停
     useEffect(() => {
         if (isBreak) {
@@ -226,10 +255,37 @@ export function DeckPracticePage() {
     const nextCard = () => {
         if (cards.length === 0) return;
         setShowBack(false);
+        if (backRef.current) backRef.current.classList.add("hidden");
+        if (contentRef.current) contentRef.current.scrollTo({ top: 0 });
         setIndex((i) => (i + 1) % cards.length);
     };
 
-    const flip = () => setShowBack((v) => !v);
+    const flip = () => {
+        const container = contentRef.current;
+        const front = frontRef.current;
+        const back = backRef.current;
+
+        const currentlyHidden = back ? back.classList.contains("hidden") : true;
+
+        if (currentlyHidden) {
+            // 显示背面，并滚动到分割线附近
+            if (back) back.classList.remove("hidden");
+            setShowBack(true);
+            if (container && front) {
+                container.scrollTo({
+                    top: front.offsetHeight + 8,
+                    behavior: "smooth",
+                });
+            }
+        } else {
+            // 隐藏背面，回到顶部
+            if (back) back.classList.add("hidden");
+            setShowBack(false);
+            if (container) {
+                container.scrollTo({ top: 0, behavior: "smooth" });
+            }
+        }
+    };
 
     // 4. 记录掌握程度（写入 card_stats 和 card_reviews，并自动下一题）
     async function recordDifficulty(level: number) {
@@ -241,7 +297,7 @@ export function DeckPracticePage() {
         nextCard();
 
         // 后台写数据库
-        const { data: userData } = await supabase.auth.getUser();
+        const {data: userData} = await supabase.auth.getUser();
         const user = userData.user;
 
         if (!user) return;
@@ -265,11 +321,11 @@ export function DeckPracticePage() {
             user_answer: null,         // 你目前没有输入作答内容
             is_correct: null,          // 没有对错概念，写 null
             time_spent: null,          // 如果需要计时可以以后加
-            meta: { difficulty: ease_factor } // 把点击难度记在 meta 里
+            meta: {difficulty: ease_factor} // 把点击难度记在 meta 里
         });
 
         // ------- 2) 更新 card_stats（累积统计） -------
-        const { data: existing } = await supabase
+        const {data: existing} = await supabase
             .from("card_stats")
             .select("*")
             .eq("user_id", user_id)
@@ -352,12 +408,21 @@ export function DeckPracticePage() {
     const completionText = (completionRatio * 100).toFixed(0) + "%";
     const frontClean = trimEmptyLines(current.front);
     const backClean = trimEmptyLines(current.back);
-    const { sizeClass: frontSizeClass, alignClass: frontAlign } = getContentSizeClass(frontClean);
-    const { sizeClass: backSizeClass, alignClass: backAlign } = getContentSizeClass(backClean);
+    const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(frontClean);
+    const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(backClean);
     const isDarkMode =
         typeof document !== "undefined" &&
         document.documentElement.classList.contains("dark");
     const ringBgColor = isDarkMode ? "#1f2937" : "#e2e8f0";
+
+    const frontMediaNames = current.mediaList?.filter((m) => m.name.startsWith("front."))?.map((m) => m.name) ?? [];
+    const backMediaNames = current.mediaList?.filter((m) => m.name.startsWith("back."))?.map((m) => m.name) ?? [];
+
+    //const dotNames = (current.mediaList ?? []).filter((m) => m.name.endsWith(".dot")).map((m) => m.name);
+    //const frontDotNames = dotNames.filter((n) => n.startsWith("front."));
+    //const backDotNames = dotNames.filter((n) => n.startsWith("back."));
+    //const sharedDotNames = dotNames.filter((n) => !n.startsWith("front.") && !n.startsWith("back."));
+    //const dotsForBack = [...backDotNames, ...sharedDotNames];
 
     if (isBreak) {
         return (
@@ -430,21 +495,21 @@ export function DeckPracticePage() {
                         '--ring-bg': ringBgColor,
                     } as React.CSSProperties}
                 >
-                    <div className="absolute w-10 h-10 rounded-full flex items-center justify-center text-xs bg-white text-slate-800 dark:bg-slate-700 dark:text-slate-50 shadow-sm">
+                    <div
+                        className="absolute w-10 h-10 rounded-full flex items-center justify-center text-xs bg-white text-slate-800 dark:bg-slate-700 dark:text-slate-50 shadow-sm">
                         {completionText}
                     </div>
                 </div>
             </div>
 
             {/* 主区域：闪卡 */}
-            <div className="flex items-center justify-center gap-4 mt-6">
+            <div className="flex items-center justify-center gap-1 mt-4">
                 <Card
                     className={clsx(
                         "w-[38rem] md:w-[42rem]",
                         "group cursor-pointer select-none",
                         "p-0 border border-slate-300 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_16px_36px_-14px_rgba(0,0,0,0.7)]"
-                    )}
-                >
+                    )}>
                     {/* ✅ 顶部状态栏：难度 + 练习次数 */}
                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-300 mb-0">
                         {/* 难度颜色条 */}
@@ -457,74 +522,67 @@ export function DeckPracticePage() {
                             练习次数：{reviewCount}
                         </div>
                     </div>
-                    {/* 3D 翻转容器 */}
-                    <div
-                        className={clsx(
-                            "relative w-full h-full",
-                            "min-h-[16rem] md:min-h-[18rem]",
-                            "transition-transform duration-500",
-                            "[transform-style:preserve-3d]",
-                            "[perspective:1000px]"
-                        )}
-                        style={{
-                            transform: showBack ? "rotateY(180deg)" : "rotateY(0deg)",
-                        }}
-                        onClick={flip}
-                    >
-                        {/* 正面 */}
+                    {/* 卡片内容 */}
+                    <div className="relative w-full h-full min-h-[52vh] flex flex-col group">
+                        {/* 正反面区域 */}
                         <div
-                            className={clsx(
-                                "absolute inset-0",
-                                "flex flex-col",
-                                "px-8 pt-2 pb-1 md:px-10 md:pt-3 md:pb-1",
-                                "rounded-2xl",
-                                "bg-transparent text-slate-900 dark:bg-transparent dark:text-slate-100",
-                                "[backface-visibility:hidden]"
-                            )}
+                            ref={contentRef}
+                            className="mt-2 flex-1 max-h-[46vh] flex flex-col justify-start items-stretch overflow-y-auto cursor-pointer gap-3"
+                            onClick={flip}
+                            role="button"
+                            aria-label={showBack ? "查看题目" : "查看答案"}
                         >
-                            {/* 内容居中 */}
-                            <div className={clsx(
-                                "flex-1 flex justify-center whitespace-pre-line px-2 max-h-[24rem] overflow-y-auto",
-                                frontSizeClass,
-                                frontAlign
-                            )}>
+                            {/* 卡片正面 */}
+                            <div
+                                className={clsx(
+                                    "min-h-[30vh] flex flex-col gap-2 justify-center whitespace-pre-line",
+                                    frontSizeClass,
+                                    frontAlign,
+                                )}
+                                ref={frontRef}
+                            >
+                                {frontMediaNames?.filter((n) => n.endsWith(".dot"))
+                                    .map((name) => (
+                                        <div key={name} className="w-full flex justify-center">
+                                            <DotRender
+                                                cardId={current.id}
+                                                fileName={name}
+                                                className="w-full [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+                                            />
+                                        </div>
+                                    ))}
                                 {frontClean}
                             </div>
-
-                            {/* 底部提示：看答案 */}
-                            <div className="text-center opacity-0 group-hover:opacity-70 transition-opacity duration-200 pb-0">
-  <span className="text-sm text-blue-600 dark:text-blue-300 underline leading-tight pointer-events-none">
-    {showBack ? "点击查看题目" : "点击查看答案"}
-  </span>
-                            </div>
-                        </div>
-
-                        {/* 背面 */}
-                        <div
-                            className={clsx(
-                                "absolute inset-0",
-                                "flex flex-col",
-                                "px-8 pt-2 pb-1 md:px-10 md:pt-3 md:pb-1",
-                                "rounded-2xl",
-                                "bg-emerald-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100",
-                                "[backface-visibility:hidden]",
-                                "[transform:rotateY(180deg)]"
-                            )}
-                        >
-                            <div className={clsx(
-                                "flex-1 flex justify-center whitespace-pre-line px-2 max-h-[24rem] overflow-y-auto",
-                                backSizeClass,
-                                backAlign
-                            )}>
+                            {/* 卡片背面（始终显示） */}
+                            <div className="h-[2px] w-full bg-slate-300 dark:bg-slate-600 border-t border-slate-400 dark:border-slate-500" />
+                            <div
+                                className={clsx(
+                                    "hidden flex flex-col gap-2 justify-start whitespace-pre-line",
+                                    backSizeClass,
+                                    backAlign,
+                                )}
+                                ref={backRef}
+                            >
+                                {backMediaNames.filter((n) => n.endsWith(".dot")).map((name) => (
+                                    <div key={name} className="w-full flex justify-center">
+                                        <DotRender
+                                            cardId={current.id}
+                                            fileName={name}
+                                            className="w-full [&>svg]:w-full [&>svg]:h-auto "
+                                        />
+                                    </div>
+                                ))}
                                 {backClean}
                             </div>
-
-                            {/* 底部链接：看题目 */}
-                            <div className="text-center opacity-0 group-hover:opacity-70 transition-opacity duration-200 pb-0">
-  <span className="text-sm text-blue-600 dark:text-blue-300 underline leading-tight pointer-events-none">
-    {showBack ? "点击查看题目" : "点击查看答案"}
-  </span>
-                            </div>
+                        </div>
+                        <div className="mt-auto text-center opacity-0 group-hover:opacity-70 transition-opacity duration-200 pb-0">
+                            <button
+                                type="button"
+                                onClick={flip}
+                                className="text-sm text-blue-600 dark:text-blue-300 underline leading-tight"
+                            >
+                                {showBack ? "隐藏背面" : "显示背面"}
+                            </button>
                         </div>
                     </div>
                 </Card>
@@ -532,35 +590,35 @@ export function DeckPracticePage() {
 
             {/* 一排四个掌握程度按钮 */}
             {showBack && (
-            <div className="flex justify-center gap-3 mt-6 w-full">
-                <Button variant="none"
-                    onClick={() => recordDifficulty(1)}
-                    className="bg-purple-700 hover:bg-purple-800 text-slate-100 px-4 py-2 rounded font-normal"
-                >
-                    太难了
-                </Button>
+                <div className="flex justify-center gap-5 mt-1 w-full">
+                    <Button variant="none"
+                            onClick={() => recordDifficulty(1)}
+                            className="bg-purple-700 hover:bg-purple-800 text-slate-100 px-4 py-2 rounded font-normal"
+                    >
+                        太难了
+                    </Button>
 
-                <Button variant="none"
-                    onClick={() => recordDifficulty(2)}
-                    className="bg-orange-500 hover:bg-orange-600 text-slate-100 px-4 py-2 rounded font-normal"
-                >
-                    有点难
-                </Button>
+                    <Button variant="none"
+                            onClick={() => recordDifficulty(2)}
+                            className="bg-orange-500 hover:bg-orange-600 text-slate-100 px-4 py-2 rounded font-normal"
+                    >
+                        有点难
+                    </Button>
 
-                <Button variant="none"
-                    onClick={() => recordDifficulty(3)}
-                    className="bg-green-600 hover:bg-green-700 text-slate-100 px-4 py-2 rounded font-normal"
-                >
-                    还行吧
-                </Button>
+                    <Button variant="none"
+                            onClick={() => recordDifficulty(3)}
+                            className="bg-green-600 hover:bg-green-700 text-slate-100 px-4 py-2 rounded font-normal"
+                    >
+                        还行吧
+                    </Button>
 
-                <Button variant="none"
-                    onClick={() => recordDifficulty(4)}
-                    className="bg-blue-500 hover:bg-blue-600 text-slate-100 px-4 py-2 rounded font-normal"
-                >
-                    很容易
-                </Button>
-            </div>
+                    <Button variant="none"
+                            onClick={() => recordDifficulty(4)}
+                            className="bg-blue-500 hover:bg-blue-600 text-slate-100 px-4 py-2 rounded font-normal"
+                    >
+                        很容易
+                    </Button>
+                </div>
             )}
         </div>
     );
