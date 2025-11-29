@@ -102,6 +102,8 @@ export function DeckPracticePage() {
     const frontRef = useRef<HTMLDivElement | null>(null);
     const backRef = useRef<HTMLDivElement | null>(null);
     const dividerRef = useRef<HTMLDivElement | null>(null);
+    const [mediaModal, setMediaModal] = useState<{ cardId: string; name: string } | null>(null);
+    const [hoverInfo, setHoverInfo] = useState<string>("点击显示背面");
 
     const [folderStats, setFolderStats] = useState<DeckFolderStatsRow | null>(null);
 
@@ -533,6 +535,8 @@ export function DeckPracticePage() {
                             ref={contentRef}
                             className="mt-2 flex-1 max-h-[46vh] flex flex-col justify-start items-stretch overflow-y-auto cursor-pointer gap-3"
                             onClick={flip}
+                            onMouseEnter={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
+                            onMouseLeave={() => setHoverInfo("")}
                             role="button"
                             aria-label={showBack ? "查看题目" : "查看答案"}
                         >
@@ -547,13 +551,20 @@ export function DeckPracticePage() {
                             >
                                 {frontMediaNames?.filter((n) => n.endsWith(".dot"))
                                     .map((name) => (
-                                        <div key={name} className="w-full flex justify-center">
-                                            <DotRender
-                                                cardId={current.id}
-                                                fileName={name}
-                                                className="w-full [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
-                                            />
-                                        </div>
+                                        <button
+                                            key={name}
+                                            className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setMediaModal({ cardId: current.id, name });
+                                            }}
+                                            onMouseEnter={() => setHoverInfo(`查看图片：${name}`)}
+                                            onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
+                                            title={`查看图示 (${name})`}
+                                        >
+                                            <ImageIcon className="h-8 w-8" aria-hidden />
+                                            <span className="sr-only">查看图示</span>
+                                        </button>
                                     ))}
                                 {frontClean}
                             </div>
@@ -571,29 +582,61 @@ export function DeckPracticePage() {
                                 ref={backRef}
                             >
                                 {backMediaNames.filter((n) => n.endsWith(".dot")).map((name) => (
-                                    <div key={name} className="w-full flex justify-center">
-                                        <DotRender
-                                            cardId={current.id}
-                                            fileName={name}
-                                            className="w-full [&>svg]:w-full [&>svg]:h-auto"
-                                        />
-                                    </div>
+                                    <button
+                                        key={name}
+                                        className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setMediaModal({ cardId: current.id, name });
+                                        }}
+                                        onMouseEnter={() => setHoverInfo(`查看图片：${name}`)}
+                                        onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
+                                        title={`查看图示 (${name})`}
+                                    >
+                                        <ImageIcon className="h-8 w-8" aria-hidden />
+                                        <span className="sr-only">查看图示</span>
+                                    </button>
                                 ))}
                                 {backClean}
                             </div>
                         </div>
-                        <div className="mt-auto text-center opacity-0 group-hover:opacity-70 transition-opacity duration-200 pb-0">
-                            <button
-                                type="button"
-                                onClick={flip}
-                                className="text-sm text-blue-600 dark:text-blue-300 underline leading-tight"
-                            >
-                                {showBack ? "隐藏背面" : "显示背面"}
-                            </button>
-                        </div>
+                        {hoverInfo && (
+                            <div className="mt-auto text-center opacity-70 transition-opacity duration-200 pb-0 text-xs text-slate-500 dark:text-slate-300">
+                                {hoverInfo}
+                            </div>
+                        )}
                     </div>
                 </Card>
             </div>
+            {mediaModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => setMediaModal(null)}
+                >
+                    <div
+                        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-auto p-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="text-sm text-slate-600 dark:text-slate-300">
+                                {mediaModal.name}
+                            </div>
+                            <button
+                                className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-300 underline"
+                                onClick={() => setMediaModal(null)}
+                            >
+                                <XIcon className="h-4 w-4" />
+                                关闭
+                            </button>
+                        </div>
+                        <DotRender
+                            cardId={mediaModal.cardId}
+                            fileName={mediaModal.name}
+                            className="w-full [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-[80vh]"
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* 一排四个掌握程度按钮 */}
             {showBack && (
@@ -669,3 +712,4 @@ function BreakScreen({
         </div>
     );
 }
+import { Image as ImageIcon, X as XIcon } from "lucide-react";
