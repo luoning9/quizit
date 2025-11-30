@@ -53,8 +53,8 @@ function easeFactorToColor(ease_factor: number | null | undefined): string {
 
     if (ease_factor < 1.5) return "bg-purple-700";      // 太难
     if (ease_factor < 2.5) return "bg-orange-500";   // 有点难
-    if (ease_factor < 3.5) return "bg-green-600";     // 还行
-    return "bg-blue-500";                             // 很容易
+    if (ease_factor < 3.5) return "bg-blue-500";     // 还行
+    return "bg-green-600";                             // 很容易
 }
 
 type CardStatsMap = Record<string, CardStatsRow | undefined>;
@@ -136,10 +136,10 @@ export function DeckPracticePage() {
                 } else {
                     setFolderStats(null);
                 }
-                const {data, error} = await supabase.rpc("select_practice_cards", {
+                const {data, error} = await supabase.rpc("select_practice_cards_leitner", {
                     _folder_path: decodedName || "", // 当前目录/卡组路径
                     _limit: CARD_THRESHOLD,                      // 一次抽多少张卡，先写死也行
-                    _mode: "random",                 // "random" | "ordered" | "reverse"
+                    _mode: "ordered",                 // "random" | "ordered"
                 });
 
                 if (error) {
@@ -476,8 +476,8 @@ export function DeckPracticePage() {
                         const glowRingColors: Record<number, string> = {
                             1: "ring-purple-400",
                             2: "ring-orange-400",
-                            3: "ring-green-400",
-                            4: "ring-blue-400",
+                            3: "ring-blue-400",
+                            4: "ring-green-400",
                         };
 
                         const colorClass = easeFactorToColor(difficultyLevel) // 未练过 = 灰色
@@ -670,14 +670,14 @@ export function DeckPracticePage() {
 
                     <Button variant="none"
                             onClick={() => recordDifficulty(3)}
-                            className="bg-green-600 hover:bg-green-700 text-slate-100 px-4 py-2 rounded font-normal"
+                            className="bg-blue-500 hover:bg-blue-600 text-slate-100 px-4 py-2 rounded font-normal"
                     >
                         还行吧
                     </Button>
 
                     <Button variant="none"
                             onClick={() => recordDifficulty(4)}
-                            className="bg-blue-500 hover:bg-blue-600 text-slate-100 px-4 py-2 rounded font-normal"
+                            className="bg-green-600 hover:bg-green-700 text-slate-100 px-4 py-2 rounded font-normal"
                     >
                         很容易
                     </Button>
