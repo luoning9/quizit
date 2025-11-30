@@ -257,10 +257,11 @@ export function DeckPracticePage() {
     // 3. 切题 / 翻面
     const nextCard = () => {
         if (cards.length === 0) return;
-        setShowBack(false);
-        if (backRef.current) backRef.current.classList.add("hidden");
-        if (contentRef.current) contentRef.current.scrollTo({ top: 0 });
-        setIndex((i) => (i + 1) % cards.length);
+        if (showBack) flip();
+        //setShowBack(false);
+        //if (backRef.current) backRef.current.classList.add("hidden");
+        //if (contentRef.current) contentRef.current.scrollTo({ top: 0 });
+        setIndex((i) => i+1<cards.length?i+1:i);
     };
 
     const flip = () => {
@@ -381,7 +382,7 @@ export function DeckPracticePage() {
         setAnswersSinceBreak((prev) => {
             const next = prev + 1;
 
-            if (next >= CARD_THRESHOLD) {
+            if (next >= CARD_THRESHOLD || next >= cards.length ) {
                 setIsBreak(true);   // 进入休息模式
             }
 
