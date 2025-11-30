@@ -41,6 +41,43 @@ create index IF not exists idx_card_stats_user on public.card_stats using btree 
 
 create index IF not exists idx_card_stats_due on public.card_stats using btree (next_due_at) TABLESPACE pg_default;
 
+-- Trigger: auto-calc next_due_at and ensure updated_at
+create or replace function public.set_card_stats_due()
+returns trigger
+language plpgsql
+as $$
+declare
+    v_ease    numeric := coalesce(new.ease_factor, 0);
+    v_correct int     := greatest(coalesce(new.correct_count, 0), 1);
+    v_wrong   int     := greatest(coalesce(new.wrong_count, 0), 1);
+    v_days    numeric := 0;
+    v_base    timestamptz;
+begin
+    -- 统一更新时间戳
+    new.updated_at := now();
+    v_base := new.updated_at;
+
+    if v_ease <= 1.5 then
+        v_days := 0.5 / v_wrong;
+    elsif v_ease <= 2.5 then
+        v_days := 1;
+    elsif v_ease <= 3.5 then
+        v_days := 3;
+    else
+        v_days := 7 * v_correct;
+    end if;
+
+    new.next_due_at := v_base + (v_days || ' days')::interval;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_card_stats_due on public.card_stats;
+create trigger trg_card_stats_due
+before insert or update on public.card_stats
+for each row
+execute function public.set_card_stats_due();
+
 
 create table public.cards (
                               id uuid not null default gen_random_uuid (),
