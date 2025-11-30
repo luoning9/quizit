@@ -217,7 +217,7 @@ export function DeckPracticePage() {
 
             const {data, error} = await supabase
                 .from("card_stats")
-                .select("card_id, review_count, ease_factor, last_reviewed_at")
+                .select("card_id, review_count, correct_count, wrong_count, ease_factor, last_reviewed_at")
                 .gt("review_count", 0)
                 .in("card_id", ids);
 
