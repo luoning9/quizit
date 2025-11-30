@@ -19,6 +19,8 @@ interface CardData {
 interface CardStatsRow {
     card_id: string;
     review_count: number | null;
+    correct_count: number | null;
+    wrong_count: number | null;
     ease_factor: number | null;
     last_reviewed_at: string | null;
 }
@@ -321,12 +323,14 @@ export function DeckPracticePage() {
         const card_id = currentCard.id;
         const now = new Date().toISOString();
 
+        const is_correct = ease_factor >2;
+
         // ------- 1) 记录 card_reviews（一条记录就插入一次） -------
         await supabase.from("card_reviews").insert({
             card_id,
             reviewed_at: now,
             user_answer: null,         // 你目前没有输入作答内容
-            is_correct: null,          // 没有对错概念，写 null
+            is_correct: is_correct,          // 没有对错概念，写 null
             time_spent: null,          // 如果需要计时可以以后加
             meta: {difficulty: ease_factor} // 把点击难度记在 meta 里
         });
@@ -344,8 +348,8 @@ export function DeckPracticePage() {
                 user_id,
                 card_id,
                 review_count: 1,
-                correct_count: 0,
-                wrong_count: 0,
+                correct_count: is_correct ? 1 : 0,
+                wrong_count: is_correct ? 0 : 1,
                 ease_factor,
                 last_reviewed_at: now
             });
@@ -355,16 +359,22 @@ export function DeckPracticePage() {
                 [card_id]: {
                     card_id,
                     review_count: 1,
+                    correct_count: is_correct ? 1 : 0,
+                    wrong_count: is_correct ? 0 : 1,
                     ease_factor,
                     last_reviewed_at: now,
                 },
             }));
         } else {
             const newReviewCount = (existing.review_count || 0) + 1;
+            const newCorrectCount = is_correct ? ((existing.correct_count || 0) + 1) : 0;
+            const newWrongCount = is_correct ? 0 : ((existing.wrong_count || 0) + 1);
             await supabase
                 .from("card_stats")
                 .update({
                     review_count: newReviewCount,
+                    correct_count: newCorrectCount,
+                    wrong_count: newWrongCount,
                     ease_factor,
                     last_reviewed_at: now
                 })
@@ -374,6 +384,8 @@ export function DeckPracticePage() {
                 [card_id]: {
                     card_id,
                     review_count: newReviewCount,
+                    correct_count: newCorrectCount,
+                    wrong_count: newWrongCount,
                     ease_factor,
                     last_reviewed_at: now,
                 },
