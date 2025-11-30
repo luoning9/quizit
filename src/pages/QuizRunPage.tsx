@@ -263,6 +263,56 @@ function QuizRunPage() {
             if (error) {
                 console.error("插入 card_reviews 失败：", error);
             }
+
+            // 同步更新/插入 card_stats
+            if (!userId) return;
+            const now = new Date().toISOString();
+            const { data: existing, error: statErr } = await supabase
+                .from("card_stats")
+                .select("id, review_count, correct_count, wrong_count")
+                .eq("user_id", userId)
+                .eq("card_id", currentQuestion.cardId)
+                .maybeSingle();
+
+            if (statErr) {
+                console.error("查询 card_stats 失败：", statErr);
+                return;
+            }
+
+            const baseReview = Number(existing?.review_count ?? 0);
+            const baseCorrect = Number(existing?.correct_count ?? 0);
+            const baseWrong = Number(existing?.wrong_count ?? 0);
+
+            if (existing?.id) {
+                const { error: updateErr } = await supabase
+                    .from("card_stats")
+                    .update({
+                        review_count: baseReview + 1,
+                        correct_count: baseCorrect + (isCorrect ? 1 : 0),
+                        wrong_count: baseWrong + (isCorrect ? 0 : 1),
+                        last_reviewed_at: now,
+                        ease_factor: isCorrect ? 3.5 : 1.5,
+                    })
+                    .eq("id", existing.id);
+                if (updateErr) {
+                    console.error("更新 card_stats 失败：", updateErr);
+                }
+            } else {
+                const { error: insertErr } = await supabase
+                    .from("card_stats")
+                    .insert({
+                        user_id: userId,
+                        card_id: currentQuestion.cardId,
+                        review_count: 1,
+                        correct_count: isCorrect ? 1 : 0,
+                        wrong_count: isCorrect ? 0 : 1,
+                        last_reviewed_at: now,
+                        ease_factor: isCorrect ? 3.5 : 1.5,
+                    });
+                if (insertErr) {
+                    console.error("插入 card_stats 失败：", insertErr);
+                }
+            }
         })();
 
         setRunResult((prev) => {
