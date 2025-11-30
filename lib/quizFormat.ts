@@ -512,13 +512,21 @@ export function checkAnswer(
         // ===== fill_in_blank: ua=["答案1","答案2",...]，与 slots 一一对应 =====
         case "fill_in_blank": {
             const blankCount = countBlanks(front.prompt);
+            let slotList = slots;
+
+            // 特殊情况：blankCount > 1 但 slots 只有一组答案，
+            // 将该组内的每个元素视为对应空位的答案
+            if (blankCount > 1 && slots.length === 1) {
+                const flat = slots[0] ?? [];
+                slotList = flat.map((ans) => [ans]);
+            }
 
             // 必须一一对应
-            if (blankCount !== slots.length) return false;
+            if (blankCount !== slotList.length) return false;
             if (ua.length !== blankCount) return false;
 
             for (let i = 0; i < blankCount; i++) {
-                const candidates = slots[i] ?? []; // 当前空允许的多个答案
+                const candidates = slotList[i] ?? []; // 当前空允许的多个答案
                 const answerText = ua[i] ?? "";
 
                 const normUser = normalizeText(answerText);
