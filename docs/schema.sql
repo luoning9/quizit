@@ -313,3 +313,134 @@ create table public.quiz_templates (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_quiz_templates_owner on public.quiz_templates using btree (owner_id) TABLESPACE pg_default;
+
+
+CREATE OR REPLACE FUNCTION public.select_practice_cards(_folder_path text, _limit integer, _mode text DEFAULT 'random'::text)
+ RETURNS TABLE(card_id uuid, deck_id uuid, deck_title text, front text, back text)
+ LANGUAGE sql
+AS $function$
+WITH decks_in_scope AS (
+  SELECT
+    d.id,
+    d.title,
+    d.items
+  FROM public.decks d
+  WHERE
+    -- 根目录：_folder_path 为空时，选所有 deck
+    COALESCE(_folder_path, '') = ''
+    OR d.title = _folder_path
+    OR d.title LIKE _folder_path || '/%'
+),
+deck_cards AS (
+  SELECT
+    ds.id AS deck_id,
+    ds.title AS deck_title,
+    (elem->>'card_id')::uuid AS card_id
+  FROM decks_in_scope ds
+  CROSS JOIN LATERAL jsonb_array_elements(ds.items->'items') AS elem
+)
+SELECT
+    c.id AS card_id,
+    dc.deck_id,
+    dc.deck_title,
+    c.front,
+    c.back
+FROM deck_cards dc
+         JOIN public.cards c ON c.id = dc.card_id
+ORDER BY
+    -- ordered 模式：按 deck_id 正序
+    CASE
+        WHEN _mode = 'ordered' THEN dc.deck_id::text
+        ELSE NULL
+        END ASC,
+    -- reverse 模式：按 deck_id 逆序
+    CASE
+        WHEN _mode = 'reverse' THEN dc.deck_id::text
+        ELSE NULL
+        END DESC,
+    -- 其它模式：随机
+random()
+    LIMIT COALESCE(_limit, 20);
+$function$
+
+-- 选择练习卡片（Leitner 策略）：优先到期/未建 stats 的卡片，再随机抽取
+CREATE OR REPLACE FUNCTION public.select_practice_cards_leitner(
+    _folder_path text,
+    _limit integer DEFAULT 20,
+    _mode text DEFAULT 'random'
+)
+RETURNS TABLE(card_id uuid, deck_id uuid, deck_title text, front text, back text)
+LANGUAGE sql
+SECURITY DEFINER
+AS $function$
+WITH decks_in_scope AS (
+    SELECT d.id, d.title, d.items, d.created_at
+    FROM public.decks d
+    WHERE d.owner_id = auth.uid()
+      AND (
+            COALESCE(_folder_path, '') = ''
+         OR d.title = _folder_path
+         OR d.title LIKE _folder_path || '/%'
+      )
+),
+deck_cards AS (
+    SELECT
+        ds.id AS deck_id,
+        ds.title AS deck_title,
+        (elem->>'card_id')::uuid AS card_id,
+        ds.created_at AS deck_created_at
+    FROM decks_in_scope ds
+    CROSS JOIN LATERAL jsonb_array_elements(ds.items->'items') AS elem
+),
+stats_joined AS (
+    SELECT
+        dc.card_id,
+        dc.deck_id,
+        dc.deck_title,
+        cs.next_due_at,
+        cs.user_id
+    FROM deck_cards dc
+    LEFT JOIN public.card_stats cs
+        ON cs.card_id = dc.card_id
+       AND cs.user_id = auth.uid()
+    WHERE cs.card_id IS NULL OR cs.next_due_at <= now()
+),
+due_cards AS (
+    SELECT row_number() OVER (ORDER BY COALESCE(next_due_at, now()) ASC) AS seq,
+           card_id, deck_id, deck_title
+    FROM stats_joined
+    WHERE user_id IS NOT NULL
+    ORDER BY COALESCE(next_due_at, now()) ASC
+    LIMIT 100
+),
+new_cards AS (
+    SELECT row_number() OVER (ORDER BY dc.deck_created_at ASC) AS seq,
+           dc.card_id, dc.deck_id, dc.deck_title
+    FROM deck_cards dc
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.card_stats cs
+        WHERE cs.card_id = dc.card_id AND cs.user_id = auth.uid()
+    )
+    ORDER BY dc.deck_created_at ASC
+    LIMIT 100
+),
+pool AS (
+    SELECT card_id, deck_id, deck_title, seq
+    FROM due_cards
+    UNION ALL
+    SELECT card_id, deck_id, deck_title, seq
+    FROM new_cards
+)
+SELECT
+    c.id AS card_id,
+    p.deck_id,
+    p.deck_title,
+    c.front,
+    c.back
+FROM pool p
+JOIN public.cards c ON c.id = p.card_id
+ORDER BY
+    CASE WHEN _mode = 'ordered' THEN p.seq ELSE NULL END ASC,
+    CASE WHEN _mode = 'random' THEN random() ELSE NULL END
+LIMIT COALESCE(_limit, 20);
+$function$
