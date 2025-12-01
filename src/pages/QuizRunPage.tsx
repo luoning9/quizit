@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useState, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
 import {BookOpen, Loader2, CheckCircle, XCircle} from "lucide-react";
@@ -13,6 +13,7 @@ import {
 } from "../../lib/quizFormat.ts";
 import { useTimer } from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
 import { Button } from "../components/ui/Button";
+import { addCardToWrongBook } from "../../lib/WrongBook.ts";
 
 interface QuizQuestion {
     cardId: string;
@@ -54,6 +55,9 @@ function QuizRunPage() {
     const [showAnswer, setShowAnswer] = useState(false);
     const [finished, setFinished] = useState(false);
     const [hasSubmitted, setHasSubmitted] = useState(false);
+    const actionBtnRef = useRef<HTMLButtonElement | null>(null);
+    const [showFloatingAction, setShowFloatingAction] = useState(false);
+    const [floatingPos, setFloatingPos] = useState<{ left: number; top: number } | null>(null);
 
     // 当前题目的作答：统一 string[]，初始为空数组
     const [currentUserAnswer, setCurrentUserAnswer] = useState<UserAnswer>([]);
@@ -74,7 +78,7 @@ function QuizRunPage() {
             // 1. 读取 quiz_templates
             const {data: tmpl, error: tmplError} = await supabase
                 .from("quiz_templates")
-                .select("id, title, description, items")
+                .select("id, title, description, deck_name, items")
                 .eq("id", templateId)
                 .maybeSingle();
 
@@ -92,6 +96,7 @@ function QuizRunPage() {
                 id: tmpl.id,
                 title: tmpl.title,
                 description: tmpl.description,
+                deck_name: tmpl.deck_name ?? '',
                 item_ids: orderedItems.map((it: { card_id: string; position: number }) => it.card_id) ?? [],
             };
             setTemplate(typedTemplate);
@@ -174,6 +179,24 @@ function QuizRunPage() {
             start();   // 做题阶段 → 开始计时
         }
     }, [showAnswer, start, pause]);
+    useEffect(() => {
+        const updateFloating = () => {
+            const btn = actionBtnRef.current;
+            if (!btn) return;
+            const rect = btn.getBoundingClientRect();
+            const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+            setShowFloatingAction(!isVisible);
+            const top = Math.min(Math.max(rect.bottom + 12, 12), window.innerHeight - 60);
+            setFloatingPos({ left: rect.left, top });
+        };
+        updateFloating();
+        window.addEventListener("scroll", updateFloating, { passive: true });
+        window.addEventListener("resize", updateFloating, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", updateFloating);
+            window.removeEventListener("resize", updateFloating);
+        };
+    }, []);
 
     const totalQuestions = questions.length;
     const currentQuestion = questions[currentIndex] ?? null;
@@ -462,17 +485,64 @@ function QuizRunPage() {
                         )}
                     </div>
                     {/* 统一一个按钮：未显示答案时是“提交答案”，显示答案后变成“下一题” */}
+                    {!(showAnswer && currentCorrect === false) && (
+                        <Button
+                            type="button"
+                            variant={showAnswer ? "primary" : "outline"}
+                            className={showAnswer ? "w-40 text-2xl" : "w-40 text-lg"}
+                            ref={actionBtnRef}
+                            onClick={showAnswer ? handleNextQuestion : handleSubmitAnswer}
+                        >
+                            {showAnswer ? "➤" : "提交答案"}
+                        </Button>
+                    )}
+                    {showAnswer && currentCorrect === false && (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <Button
+                                type="button"
+                                variant="none"
+                                onClick={() => {
+                                    if (currentQuestion) {
+                                        void addCardToWrongBook(template?.deck_name ?? "", currentQuestion.cardId);
+                                    }
+                                    handleNextQuestion();
+                                }}
+                                className="bg-orange-500 hover:bg-orange-600 text-slate-100 px-4 py-2 rounded font-normal"
+                            >
+                                太难了
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="none"
+                                onClick={handleNextQuestion}
+                                className="bg-blue-500 hover:bg-blue-600 text-slate-100 px-4 py-2 rounded font-normal"
+                            >
+                                大意了
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {showFloatingAction && (
+                <div className="fixed z-40" style={{
+                    left: floatingPos?.left ?? 0,
+                    top: Math.max(floatingPos?.top ?? window.innerHeight / 2, window.innerHeight / 2),
+                }}>
                     <Button
                         type="button"
                         variant={showAnswer ? "primary" : "outline"}
-                        className={showAnswer ? "w-40 text-2xl" : "w-40 text-lg"}
-                        onClick={showAnswer ? handleNextQuestion : handleSubmitAnswer}
+                        className={showAnswer ? "w-40 text-2xl" : "w-40 text-lg shadow-lg border-dashed"}
+                        onClick={() => {
+                            (showAnswer ? handleNextQuestion : handleSubmitAnswer)();
+                            setShowFloatingAction(false);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                     >
                         {showAnswer ? "➤" : "提交答案"}
                     </Button>
                 </div>
-            </div>
-
+            )}
         </div>
     );
 }

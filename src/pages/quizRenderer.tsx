@@ -303,6 +303,7 @@ export interface QuizTemplate {
     id: string;
     title: string;
     description: string | null;
+    deck_name: string;
     item_ids: string [];
 }
 export interface QuizItemResult {
