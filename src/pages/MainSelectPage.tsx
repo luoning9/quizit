@@ -2,6 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import {Folder, Layers} from "lucide-react";
+import { DeckStatus } from "../components/DeckStatus";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 /**
@@ -277,33 +278,39 @@ export function MainSelectPage() {
 
         {/* 下方两列 */}
         <div className="grid grid-cols-1 md:grid-cols-[4fr_3fr] gap-6 items-start">
-            {/* 左侧：子目录 */}
-            <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
+            <div className="flex flex-col gap-3">
+                {currentNode?.isDeck && currentNode.deckId && (
+                    <DeckStatus deckId={currentNode.deckId} />
+                )}
 
-                {loading ? (
-                    <div className="text-xs text-muted">正在载入目录统计…</div>) : childNodes.length === 0 ? (
-                    <div className="text-xs text-muted">这个目录下没有子目录。</div>) : (
-                    <div className="flex flex-col gap-2">
-                        {childNodes.map((node) => (<button
-                            key={node.fullPath}
-                            onClick={() => setSelectedPath(node.fullPath)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-slate-800/70"
-                        >
-                            <div className="grid grid-cols-[0.6fr_2fr_2fr_2fr] items-center gap-2 w-full">
-                                {node.isDeck ? (
-                                    <Layers size={18} className="text-amber-500"/>     // ⭐ deck 图标
-                                ) : (
-                                    <Folder size={18} className="text-slate-500"/>   // ⭐ 目录图标
-                                )}
-                                {/* 名称 + 统计信息 同一行 */}
-                                <span className="text-sm  text-left">{node.name}</span>
-                                <span
-                                    className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
-                                <span>{calcProgress(node)}%</span>
-                            </div>
-                        </button>))}
-                    </div>)}
-            </section>
+                {/* 左侧：子目录 */}
+                <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
+
+                    {loading ? (
+                        <div className="text-xs text-muted">正在载入目录统计…</div>) : childNodes.length === 0 ? (
+                        <div className="text-xs text-muted">这个目录下没有子目录。</div>) : (
+                        <div className="flex flex-col gap-2">
+                            {childNodes.map((node) => (<button
+                                key={node.fullPath}
+                                onClick={() => setSelectedPath(node.fullPath)}
+                                className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-slate-800/70"
+                            >
+                                <div className="grid grid-cols-[0.6fr_2fr_2fr_2fr] items-center gap-2 w-full">
+                                    {node.isDeck ? (
+                                        <Layers size={18} className="text-amber-500"/>     // ⭐ deck 图标
+                                    ) : (
+                                        <Folder size={18} className="text-slate-500"/>   // ⭐ 目录图标
+                                    )}
+                                    {/* 名称 + 统计信息 同一行 */}
+                                    <span className="text-sm  text-left">{node.name}</span>
+                                    <span
+                                        className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
+                                    <span>{calcProgress(node)}%</span>
+                                </div>
+                            </button>))}
+                        </div>)}
+                </section>
+            </div>
 
             {/* 右侧：测验列表 + 新增按钮 */}
             <div className="flex flex-col gap-3">

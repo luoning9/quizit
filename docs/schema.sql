@@ -403,7 +403,7 @@ stats_joined AS (
     LEFT JOIN public.card_stats cs
         ON cs.card_id = dc.card_id
        AND cs.user_id = auth.uid()
-    WHERE cs.card_id IS NULL OR cs.next_due_at <= now() + interval '2 days'
+    WHERE cs.card_id IS NULL OR cs.next_due_at IS NULL OR cs.next_due_at <= now() + interval '2 days'
 ),
 due_cards AS (
     SELECT row_number() OVER (ORDER BY COALESCE(next_due_at, now()) ASC) AS seq,
