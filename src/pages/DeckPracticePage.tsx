@@ -7,6 +7,8 @@ import {Button} from "../components/ui/Button";
 import clsx from "clsx";
 import {useTimer} from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
 import {DotRender} from "../components/ui/DotRender";
+import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
+import { renderPrompt, renderAnswer } from "./quizRenderer";
 
 interface CardData {
     id: string;
@@ -100,7 +102,6 @@ export function DeckPracticePage() {
 
     const [index, setIndex] = useState(0);
     const [showBack, setShowBack] = useState(false);
-    const contentRef = useRef<HTMLDivElement | null>(null);
     const frontRef = useRef<HTMLDivElement | null>(null);
     const backRef = useRef<HTMLDivElement | null>(null);
     const dividerRef = useRef<HTMLDivElement | null>(null);
@@ -174,7 +175,8 @@ export function DeckPracticePage() {
                             .from("quizit_card_medias")
                             .list(`${cid}`);
                         if (!listErr && list && list.length > 0) {
-                            mediaMap[cid] = list.map((f) => ({name: f.name, id: (f as any)?.id}));
+                            const typedList = list as { name: string; id?: string }[];
+                            mediaMap[cid] = typedList.map((f) => ({name: f.name, id: f.id}));
                         }
                     } catch (e) {
                         console.error(e);
@@ -262,13 +264,11 @@ export function DeckPracticePage() {
         if (showBack) flip();
         //setShowBack(false);
         //if (backRef.current) backRef.current.classList.add("hidden");
-        //if (contentRef.current) contentRef.current.scrollTo({ top: 0 });
         setIndex((i) => i+1<cards.length?i+1:i);
     };
 
     const flip = () => {
-        const container = contentRef.current;
-        const front = frontRef.current;
+        //const front = frontRef.current;
         const back = backRef.current;
         const divider = dividerRef.current;
 
@@ -279,20 +279,12 @@ export function DeckPracticePage() {
             if (back) back.classList.remove("hidden");
             if (divider) divider.classList.remove("hidden");
             setShowBack(true);
-            if (container && front) {
-                container.scrollTo({
-                    top: front.offsetHeight + 8,
-                    behavior: "smooth",
-                });
-            }
+            window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
         } else {
             // 隐藏背面，回到顶部
             if (back) back.classList.add("hidden");
             if (divider) divider.classList.add("hidden");
             setShowBack(false);
-            if (container) {
-                container.scrollTo({ top: 0, behavior: "smooth" });
-            }
         }
     };
 
@@ -403,14 +395,14 @@ export function DeckPracticePage() {
     }
 
     // 5. 状态渲染
-    // 5. 状态渲染
     if (loading) return <div>正在抽取练习卡片…</div>;
     if (!deckName) return <div className="text-sm text-slate-500">未找到该题库或目录。</div>;
     if (cards.length === 0) return <div className="text-sm text-slate-500">当前目录下暂无可练习的卡片。</div>;
 
     const current = cards[index];
     const currentStats = cardStatsMap[current.id];
-//    const difficultyLevel = currentStats?.ease_factor;
+    const frontSchema = parseFront(current.front);
+    //    const difficultyLevel = currentStats?.ease_factor;
     const reviewCount = currentStats?.review_count ?? 0;
     const completionRatio = (() => {
         if (cards.length === 0) return 0;
@@ -425,8 +417,10 @@ export function DeckPracticePage() {
             / ((folderStats?.total_items ?? 0) * 4);
     })();
     const completionText = (completionRatio * 100).toFixed(0) + "%";
+
     const frontClean = trimEmptyLines(current.front);
     const backClean = trimEmptyLines(current.back);
+    const backSchema = parseBack(current.back);
     const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(frontClean);
     const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(backClean);
     const isDarkMode =
@@ -545,8 +539,7 @@ export function DeckPracticePage() {
                     <div className="relative w-full h-full min-h-[52vh] flex flex-col group">
                         {/* 正反面区域 */}
                         <div
-                            ref={contentRef}
-                            className="mt-2 flex-1 max-h-[46vh] flex flex-col justify-start items-stretch overflow-y-auto cursor-pointer gap-3"
+                            className="mt-2 flex-1 min-h-0 flex flex-col justify-start items-stretch cursor-pointer gap-3"
                             onClick={flip}
                             onMouseEnter={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
                             onMouseLeave={() => setHoverInfo("")}
@@ -579,7 +572,13 @@ export function DeckPracticePage() {
                                             <span className="sr-only">查看图示</span>
                                         </button>
                                     ))}
-                                {frontClean}
+                                {frontSchema
+                                    ? renderPrompt(frontSchema, {
+                                        userAnswer: [] as UserAnswer,
+                                        setUserAnswer: undefined,
+                                        disabled: true,
+                                    })
+                                    : frontClean}
                             </div>
                             {/* 卡片背面（始终显示） */}
                             <div
@@ -610,7 +609,9 @@ export function DeckPracticePage() {
                                         <span className="sr-only">查看图示</span>
                                     </button>
                                 ))}
-                                {backClean}
+                                {frontSchema && backSchema
+                                    ? renderAnswer(frontSchema, backSchema)
+                                    : backClean}
                             </div>
                         </div>
                         {hoverInfo && (

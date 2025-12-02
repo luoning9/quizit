@@ -40,7 +40,7 @@ export function renderPrompt(
 
     // ===== 仅题干文本部分 =====
     const renderPromptText = () => {
-        const promptTextClass = "text-base text-slate-900 dark:text-slate-50";
+        const promptTextClass = "text-lg";//"text-slate-900 dark:text-slate-50";
         const renderFillPrompt = () => {
             const rendered = front.prompt.replace(/\{\{(\d+)}}/g, (_, num) => `[blank ${num}]`);
             return (
@@ -66,9 +66,41 @@ export function renderPrompt(
         }
     };
 
-    // 如果没传 setUserAnswer，只展示题干，不渲染答题控件（兼容其他页面）
+    // 如果没传 setUserAnswer，只展示题干；对选择题继续展示选项但不可互动
     if (!setUserAnswer) {
-        return <div>{renderPromptText()}</div>;
+        return (
+            <div>
+                {renderPromptText()}
+                {front.type === "single_choice" && front.options && (
+                    <ul className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                        {front.options.map((opt, idx) => {
+                            const code = indexToLetter(idx);
+                            const cleanText = stripChoicePrefix(opt);
+                            return (
+                                <li key={code} className="flex items-center gap-2">
+                                    <span className="font-semibold">{code}.</span>
+                                    <MarkdownText inline content={cleanText} className="text-sm" />
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+                {front.type === "multiple_choice" && front.options && (
+                    <ul className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                        {front.options.map((opt, idx) => {
+                            const code = indexToLetter(idx);
+                            const cleanText = stripChoicePrefix(opt);
+                            return (
+                                <li key={code} className="flex items-center gap-2">
+                                    <span className="font-semibold">{code}.</span>
+                                    <MarkdownText inline content={cleanText} className="text-sm" />
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </div>
+        );
     }
 
     // ===== 答题控件部分 =====
