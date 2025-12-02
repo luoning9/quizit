@@ -67,12 +67,19 @@ function getContentSizeClass(content: string): { sizeClass: string; alignClass: 
     const lineCount = lines.length;
     const len = trimmed.length;
 
-    if (lineCount > 10 || len > 600) return {sizeClass: "text-sm leading-relaxed", alignClass: "text-left items-start"};
-    if (lineCount > 6 || len > 300) return {
-        sizeClass: "text-base leading-relaxed",
+    if (lineCount > 10 || len > 300) return {
+        sizeClass: "leading-relaxed",
         alignClass: "text-left items-start"
     };
-    return {sizeClass: "text-lg leading-relaxed", alignClass: "text-center items-center"};
+    if (lineCount > 6 || len > 120) return {
+        sizeClass: "text-lg leading-relaxed",
+        alignClass: "text-left items-start"
+    };
+    if (lineCount > 2 || len > 60) return {
+        sizeClass: "text-xl leading-relaxed",
+        alignClass: "text-left items-start"
+    };
+    return {sizeClass: "text-2xl leading-relaxed", alignClass: "text-center items-center"};
 }
 
 function trimEmptyLines(content: string): string {
@@ -615,7 +622,7 @@ export function DeckPracticePage() {
                             </div>
                         </div>
                         {hoverInfo && (
-                            <div className="mt-auto text-center opacity-70 transition-opacity duration-200 pb-0 text-xs text-slate-500 dark:text-slate-300">
+                            <div className="mt-auto text-center opacity-70 transition-opacity duration-200 pb-0 text-base text-slate-500 dark:text-slate-300">
                                 {hoverInfo}
                             </div>
                         )}

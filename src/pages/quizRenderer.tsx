@@ -40,7 +40,7 @@ export function renderPrompt(
 
     // ===== 仅题干文本部分 =====
     const renderPromptText = () => {
-        const promptTextClass = "text-lg";//"text-slate-900 dark:text-slate-50";
+        const promptTextClass = "";//"text-slate-900 dark:text-slate-50";
         const renderFillPrompt = () => {
             const rendered = front.prompt.replace(/\{\{(\d+)}}/g, (_, num) => `[blank ${num}]`);
             return (
@@ -257,11 +257,11 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
         const main = slots[0].join(" / ");
         return (
             <div className="space-y-2">
-                <div className="text-sm text-emerald-700 dark:text-emerald-200">
+                <div className="">
                     <MarkdownText content={main} />
                 </div>
                 {back.explanation && (
-                    <div className="text-xs text-slate-700 dark:text-slate-300">
+                    <div className="text-sm">
                         <MarkdownText content={back.explanation} />
                     </div>
                 )}
