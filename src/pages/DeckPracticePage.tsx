@@ -549,7 +549,7 @@ export function DeckPracticePage() {
                             className="mt-2 flex-1 min-h-0 flex flex-col justify-start items-stretch cursor-pointer gap-3"
                             onClick={flip}
                             onMouseEnter={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
-                            onMouseLeave={() => setHoverInfo("")}
+                            onMouseLeave={() => setHoverInfo("...")}
                             role="button"
                             aria-label={showBack ? "查看题目" : "查看答案"}
                         >
