@@ -454,7 +454,7 @@ function QuizRunPage() {
             {/* 题卡 + 右侧按钮 */}
             <div className="w-full flex items-start gap-4 mb-6">
                 {/* 问题卡片 */}
-                <div className="min-h-32 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm p-6 dark:border-slate-700 dark:bg-slate-900/80">
+                <div className="min-h-32 flex-1 min-w-[320px] rounded-2xl border border-slate-200 bg-white shadow-sm p-6 dark:border-slate-700 dark:bg-slate-900/80">
                     <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">题目</div>
                     <div className="text-base text-slate-900 dark:text-slate-50">
                         {currentQuestion &&
