@@ -456,7 +456,7 @@ export function DeckPracticePage() {
 
     return (
         <div className="space-y-6">
-            <div className="mb-4 flex items-center justify-start gap-4">
+            <div className="mb-4 flex items-center justify-start gap-6">
                 {/* 左：标题 */}
                 <div>
                     <h1 className="text-xl font-semibold">{deckName}</h1>
@@ -520,6 +520,15 @@ export function DeckPracticePage() {
                         {completionText}
                     </div>
                 </div>
+                <Button
+                    variant="ghost"
+                    className="w-20 ml-4 px-3 py-2"
+                    onClick={() => navigate(`/?path=${deckName}`)}
+                    title="退出到目录"
+                >
+                    <LogOut className="w-8 h-8" aria-hidden />
+
+                </Button>
             </div>
 
             {/* 主区域：闪卡 */}
@@ -733,4 +742,4 @@ function BreakScreen({
         </div>
     );
 }
-import { Image as ImageIcon, X as XIcon } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, LogOut } from "lucide-react";
