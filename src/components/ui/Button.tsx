@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import React, { type ButtonHTMLAttributes, type ReactNode } from "react";
 import clsx from "clsx";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline" | "link" | "none";
@@ -12,13 +12,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
  * 通用按钮（支持 light/dark 主题）
  */
-export function Button({
-                           children,
-                           variant = "primary",
-                           className = "",
-                           disabled,
-                           ...rest
-                       }: ButtonProps) {
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+    {
+        children,
+        variant = "primary",
+        className = "",
+        disabled,
+        ...rest
+    }: ButtonProps,
+    ref
+) {
     const base =
         "inline-flex items-center justify-center rounded-xl font-medium transition-colors px-4 py-2 disabled:opacity-50 disabled:pointer-events-none";
 
@@ -62,6 +65,7 @@ export function Button({
 
     return (
         <button
+            ref={ref}
             disabled={disabled}
             className={clsx(base, variants[variant], className)}
             {...rest}
@@ -69,4 +73,4 @@ export function Button({
             {children}
         </button>
     );
-}
+});
