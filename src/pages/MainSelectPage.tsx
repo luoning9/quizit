@@ -50,6 +50,7 @@ interface QuizTemplate {
 
 type NavContext = {
     setNavDueCount?: (n: number) => void;
+    setNavRecentNewCount?: (n: number) => void;
 };
 
 // 根据 view 的 path 构造目录树

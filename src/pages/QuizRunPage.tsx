@@ -487,7 +487,6 @@ function QuizRunPage() {
                     {/* 统一一个按钮：未显示答案时是“提交答案”，显示答案后变成“下一题” */}
                     {!(showAnswer && currentCorrect === false) && (
                         <Button
-                            type="button"
                             variant={showAnswer ? "primary" : "outline"}
                             className={showAnswer ? "w-40 text-2xl" : "w-40 text-lg"}
                             ref={actionBtnRef}

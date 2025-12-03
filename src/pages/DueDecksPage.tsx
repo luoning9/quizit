@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
 import { useNavigate } from "react-router-dom";
