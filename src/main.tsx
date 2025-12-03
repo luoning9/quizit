@@ -16,6 +16,7 @@ import QuizResultPage from "./pages/QuizResultPage";
 import "katex/dist/katex.min.css";
 import './index.css';
 import NewDecksPage from "./pages/NewDecksPage";
+import DueDecksPage from "./pages/DueDecksPage";
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
@@ -38,6 +39,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/decks/:deckId/edit" element={<DeckEditPage />} />
                     <Route path="/decks/new" element={<NewDeckPage />} />
                     <Route path="/decks/newest" element={<NewDecksPage />} />
+                    <Route path="/decks/due" element={<DueDecksPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

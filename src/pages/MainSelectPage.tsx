@@ -3,7 +3,7 @@ import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import {Folder, Layers} from "lucide-react";
 import { DeckStatus } from "../components/DeckStatus";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
 /**
  * 来自 view：deck_folder_stats 的记录
@@ -15,9 +15,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 type DeckStat = {
     deck_id: string;
     deck_name: string;
+    deck_created_at?: string | null;
     item_count: number;
     learned_count?: number;
     due_count?: number;
+    recent_unlearned_count?: number;
     ease_sum: number;
 };
 
@@ -30,6 +32,7 @@ interface DeckTreeNode {
     totalEaseFactor: number;
     learnedCount: number;
     dueCount: number;
+    recentUnlearnedCount: number;
     isDeck: boolean;
     deckId: string;
 }
@@ -45,10 +48,14 @@ interface QuizTemplate {
     last_attempt_at: string | null;
 }
 
+type NavContext = {
+    setNavDueCount?: (n: number) => void;
+};
+
 // 根据 view 的 path 构造目录树
 function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
     const root: DeckTreeNode = {
-        name: "", fullPath: "", children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, isDeck: false, deckId: "",
+        name: "", fullPath: "", children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, recentUnlearnedCount: 0, isDeck: false, deckId: "",
     };
 
     const ensureChild = (parent: DeckTreeNode, name: string): DeckTreeNode => {
@@ -57,9 +64,9 @@ function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
 
             const fullPath = parent.fullPath ? `${parent.fullPath}/${name}` : name;
 
-            const node: DeckTreeNode = {
-                name, fullPath, children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, isDeck: false, deckId: "",
-            };
+        const node: DeckTreeNode = {
+            name, fullPath, children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, recentUnlearnedCount: 0, isDeck: false, deckId: "",
+        };
 
             parent.children.push(node);
             return node;
@@ -81,6 +88,7 @@ function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
         const learned = row.learned_count ?? 0;
         const due = row.due_count ?? 0;
         const ease = row.ease_sum ?? 0;
+        const recentUnlearned = row.recent_unlearned_count ?? 0;
 
         // 累加到路径上的每个节点（含自身）
         pathNodes.forEach((node) => {
@@ -89,6 +97,7 @@ function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
             node.totalEaseFactor += ease;
             node.learnedCount += learned;
             node.dueCount += due;
+            node.recentUnlearnedCount += recentUnlearned;
         });
 
         // 叶子节点标记 deck 信息
@@ -124,6 +133,7 @@ export function MainSelectPage() {
     const initialPath = searchParams.get("path") || "";
 
     const navigate = useNavigate();
+    const { setNavDueCount, setNavRecentNewCount } = useOutletContext<NavContext>();
     const [deckStats, setDeckStats] = useState<DeckStat[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPath, setSelectedPath] = useState(initialPath);
@@ -177,7 +187,7 @@ export function MainSelectPage() {
             setLoading(true);
             const {data, error} = await supabase
                 .from("user_deck_stats_view")
-                .select("deck_id, deck_name, item_count, learned_count, due_count, ease_sum")
+                .select("deck_id, deck_name, item_count, learned_count, due_count, ease_sum, recent_unlearned_count")
                 .order("deck_name", {ascending: true});
 
             if (error) {
@@ -192,6 +202,14 @@ export function MainSelectPage() {
     }, []);
 
     const tree = useMemo(() => buildDeckTree(deckStats), [deckStats]);
+    useEffect(() => {
+        if (setNavDueCount) {
+            setNavDueCount(tree.dueCount ?? 0);
+        }
+        if (setNavRecentNewCount) {
+            setNavRecentNewCount(tree.recentUnlearnedCount ?? 0);
+        }
+    }, [tree.dueCount, tree.recentUnlearnedCount, setNavDueCount, setNavRecentNewCount]);
     const currentNode = useMemo(() => findNodeByPath(tree, selectedPath), [tree, selectedPath]);
 
     const childNodes = useMemo(() => currentNode.children

@@ -482,11 +482,11 @@ select
   cs.next_due_at,
   cs.ease_factor
 from deck_cards dc
+left join public.cards c on c.id = dc.card_id
 left join public.card_stats cs
   on cs.card_id = dc.card_id
  and cs.user_id = auth.uid();
 
--- 用户目录统计视图：基于 user_card_stats_view 聚合
 -- 用户 deck 统计视图
 create or replace view public.user_deck_stats_view as
 select
@@ -496,7 +496,8 @@ select
     count(*) as item_count,
     sum(case when learned then 1 else 0 end) as learned_count,
     sum(case when (learned and next_due_at is null) or next_due_at <= now() then 1 else 0 end) as due_count,
-    sum(coalesce(ease_factor, 0)) as ease_sum
+    sum(coalesce(ease_factor, 0)) as ease_sum,
+    sum(case when learned = false and card_created_at >= now() - interval '7 days' then 1 else 0 end) as recent_unlearned_count
 from public.user_card_stats_view
 group by deck_id, deck_name, deck_created_at;
 

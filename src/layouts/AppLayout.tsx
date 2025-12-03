@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useTimer } from "../components/TimerContext";
 import { Button } from "../components/ui/Button";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Sparkles, Bell } from "lucide-react";
 
 function TimerBar() {
     const { seconds } = useTimer();
@@ -38,6 +38,8 @@ export function AppLayout() {
 
     const navigate = useNavigate();
     const location = useLocation();
+    const [navRecentNewCount, setNavRecentNewCount] = useState<number>(0);
+    const [navDueCount, setNavDueCount] = useState<number>(0);
 
 
     // 登录状态监听
@@ -107,6 +109,32 @@ export function AppLayout() {
                     {/* 右侧导航 + 用户 + 主题切换 */}
                     <nav className="flex items-center gap-3 text-sm text-white dark:text-slate-200">
                         <TimerBar />
+                        <Button
+                            variant="ghost"
+                            className="text-base text-white dark:text-slate-200"
+                            onClick={() => navigate("/decks/newest")}
+                        >
+                            <Sparkles size={14} className="mr-1" />
+                            新卡片
+                            {navRecentNewCount > 0 && (
+                                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-yellow-400 text-slate-900 text-[10px] font-semibold leading-none">
+                                    {navRecentNewCount >= 100 ? "99+" : navRecentNewCount}
+                                </span>
+                            )}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className="text-base text-white dark:text-slate-200"
+                            onClick={() => navigate("/decks/due")}
+                        >
+                            <Bell size={14} className="mr-1" />
+                            待复习
+                            {navDueCount > 0 && (
+                                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
+                                    {navDueCount >= 100 ? "99+" : navDueCount}
+                                </span>
+                            )}
+                        </Button>
 
                         {/* 登录 / 用户信息 */}
                         {user ? (
@@ -154,7 +182,7 @@ export function AppLayout() {
 
             {/* 页面内容 */}
             <main className="mx-auto max-w-5xl px-4 py-6 bg-white/90 dark:bg-slate-900/70 rounded-2xl shadow-sm dark:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)]">
-                <Outlet />
+                <Outlet context={{ setNavDueCount, setNavRecentNewCount }} />
             </main>
         </div>
     );

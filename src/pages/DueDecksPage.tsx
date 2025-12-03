@@ -45,7 +45,7 @@ export default function DueDecksPage() {
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-6 text-slate-900 dark:text-slate-100 text-base">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">待复习的 Deck</h1>
+          <h1 className="text-2xl font-semibold">需要复习的知识主题</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             按待复习数量降序，快速进入复习
           </p>
