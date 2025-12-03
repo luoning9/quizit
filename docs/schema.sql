@@ -140,26 +140,26 @@ with
         group by
         card_ease.deck_id
         ),
-        paths as (
-        select
-        b.deck_id,
-        b.item_count,
-        COALESCE(e.ease_sum, 0::numeric) as ease_sum,
-        regexp_split_to_array(b.title, '/'::text) as parts
-        from
-        base b
-        left join deck_ease e on e.deck_id = b.deck_id
-        ),
-        prefixes as (
-        select
-        paths.deck_id,
-        paths.item_count,
-        paths.ease_sum,
-        array_to_string(paths.parts[1:s.i], '/'::text) as path
-        from
-        paths,
-        lateral generate_subscripts(paths.parts, 1) s (i)
-        )
+paths as (
+    select
+    b.deck_id,
+    b.item_count,
+    COALESCE(e.ease_sum, 0::numeric) as ease_sum,
+    regexp_split_to_array(b.title, '/'::text) as parts
+    from
+    base b
+    left join deck_ease e on e.deck_id = b.deck_id
+    ),
+    prefixes as (
+    select
+    paths.deck_id,
+    paths.item_count,
+    paths.ease_sum,
+    array_to_string(paths.parts[1:s.i], '/'::text) as path
+    from
+    paths,
+    lateral generate_subscripts(paths.parts, 1) s (i)
+    )
 select
     path,
     (
@@ -363,7 +363,6 @@ random()
     LIMIT COALESCE(_limit, 20);
 $function$
 
--- 选择练习卡片（Leitner 策略）：优先到期/未建 stats 的卡片，再随机抽取
 CREATE OR REPLACE FUNCTION public.select_practice_cards_leitner(
     _folder_path text,
     _limit integer DEFAULT 20,
@@ -444,3 +443,106 @@ ORDER BY
     CASE WHEN _mode = 'random' THEN random() ELSE NULL END
 LIMIT COALESCE(_limit, 20);
 $function$
+
+-- 每个 deck 的卡片数量和未学习数量
+create or replace view public.deck_card_overview as
+select
+  d.id   as deck_id,
+  d.title as deck_name,
+  count(elem.*) as card_count,
+  count(*) filter (where cs.card_id is null) as unlearned_count
+from public.decks d
+left join lateral jsonb_array_elements(d.items->'items') elem on true
+left join public.card_stats cs
+  on cs.card_id = (elem->>'card_id')::uuid
+ and cs.user_id = auth.uid()
+where d.owner_id = auth.uid()
+group by d.id, d.title;
+
+-- 用户卡片视图：每张卡片的学习状态（带 deck 信息）
+create or replace view public.user_card_stats_view as
+with deck_cards as (
+    select
+        d.id as deck_id,
+        d.title as deck_name,
+        d.created_at as deck_created_at,
+        (elem->>'card_id')::uuid as card_id
+    from public.decks d
+    cross join lateral jsonb_array_elements(d.items->'items') elem
+    where d.owner_id = auth.uid()
+)
+select
+  dc.card_id,
+  dc.deck_id,
+  dc.deck_name,
+  dc.deck_created_at,
+  c.created_at as card_created_at,
+  cs.id is not null as learned,
+  cs.last_reviewed_at as reviewed_at,
+  cs.next_due_at,
+  cs.ease_factor
+from deck_cards dc
+left join public.card_stats cs
+  on cs.card_id = dc.card_id
+ and cs.user_id = auth.uid();
+
+-- 用户目录统计视图：基于 user_card_stats_view 聚合
+-- 用户 deck 统计视图
+create or replace view public.user_deck_stats_view as
+select
+    deck_id,
+    deck_name,
+    deck_created_at,
+    count(*) as item_count,
+    sum(case when learned then 1 else 0 end) as learned_count,
+    sum(case when (learned and next_due_at is null) or next_due_at <= now() then 1 else 0 end) as due_count,
+    sum(coalesce(ease_factor, 0)) as ease_sum
+from public.user_card_stats_view
+group by deck_id, deck_name, deck_created_at;
+
+-- 用户目录统计视图：基于 user_deck_stats_view 聚合
+create or replace view public.user_folder_stats_view as
+with deck_base as (
+    select * from public.user_deck_stats_view
+),
+paths as (
+    select
+        b.deck_id,
+        b.deck_name,
+        b.item_count,
+        b.learned_count,
+        b.due_count,
+        b.ease_sum,
+        regexp_split_to_array(b.deck_name, '/'::text) as parts
+    from deck_base b
+),
+prefixes as (
+    select
+        paths.deck_id,
+        paths.item_count,
+        paths.learned_count,
+        paths.due_count,
+        paths.ease_sum,
+        array_to_string(paths.parts[1:s.i], '/'::text) as path
+    from paths,
+         lateral generate_subscripts(paths.parts, 1) s(i)
+)
+select
+    path,
+    (
+        select id from decks d
+        where d.title = p.path and d.owner_id = auth.uid()
+        limit 1
+    ) as deck_id,
+    count(distinct deck_id) as deck_count,
+    sum(item_count) as total_items,
+    sum(learned_count) as total_learned,
+    sum(due_count) as total_due,
+    sum(ease_sum) as total_ease_factor,
+    exists (
+        select 1 from decks d
+        where d.title = p.path and d.owner_id = auth.uid()
+    ) as is_deck
+from prefixes p
+group by path
+order by path;

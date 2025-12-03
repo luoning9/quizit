@@ -12,14 +12,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
  * total_items     该节点下（含子节点）的 items 总数
  * total_ease_factor 该节点下所有已学习卡片的 ease_factor 之和
  */
-interface FolderStats {
-    path: string;
-    deck_count: number;
-    total_items: number;
-    total_ease_factor: number;
-    //is_deck: boolean;
+type DeckStat = {
     deck_id: string;
-}
+    deck_name: string;
+    item_count: number;
+    learned_count?: number;
+    due_count?: number;
+    ease_sum: number;
+};
 
 interface DeckTreeNode {
     name: string;
@@ -28,6 +28,8 @@ interface DeckTreeNode {
     deckCount: number;
     totalItems: number;
     totalEaseFactor: number;
+    learnedCount: number;
+    dueCount: number;
     isDeck: boolean;
     deckId: string;
 }
@@ -44,39 +46,52 @@ interface QuizTemplate {
 }
 
 // 根据 view 的 path 构造目录树
-function buildDeckTree(stats: FolderStats[]): DeckTreeNode {
+function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
     const root: DeckTreeNode = {
-        name: "", fullPath: "", children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, isDeck: false, deckId: "",
+        name: "", fullPath: "", children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, isDeck: false, deckId: "",
     };
 
     const ensureChild = (parent: DeckTreeNode, name: string): DeckTreeNode => {
-        const existing = parent.children.find((c) => c.name === name);
-        if (existing) return existing;
+            const existing = parent.children.find((c) => c.name === name);
+            if (existing) return existing;
 
-        const fullPath = parent.fullPath ? `${parent.fullPath}/${name}` : name;
+            const fullPath = parent.fullPath ? `${parent.fullPath}/${name}` : name;
 
-        const node: DeckTreeNode = {
-            name, fullPath, children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, isDeck: false, deckId: "",
+            const node: DeckTreeNode = {
+                name, fullPath, children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, isDeck: false, deckId: "",
+            };
+
+            parent.children.push(node);
+            return node;
         };
 
-        parent.children.push(node);
-        return node;
-    };
-
     for (const row of stats) {
-        if (!row.path) continue;
-        const parts = row.path.split("/").filter(Boolean);
+        if (!row.deck_name) continue;
+        const parts = row.deck_name.split("/").filter(Boolean);
         if (parts.length === 0) continue;
 
         let current = root;
+        const pathNodes: DeckTreeNode[] = [root];
         for (const part of parts) {
             current = ensureChild(current, part);
+            pathNodes.push(current);
         }
 
-        // 将 view 中的统计挂到对应节点上
-        current.deckCount = row.deck_count ?? 0;
-        current.totalItems = row.total_items ?? 0;
-        current.totalEaseFactor = row.total_ease_factor ?? 0;
+        const items = row.item_count ?? 0;
+        const learned = row.learned_count ?? 0;
+        const due = row.due_count ?? 0;
+        const ease = row.ease_sum ?? 0;
+
+        // 累加到路径上的每个节点（含自身）
+        pathNodes.forEach((node) => {
+            node.deckCount += 1;
+            node.totalItems += items;
+            node.totalEaseFactor += ease;
+            node.learnedCount += learned;
+            node.dueCount += due;
+        });
+
+        // 叶子节点标记 deck 信息
         current.deckId = row.deck_id;
         current.isDeck = row.deck_id != null;
     }
@@ -109,7 +124,7 @@ export function MainSelectPage() {
     const initialPath = searchParams.get("path") || "";
 
     const navigate = useNavigate();
-    const [folderStats, setFolderStats] = useState<FolderStats[]>([]);
+    const [deckStats, setDeckStats] = useState<DeckStat[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPath, setSelectedPath] = useState(initialPath);
     const [quizTemplates, setQuizTemplates] = useState<QuizTemplate[]>([]);
@@ -161,14 +176,14 @@ export function MainSelectPage() {
         async function loadFolderStats() {
             setLoading(true);
             const {data, error} = await supabase
-                .from("deck_folder_stats")
-                .select("path, deck_count, total_items, total_ease_factor, deck_id")
-                .order("path", {ascending: true});
+                .from("user_deck_stats_view")
+                .select("deck_id, deck_name, item_count, learned_count, due_count, ease_sum")
+                .order("deck_name", {ascending: true});
 
             if (error) {
                 console.error("Error loading deck_folder_stats:", error);
             } else if (data) {
-                setFolderStats(data as FolderStats[]);
+                setDeckStats(data as DeckStat[]);
             }
             setLoading(false);
         }
@@ -176,7 +191,7 @@ export function MainSelectPage() {
         loadFolderStats();
     }, []);
 
-    const tree = useMemo(() => buildDeckTree(folderStats), [folderStats]);
+    const tree = useMemo(() => buildDeckTree(deckStats), [deckStats]);
     const currentNode = useMemo(() => findNodeByPath(tree, selectedPath), [tree, selectedPath]);
 
     const childNodes = useMemo(() => currentNode.children
