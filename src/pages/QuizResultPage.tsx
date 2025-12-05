@@ -184,6 +184,10 @@ export default function QuizResultPage() {
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {templateStats?.description}
                     </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {templateStats?.id ?? quizId ?? "未知"}
+                        {runId ? ` · ${runId}` : ""}
+                    </div>
                 </div>
                 <div className="flex-1 flex justify-end">
                     <Button variant="link"
