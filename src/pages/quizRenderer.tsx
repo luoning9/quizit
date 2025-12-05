@@ -13,10 +13,11 @@ function stripChoicePrefix(text: string): string {
     return text.replace(/^\s*[A-Ha-h][.:、，]?\s*/, "");
 }
 
-type PromptRenderOptions = {
+export type PromptRenderOptions = {
     userAnswer: UserAnswer;
     setUserAnswer?: (next: UserAnswer) => void;
     disabled?: boolean;
+    frontMediaUrls?: string[];
 };
 
 /**
@@ -37,12 +38,28 @@ export function renderPrompt(
     const userAnswer: UserAnswer = options?.userAnswer ?? [];
     const disabled = options?.disabled ?? false;
     const setUserAnswer = options?.setUserAnswer;
+    const mediaUrls = (options?.frontMediaUrls ?? []).slice(0, 2);
+    const descriptionMatches = Array.from(front.prompt.matchAll(/!\[([^\]]*)\]/g));
+    const allDescriptions = descriptionMatches
+        .map((m) => (m[1] || "").trim())
+        .filter(Boolean);
+    const mediaDescriptions = allDescriptions.slice(0, mediaUrls.length);
+    let removable = mediaUrls.length;
+    const cleanedPrompt = front.prompt
+        .replace(/!\[[^\]]*]/g, (match) => {
+            if (removable > 0) {
+                removable -= 1;
+                return "";
+            }
+            return match;
+        })
+        .trim();
 
     // ===== 仅题干文本部分 =====
     const renderPromptText = () => {
         const promptTextClass = "";//"text-slate-900 dark:text-slate-50";
         const renderFillPrompt = () => {
-            const rendered = front.prompt.replace(/\{\{(\d+)}}/g, (_, num) => `[blank ${num}]`);
+            const rendered = cleanedPrompt.replace(/\{\{(\d+)}}/g, (_, num) => `[blank ${num}]`);
             return (
                 <MarkdownText
                     content={rendered}
@@ -59,17 +76,36 @@ export function renderPrompt(
             default:
                 return (
                     <MarkdownText
-                        content={front.prompt}
+                        content={cleanedPrompt}
                         className={promptTextClass}
                     />
                 );
         }
     };
 
+    const renderFrontMedias = () => {
+        if (!mediaUrls.length) return null;
+        return (
+            <div className="mb-2 flex flex-wrap gap-3">
+                {mediaUrls.map((url, idx) => (
+                    <img
+                        key={url}
+                        src={url}
+                        alt={mediaDescriptions[idx] ?? "相关图片"}
+                        title={mediaDescriptions[idx] ?? undefined}
+                        className="rounded border border-emerald-200/60 bg-white shadow-sm dark:border-emerald-700/40 dark:bg-slate-900/50"
+                        style={{ maxWidth: "50%", height: "auto", objectFit: "contain" }}
+                    />
+                ))}
+            </div>
+        );
+    };
+
     // 如果没传 setUserAnswer，只展示题干；对选择题继续展示选项但不可互动
     if (!setUserAnswer) {
         return (
-            <div>
+            <div className="space-y-3">
+                {renderFrontMedias()}
                 {renderPromptText()}
                 {front.type === "single_choice" && front.options && (
                     <ul className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
@@ -235,6 +271,7 @@ export function renderPrompt(
 
     return (
         <div className="space-y-3">
+            {renderFrontMedias()}
             {renderPromptText()}
             {renderInputArea()}
         </div>

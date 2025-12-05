@@ -50,6 +50,7 @@ function QuizRunPage() {
     const [questions, setQuestions] = useState<QuizQuestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingError, setLoadingError] = useState<string | null>(null);
+    const [frontMediaMap, setFrontMediaMap] = useState<Record<string, string[]>>({});
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [showAnswer, setShowAnswer] = useState(false);
@@ -74,6 +75,7 @@ function QuizRunPage() {
 
             setLoading(true);
             setLoadingError(null);
+            setFrontMediaMap({});
 
             // 1. 读取 quiz_templates
             const {data: tmpl, error: tmplError} = await supabase
@@ -106,6 +108,45 @@ function QuizRunPage() {
                 setQuestions([]);
                 setLoading(false);
                 return;
+            }
+
+            // 1.5 尝试在 storage 中找 front 媒体（如 {card_id}/front*.png）
+            try {
+                const mediaEntries = await Promise.all(
+                    typedTemplate.item_ids.map(async (cid) => {
+                        const { data: list, error: listErr } = await supabase
+                            .storage
+                            .from("quizit_card_medias")
+                            .list(`${cid}`);
+                        if (listErr || !list) return { cid, urls: [] as string[] };
+
+                        const frontPaths = list
+                            .filter((f) => f.name.toLowerCase().startsWith("front"))
+                            .map((f) => `${cid}/${f.name}`);
+                        if (!frontPaths.length) return { cid, urls: [] as string[] };
+
+                        const { data: signedData, error: signedErr } = await supabase
+                            .storage
+                            .from("quizit_card_medias")
+                            .createSignedUrls(frontPaths, 600);
+                        if (signedErr || !signedData) return { cid, urls: [] as string[] };
+
+                        const urls = signedData
+                            .map((item) => item.signedUrl)
+                            .filter((u): u is string => Boolean(u));
+                        return { cid, urls };
+                    })
+                );
+
+                const mediaMap: Record<string, string[]> = {};
+                mediaEntries.forEach(({ cid, urls }) => {
+                    if (urls.length) {
+                        mediaMap[cid] = urls;
+                    }
+                });
+                setFrontMediaMap(mediaMap);
+            } catch (e) {
+                console.error("加载题目媒体失败", e);
             }
 
             //const cardIds = itemList.map((it) => it.card_id);
@@ -455,13 +496,14 @@ function QuizRunPage() {
             <div className="w-full flex items-start gap-4 mb-6">
                 {/* 问题卡片 */}
                 <div className="min-h-32 flex-1 min-w-[320px] rounded-2xl border border-slate-200 bg-white shadow-sm p-6 dark:border-slate-700 dark:bg-slate-900/80">
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">题目</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">{currentQuestion.cardId}</div>
                     <div className="text-base text-slate-900 dark:text-slate-50">
                         {currentQuestion &&
                             renderPrompt(currentQuestion.front, {
                                 userAnswer: currentUserAnswer,
                                 setUserAnswer: setCurrentUserAnswer,
                                 disabled: hasSubmitted, // 提交后禁止修改
+                                frontMediaUrls: frontMediaMap[currentQuestion.cardId],
                             })}
                     </div>
 
