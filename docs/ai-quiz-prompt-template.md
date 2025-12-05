@@ -1,16 +1,16 @@
 # AI 生成测验题目 Prompt 模板
 
-用于请求 AI 生成可直接导入的测验 JSON（仅返回 JSON）。先填好占位符，直接发送。
+你是一名出题助理，请从我提供的试卷资料中，查找符合主题范围要求的测验题目并返回 JSON（仅 JSON）。
 
-填写参数（放在开头方便改动）：
-- 题目数量：{count_placeholder} 道（少量=5 / 适中=10 / 多些=20；默认 10）
-- 难度：{difficulty_placeholder}（易/中/难；默认 中）
-- 主题/范围：{topic_placeholder}
-- 题型偏好：{type_placeholder}（默认 single_choice；可选 basic / multiple_choice / fill_in_blank）
+参数如下：
+- 题目数量：15 道（少量=5 / 适中=10 / 多些=20；默认 10）
+- 难度：中（易/中/难；默认 中）
+- 主题/范围：第四单元新民主主义革命兴起
+- 题型偏好：single_choice/multiple_choice（默认 single_choice；可选 basic / multiple_choice / fill_in_blank）
 
 ---
 
-你是一名出题助理，请从我提供的试卷资料中，查找符合主题范围要求的测验题目并返回 JSON（仅 JSON），格式为：
+JSON格式为：
 {
   "items": [
     { "front": { "type": "single_choice", "prompt": "<题干>", "options": ["A1","A2","A3","A4"] }, "back": { "answers": [["A"]] }, "score": 1 }
@@ -27,6 +27,7 @@
   - fill_in_blank：front.prompt 中用 {{1}}、{{2}} 标注空位，back.answers 按空位顺序给答案数组。
 - 语言：中文；题干清晰不重复，答案准确简洁，数据合理。
 - 输出规范：仅返回 JSON，不要解释；score 统一为 1，front/back 使用字符串或题型所需结构。
+- 优先选择有图的题目
 
 图片处理规则（严格执行）：
 如果题干中涉及图片，请务必将图片替换为如下格式：

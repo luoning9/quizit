@@ -419,9 +419,6 @@ export default function NewQuizTemplatePage() {
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">题目内容（JSON）</div>
           <div className="flex gap-2">
-            <Button variant="ghost" type="button" className="text-sm" onClick={() => setItemsText(SAMPLE_JSON)}>
-              使用示例
-            </Button>
             <Button variant="outline" type="button" className="text-sm" onClick={() => setAiOpen(true)}>
               AI 生成…
             </Button>

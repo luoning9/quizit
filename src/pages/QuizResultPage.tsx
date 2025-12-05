@@ -1,8 +1,9 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Trash2} from "lucide-react";
+import {BookOpen, Trophy, Trash2, Check} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
+import { useRef } from "react";
 
 type QuizRunRecord = {
     id: string;
@@ -12,6 +13,11 @@ type QuizRunRecord = {
     correct_items: number | null;
     started_at: string | null;
     finished_at: string | null;
+    template?: {
+        id: string;
+        title: string;
+        description: string | null;
+    } | null;
 };
 
 type TemplateStats = {
@@ -43,6 +49,14 @@ export default function QuizResultPage() {
     const [error, setError] = useState<string | null>(null);
     const [runMessage, setRunMessage] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [editingTitle, setEditingTitle] = useState(false);
+    const [titleInput, setTitleInput] = useState("");
+    const [savingTitle, setSavingTitle] = useState(false);
+    const titleEditRef = useRef<HTMLDivElement | null>(null);
+    const [editingDesc, setEditingDesc] = useState(false);
+    const [descInput, setDescInput] = useState("");
+    const [savingDesc, setSavingDesc] = useState(false);
+    const descEditRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         async function load() {
@@ -89,8 +103,11 @@ export default function QuizResultPage() {
                 setTemplateStats(tmpl as TemplateStats);
             }
             if (run) {
+                const tplRaw = (run as any)?.template;
+                const templateNormalized = Array.isArray(tplRaw) ? tplRaw[0] : tplRaw;
                 setResult({
                     ...run,
+                    template: templateNormalized,
                 } as QuizRunRecord);
             } else if (runId) {
                 setRunMessage("未找到对应的测验记录。");
@@ -120,7 +137,33 @@ export default function QuizResultPage() {
         void load();
     }, [quizId, runId]);
 
+    // 点击外部取消标题编辑
+    useEffect(() => {
+        if (!editingTitle) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!titleEditRef.current) return;
+            if (!titleEditRef.current.contains(e.target as Node)) {
+                setEditingTitle(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [editingTitle]);
+
+    useEffect(() => {
+        if (!editingDesc) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!descEditRef.current) return;
+            if (!descEditRef.current.contains(e.target as Node)) {
+                setEditingDesc(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [editingDesc]);
+
     const title = templateStats?.title;
+    const descriptionText = templateStats?.description ?? result?.template?.description ?? null;
     const correct = result?.correct_items ?? 0;
     const total = result?.total_items ?? 0;
     const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
@@ -179,14 +222,132 @@ export default function QuizResultPage() {
                 <BookOpen className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
                 <div className="flex-1">
                     <div className="text-xl font-semibold text-slate-900 dark:text-white">
-                        {title}
+                        {!editingTitle && (
+                            <button
+                                type="button"
+                                className="text-left w-full"
+                                onDoubleClick={() => {
+                                    if (templateStats?.id || quizId || result?.template?.id) {
+                                        setTitleInput(title ?? "");
+                                        setEditingTitle(true);
+                                    }
+                                }}
+                                title="双击编辑标题"
+                            >
+                                {title}
+                            </button>
+                        )}
+                        {editingTitle && (
+                            <div
+                                className="flex items-center gap-2"
+                                ref={titleEditRef}
+                            >
+                                <input
+                                    className="flex-1 rounded-lg border border-slate-300 px-3 py-1 text-xl font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                    value={titleInput}
+                                    onChange={(e) => setTitleInput(e.target.value)}
+                                    autoFocus
+                                />
+                                <Button
+                                    variant="primary"
+                                    className="px-4 py-1 text-sm whitespace-nowrap"
+                                    disabled={savingTitle || !titleInput.trim()}
+                                    onClick={async () => {
+                                        if (!titleInput.trim()) return;
+                                        const targetId = templateStats?.id ?? quizId ?? result?.template?.id;
+                                        if (!targetId) return;
+                                        setSavingTitle(true);
+                                        const { error: updErr } = await supabase
+                                            .from("quiz_templates")
+                                            .update({ title: titleInput.trim() })
+                                            .eq("id", targetId);
+                                        setSavingTitle(false);
+                                        if (updErr) {
+                                            alert("更新标题失败，请稍后再试");
+                                            return;
+                                        }
+                                        setTemplateStats((prev) =>
+                                            prev ? { ...prev, title: titleInput.trim() } : prev
+                                        );
+                                        setResult((prev) =>
+                                            prev
+                                                ? {
+                                                    ...prev,
+                                                    template: prev.template
+                                                        ? { ...prev.template, title: titleInput.trim() }
+                                                        : prev.template,
+                                                }
+                                                : prev
+                                        );
+                                        setEditingTitle(false);
+                                    }}
+                                >
+                                    {savingTitle ? "保存中…" : <Check className="w-4 h-4" />}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        {templateStats?.description}
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        {templateStats?.id ?? quizId ?? "未知"}
-                        {runId ? ` · ${runId}` : ""}
+                        {!editingDesc && (
+                            <button
+                                type="button"
+                                className="text-left w-full"
+                                onDoubleClick={() => {
+                                    if (templateStats?.id || quizId || result?.template?.id) {
+                                        setDescInput(descriptionText ?? "");
+                                        setEditingDesc(true);
+                                    }
+                                }}
+                                title="双击编辑描述"
+                            >
+                                {descriptionText ?? "[测验说明]"}
+                            </button>
+                        )}
+                        {editingDesc && (
+                            <div className="flex items-center gap-2" ref={descEditRef}>
+                                <input
+                                    className="flex-1 rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                    value={descInput}
+                                    onChange={(e) => setDescInput(e.target.value)}
+                                    autoFocus
+                                />
+                                <Button
+                                    variant="primary"
+                                    className="px-3 py-1 text-xs"
+                                    disabled={savingDesc}
+                                    onClick={async () => {
+                                        const targetId = templateStats?.id ?? quizId ?? result?.template?.id;
+                                        if (!targetId) return;
+                                        setSavingDesc(true);
+                                        const { error: updErr } = await supabase
+                                            .from("quiz_templates")
+                                            .update({ description: descInput })
+                                            .eq("id", targetId);
+                                        setSavingDesc(false);
+                                        if (updErr) {
+                                            alert("更新描述失败，请稍后再试");
+                                            return;
+                                        }
+                                        setTemplateStats((prev) =>
+                                            prev ? { ...prev, description: descInput } : prev
+                                        );
+                                        setResult((prev) =>
+                                            prev
+                                                ? {
+                                                    ...prev,
+                                                    template: prev.template
+                                                        ? { ...prev.template, description: descInput }
+                                                        : prev.template,
+                                                }
+                                                : prev
+                                        );
+                                        setEditingDesc(false);
+                                    }}
+                                >
+                                    {savingDesc ? "保存中…" : <Check className="w-4 h-4" />}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="flex-1 flex justify-end">
