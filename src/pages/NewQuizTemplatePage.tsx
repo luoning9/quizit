@@ -237,6 +237,7 @@ export default function NewQuizTemplatePage() {
   const [description, setDescription] = useState("");
   const [mode] = useState<Mode>("mixed");
   const [itemsText, setItemsText] = useState(SAMPLE_JSON);
+  const [hasTypedItems, setHasTypedItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -430,8 +431,19 @@ export default function NewQuizTemplatePage() {
         <textarea
           className="w-full h-60 text-xs font-mono bg-white border border-slate-300 rounded-xl p-3 text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/80 dark:border-slate-700 dark:text-slate-100"
           value={itemsText}
-          onChange={(e) => setItemsText(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!hasTypedItems && val !== SAMPLE_JSON) {
+              setHasTypedItems(true);
+            }
+            setItemsText(val);
+          }}
           placeholder={SAMPLE_JSON}
+          onFocus={() => {
+            if (!hasTypedItems && itemsText === SAMPLE_JSON) {
+              setItemsText("");
+            }
+          }}
         />
 
         <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
