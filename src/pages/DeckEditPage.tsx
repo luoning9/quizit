@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2 } from "lucide-react";
+import { Trash2, Check, Layers } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -153,8 +153,13 @@ const DeckEditPage: React.FC = () => {
     // 可编辑的标题/描述
     const [titleInput, setTitleInput] = useState("");
     const [descriptionInput, setDescriptionInput] = useState("");
-    const [savingMeta, setSavingMeta] = useState(false);
     const [saveMetaMessage, setSaveMetaMessage] = useState<string | null>(null);
+    const [editingTitle, setEditingTitle] = useState(false);
+    const [editingDesc, setEditingDesc] = useState(false);
+    const [savingTitle, setSavingTitle] = useState(false);
+    const [savingDesc, setSavingDesc] = useState(false);
+    const titleEditRef = useRef<HTMLDivElement | null>(null);
+    const descEditRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     // 1. 载入 deck + cards
@@ -219,46 +224,54 @@ const DeckEditPage: React.FC = () => {
         void loadDeck();
     }, [deckId]);
 
-    // 2. 保存标题 / 描述（只改基本信息，不碰 cards）
-    async function handleSaveMeta(e: React.FormEvent) {
-        e.preventDefault();
-        if (!deckId) return;
+    // 标题编辑外点击取消
+    useEffect(() => {
+        if (!editingTitle) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!titleEditRef.current) return;
+            if (!titleEditRef.current.contains(e.target as Node)) {
+                setEditingTitle(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [editingTitle]);
 
-        const trimmedTitle = titleInput.trim();
-        if (!trimmedTitle) {
-            setSaveMetaMessage("标题不能为空。");
-            return;
-        }
+    // 描述编辑外点击取消
+    useEffect(() => {
+        if (!editingDesc) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!descEditRef.current) return;
+            if (!descEditRef.current.contains(e.target as Node)) {
+                setEditingDesc(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [editingDesc]);
 
-        setSavingMeta(true);
+    async function saveDeckMeta(partial: { title?: string; description?: string | null }) {
+        if (!deckId) return false;
         setSaveMetaMessage(null);
-
-        const {error: updateError} = await supabase
+        const { error } = await supabase
             .from("decks")
-            .update({
-                title: trimmedTitle,
-                description: descriptionInput.trim() || null,
-            })
+            .update(partial)
             .eq("id", deckId);
-
-        if (updateError) {
-            console.error("update deck meta error", updateError);
+        if (error) {
+            console.error("update deck meta error", error);
             setSaveMetaMessage("保存失败，请稍后再试。");
-            setSavingMeta(false);
-            return;
+            return false;
         }
-
         setDeck((prev) =>
             prev
                 ? {
                     ...prev,
-                    title: trimmedTitle,
-                    description: descriptionInput.trim() || null,
+                    ...partial,
                 }
                 : prev
         );
         setSaveMetaMessage("已保存。");
-        setSavingMeta(false);
+        return true;
     }
 
     // 3. 导出：只导出 cards
@@ -560,21 +573,143 @@ const DeckEditPage: React.FC = () => {
         cards.length > 0 && selectedIds.size === cards.length;
 
     return (
-        <div className="space-y-6 text-slate-900 dark:text-slate-100 px-4 py-6">
+        <div className="space-y-6 text-slate-900 dark:text-slate-100 px-4 py-6 w-fit mx-auto">
             {/* 顶部标题区 */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <div className="text-xl font-semibold">Deck 编辑</div>
-                    <div className="text-xs text-slate-400 mt-1">ID: {deck.id}</div>
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <Layers className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex-1 min-w-0 space-y-1">
+                        {!editingTitle && (
+                            <div
+                                className="text-2xl font-semibold truncate cursor-text"
+                                onDoubleClick={() => {
+                                    setTitleInput(deck?.title ?? "");
+                                    setEditingTitle(true);
+                                }}
+                                title="双击编辑标题"
+                            >
+                                {deck?.title ?? "[未命名]"}
+                            </div>
+                        )}
+                        {editingTitle && (
+                            <div className="flex items-center gap-2 max-w-2xl" ref={titleEditRef}>
+                            <input
+                                type="text"
+                                className="flex-1 rounded-xl bg-white border border-slate-300 px-3 py-2 text-xl font-semibold text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
+                                value={titleInput}
+                                onChange={(e) => setTitleInput(e.target.value)}
+                                onKeyDown={async (e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        const trimmed = titleInput.trim();
+                                        if (!trimmed) return;
+                                        setSavingTitle(true);
+                                        const ok = await saveDeckMeta({ title: trimmed });
+                                        setSavingTitle(false);
+                                        if (ok) {
+                                            setEditingTitle(false);
+                                        }
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <Button
+                                type="button"
+                                variant="primary"
+                                className="px-3 py-2 text-sm whitespace-nowrap"
+                                disabled={savingTitle || !titleInput.trim()}
+                                onClick={async () => {
+                                    const trimmed = titleInput.trim();
+                                    if (!trimmed) return;
+                                    setSavingTitle(true);
+                                    const ok = await saveDeckMeta({ title: trimmed });
+                                    setSavingTitle(false);
+                                    if (ok) {
+                                        setEditingTitle(false);
+                                    }
+                                }}
+                                    >
+                                        {savingTitle ? "保存中…" : <Check className="w-4 h-4" />}
+                                    </Button>
+                                </div>
+                            )}
+                        {/* 顶部简介可编辑（紧跟标题） */}
+                        <div className="max-w-3xl">
+                            <div className="flex items-start gap-2">
+                    {!editingDesc && (
+                        <div
+                            className="flex-1 text-left cursor-text"
+                            onDoubleClick={() => {
+                                setDescriptionInput(deck?.description ?? "");
+                                setEditingDesc(true);
+                            }}
+                            title="双击编辑简介"
+                        >
+                            <div className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
+                                {deck?.description ?? "[未填写简介]"}
+                            </div>
+                        </div>
+                    )}
+                                {editingDesc && (
+                        <div className="flex items-start gap-2 flex-1" ref={descEditRef}>
+                            <input
+                                className="flex-1 rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
+                                value={descriptionInput}
+                                onChange={(e) => setDescriptionInput(e.target.value)}
+                                onKeyDown={async (e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        setSavingDesc(true);
+                                        const ok = await saveDeckMeta({ description: descriptionInput.trim() || null });
+                                        setSavingDesc(false);
+                                        if (ok) {
+                                            setEditingDesc(false);
+                                        }
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <Button
+                                type="button"
+                                variant="primary"
+                                className="px-3 py-2 text-sm whitespace-nowrap"
+                                disabled={savingDesc}
+                                            onClick={async () => {
+                                                setSavingDesc(true);
+                                                const ok = await saveDeckMeta({ description: descriptionInput.trim() || null });
+                                                setSavingDesc(false);
+                                                if (ok) {
+                                                    setEditingDesc(false);
+                                                }
+                                            }}
+                                        >
+                                            {savingDesc ? "保存中…" : <Check className="w-4 h-4" />}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <Button
-                    type="button"
-                    variant="link"
-                    className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
-                    onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title)}`)}
-                >
-                    返回列表页
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                        onClick={() => setShowDeleteDeckConfirm(true)}
+                        aria-label="删除这个 deck"
+                    >
+                        <Trash2 size={18} />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="link"
+                        className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
+                        onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title)}`)}
+                    >
+                        返回列表页
+                    </Button>
+                </div>
             </div>
 
             {/* 错误提示（整体） */}
@@ -584,63 +719,9 @@ const DeckEditPage: React.FC = () => {
                 </div>
             )}
 
-            {/* 1️⃣ Deck 基本信息：可编辑 title / description */}
-            <form
-                onSubmit={handleSaveMeta}
-                className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
-            >
-                <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">基本信息</div>
-                    <div className="flex items-center gap-3">
-                        {saveMetaMessage && (
-                            <div className="text-xs text-emerald-600 dark:text-emerald-400">{saveMetaMessage}</div>
-                        )}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                            onClick={() => setShowDeleteDeckConfirm(true)}
-                            aria-label="删除这个 deck"
-                        >
-                            <Trash2 size={18} />
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="block text-sm text-slate-700 dark:text-slate-200">
-                        标题 <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                        type="text"
-                        className="w-full rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
-                        value={titleInput}
-                        onChange={(e) => setTitleInput(e.target.value)}
-                        placeholder="例如：physics/八年级/声现象基础卡片"
-                    />
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="block text-sm text-slate-700 dark:text-slate-200">简介（可选）</label>
-                    <textarea
-                        className="w-full h-20 rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 resize-none dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
-                        value={descriptionInput}
-                        onChange={(e) => setDescriptionInput(e.target.value)}
-                        placeholder="简单描述这个 deck 的内容和用途。"
-                    />
-                </div>
-
-                <div className="flex justify-end pt-1">
-                    <Button
-                        variant="primary"
-                        type="submit"
-                        disabled={savingMeta || !titleInput.trim()}
-                        className="text-sm w-30 font-light"
-                    >
-                        {savingMeta ? "保存中…" : "保存信息"}
-                    </Button>
-                </div>
-            </form>
+            {saveMetaMessage && (
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 text-center">{saveMetaMessage}</div>
+            )}
 
             {/* 2️⃣ 导入 / 导出 cards */}
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
@@ -737,7 +818,7 @@ front,back
                 {cards.length === 0 ? (
                     <div className="text-xs text-slate-500">当前 deck 还没有卡片。</div>
                 ) : (
-                    <ul className="space-y-2 max-h-64 overflow-auto pr-2">
+                    <ul className="space-y-2 pr-2">
                         {cards.map((c, idx) => (
                             <li
                                 key={c.id}
