@@ -287,21 +287,9 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
     const type = front.type;
 
     if (!slots.length) {
-        return <span className="text-slate-400 text-sm">（未配置答案）</span>;
-    }
-
-    if (type === "basic") {
-        const main = slots[0].join(" / ");
         return (
             <div className="space-y-2">
-                <div className="">
-                    <MarkdownText content={main} />
-                </div>
-                {back.explanation && (
-                    <div className="text-sm">
-                        <MarkdownText content={back.explanation} />
-                    </div>
-                )}
+                <MarkdownText content={back.explanation??""} />
             </div>
         );
     }
@@ -360,12 +348,20 @@ export function renderAnswer(front: FrontSchema, back: BackSchema) {
         );
     }
 
-    // 兜底
-    return (
-        <div className="text-sm text-emerald-700 dark:text-emerald-200">
-            <MarkdownText content={slots.flat().join(" / ")} />
-        </div>
-    );
+    // 兜底  if (type === "basic")
+    {
+        const main = slots[0].join(" / ");
+        return (
+            <div className="space-y-2">
+                <div className="">
+                    <MarkdownText content={main} />
+                </div>
+                <div>
+                    <MarkdownText content={back.explanation??""} />
+                </div>
+            </div>
+        );
+    }
 }
 
 export interface QuizTemplate {

@@ -203,6 +203,7 @@ export function DeckPracticePage() {
                 // 每次重新抽卡，重置索引和正反面
                 setIndex(0);
                 setShowBack(false);
+                setHoverInfo("点击显示背面");
             } finally {
                 setLoading(false);
             }
@@ -286,12 +287,14 @@ export function DeckPracticePage() {
             if (back) back.classList.remove("hidden");
             if (divider) divider.classList.remove("hidden");
             setShowBack(true);
+            setHoverInfo("点击隐藏背面");
             window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
         } else {
             // 隐藏背面，回到顶部
             if (back) back.classList.add("hidden");
             if (divider) divider.classList.add("hidden");
             setShowBack(false);
+            setHoverInfo("点击显示背面");
         }
     };
 
@@ -427,7 +430,8 @@ export function DeckPracticePage() {
 
     const frontClean = trimEmptyLines(current.front);
     const backClean = trimEmptyLines(current.back);
-    const backSchema = parseBack(current.back);
+    const backSchema = parseBack(current.back, true);
+    //console.log(backSchema);
     const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(frontClean);
     const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(backClean);
     const isDarkMode =
@@ -628,6 +632,7 @@ export function DeckPracticePage() {
                                 {frontSchema && backSchema
                                     ? renderAnswer(frontSchema, backSchema)
                                     : backClean}
+                                {/* JSON.stringify(frontSchema) */}
                             </div>
                         </div>
                         {hoverInfo && (

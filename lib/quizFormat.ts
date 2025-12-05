@@ -305,8 +305,11 @@ function splitCandidates(line: string): string[] {
  *        → answers: [[raw]]，explanation: undefined
  *
  *   该规则对所有题型统一适用（basic / single_choice / multiple_choice / fill_in_blank）。
+ *
+ *   no_answer（默认 false）：
+ *   - 当传入 true 且 raw 不是合法 JSON 时，跳过上述行解析，直接将 raw 视为 explanation，answers 返回空数组。
  */
-export function parseBack(raw: string): BackSchema {
+export function parseBack(raw: string, no_answer = false): BackSchema {
     let parsed: unknown;
 
     try {
@@ -342,7 +345,13 @@ export function parseBack(raw: string): BackSchema {
     }
 
     // 非 JSON 情况：按行解析 raw 文本
-
+    if (no_answer) {
+        const explanationOnly = raw.replace(/\r\n?/g, "\n").trim();
+        return {
+            answers: [],
+            explanation: explanationOnly || undefined,
+        };
+    }
     // 统一换行符
     const unified = raw.replace(/\r\n?/g, "\n");
     const allLines = unified.split("\n");
