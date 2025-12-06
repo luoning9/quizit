@@ -53,8 +53,8 @@ type NavContext = {
     setNavRecentNewCount?: (n: number) => void;
 };
 
-// 根据 view 的 path 构造目录树
-function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
+// 根据 view 的 path 构造目录树，并收集所有路径前缀
+function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckNameSet: Set<string> } {
     const root: DeckTreeNode = {
         name: "",
         fullPath: "",
@@ -68,6 +68,7 @@ function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
         isDeck: false,
         deckId: "",
     };
+    const deckNameSet = new Set<string>();
 
     const ensureChild = (parent: DeckTreeNode, name: string): DeckTreeNode => {
         const existing = parent.children.find((c) => c.name === name);
@@ -98,6 +99,13 @@ function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
         const parts = row.deck_name.split("/").filter(Boolean);
         if (parts.length === 0) continue;
 
+        // 收集所有前缀路径
+        let acc = "";
+        parts.forEach((part, idx) => {
+            acc = idx === 0 ? part : `${acc}/${part}`;
+            deckNameSet.add(acc);
+        });
+
         let current = root;
         const pathNodes: DeckTreeNode[] = [root];
         for (const part of parts) {
@@ -126,7 +134,7 @@ function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
         current.isDeck = row.deck_id != null;
     }
 
-    return root;
+    return { root, deckNameSet };
 }
 
 // 根据路径查找目录节点
@@ -243,7 +251,7 @@ export function MainSelectPage() {
         loadFolderStats();
     }, []);
 
-    const tree = useMemo(() => buildDeckTree(deckStats), [deckStats]);
+    const { root: tree, deckNameSet } = useMemo(() => buildDeckTree(deckStats), [deckStats]);
     useEffect(() => {
         if (setNavDueCount) {
             setNavDueCount(tree.dueCount ?? 0);
@@ -265,11 +273,16 @@ export function MainSelectPage() {
             if (na == null && nb != null) return 1;
             return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         }), [currentNode]);
-
     const quizzesInCurrentDir = useMemo(
         () =>
             quizTemplates
-                .filter((t) => (t.deck_name ?? "") === selectedPath)
+                .filter((t) => {
+                    const path = t.deck_name ?? "";
+                    if (!selectedPath) {
+                        return !deckNameSet.has(path);
+                    }
+                    return path === selectedPath;
+                })
                 .map((t) => ({
                     id: t.id,
                     title: t.title,
@@ -280,7 +293,7 @@ export function MainSelectPage() {
                     lastScore: t.last_score ?? 0,
                     lastAttemptAt: t.last_attempt_at ?? 0,
                 })),
-        [quizTemplates, selectedPath]
+        [quizTemplates, selectedPath, deckNameSet]
     );
 
     const breadcrumbSegments = selectedPath ? selectedPath.split("/").filter(Boolean).map((seg, idx, arr) => ({

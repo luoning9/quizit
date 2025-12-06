@@ -1,6 +1,6 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Trash2, Check} from "lucide-react";
+import {BookOpen, Trophy, Trash2, Check, List} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";
@@ -57,6 +57,10 @@ export default function QuizResultPage() {
     const [descInput, setDescInput] = useState("");
     const [savingDesc, setSavingDesc] = useState(false);
     const descEditRef = useRef<HTMLDivElement | null>(null);
+    const [editingDeckName, setEditingDeckName] = useState(false);
+    const [deckNameInput, setDeckNameInput] = useState("");
+    const [savingDeckName, setSavingDeckName] = useState(false);
+    const deckNameEditRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         async function load() {
@@ -162,11 +166,25 @@ export default function QuizResultPage() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [editingDesc]);
 
+    // 点击外部取消 deck 路径编辑
+    useEffect(() => {
+        if (!editingDeckName) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!deckNameEditRef.current) return;
+            if (!deckNameEditRef.current.contains(e.target as Node)) {
+                setEditingDeckName(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [editingDeckName]);
+
     const title = templateStats?.title;
     const descriptionText = templateStats?.description ?? result?.template?.description ?? null;
     const correct = result?.correct_items ?? 0;
     const total = result?.total_items ?? 0;
     const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const deckPath = templateStats?.deck_name ?? "";
     const hasRun = Boolean(runId && result);
     const hasHistory = userRuns.length > 0;
     const avgScore = useMemo(() => {
@@ -193,6 +211,35 @@ export default function QuizResultPage() {
         }
         navigate(`/quizzes?path=${templateStats?.deck_name ?? ""}`);
         //window.location.href = "/quizzes";
+    }
+
+    async function handleSaveDeckName() {
+        const targetId = templateStats?.id ?? quizId;
+        if (!targetId) return;
+        const next = deckNameInput.trim();
+        setSavingDeckName(true);
+        const { error: updErr } = await supabase
+            .from("quiz_templates")
+            .update({ deck_name: next })
+            .eq("id", targetId);
+        setSavingDeckName(false);
+        if (updErr) {
+            alert("更新路径失败，请稍后再试");
+            return;
+        }
+        setTemplateStats((prev) => (prev ? { ...prev, deck_name: next } : prev));
+        setEditingDeckName(false);
+    }
+
+    function handleDeckNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            void handleSaveDeckName();
+        }
+        if (e.key === "Escape") {
+            e.preventDefault();
+            setEditingDeckName(false);
+        }
     }
 
     if (loading) {
@@ -350,11 +397,44 @@ export default function QuizResultPage() {
                         )}
                     </div>
                 </div>
-                <div className="flex-1 flex justify-end">
-                    <Button variant="link"
-                            onClick={() => navigate(`/quizzes?path=${templateStats?.deck_name ?? ""}`)}
-                        >
-                        返回测验列表
+                <div className="flex-1 flex items-center justify-end gap-3">
+                    {editingDeckName ? (
+                        <div ref={deckNameEditRef} className="flex items-center gap-2">
+                            <input
+                                autoFocus
+                                value={deckNameInput}
+                                onChange={(e) => setDeckNameInput(e.target.value)}
+                                onKeyDown={handleDeckNameKeyDown}
+                                className="w-52 rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:focus:border-emerald-400 dark:focus:ring-emerald-400"
+                                placeholder="输入路径，回车保存"
+                            />
+                            {savingDeckName && (
+                                <span className="text-xs text-slate-500 dark:text-slate-300">保存中…</span>
+                            )}
+                        </div>
+                    ) : (
+                        deckPath && (
+                            <button
+                                type="button"
+                                className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
+                                onDoubleClick={() => {
+                                    setDeckNameInput(deckPath);
+                                    setEditingDeckName(true);
+                                }}
+                                title="双击编辑所属路径（回车保存）"
+                            >
+                                {deckPath}
+                            </button>
+                        )
+                    )}
+                    <Button
+                        variant="link"
+                        className="flex items-center gap-1 text-sm"
+                        onClick={() => navigate(`/quizzes?path=${deckPath}`)}
+                        title="返回测验列表"
+                    >
+                        <List className="w-6 h-6" />
+                        <span className="sr-only">返回测验列表</span>
                     </Button>
                 </div>
             </div>
