@@ -128,6 +128,27 @@ function calcProgress(node: DeckTreeNode): number {
     return Math.round((node.totalEaseFactor / (node.totalItems * 4)) * 100);
 }
 
+function parseLeadingNumber(name: string): number | null {
+    const head = name.split(/[_\s]/)[0] || "";
+    const direct = Number(head);
+    if (!Number.isNaN(direct)) return direct;
+
+    const digitMap: Record<string, number> = {
+        "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
+    };
+
+    if (digitMap[head] != null) return digitMap[head];
+
+    const matchTens = head.match(/^([一二三四五六七八九])?十([一二三四五六七八九])?$/);
+    if (matchTens) {
+        const tens = matchTens[1] ? digitMap[matchTens[1]] : 1;
+        const ones = matchTens[2] ? digitMap[matchTens[2]] : 0;
+        return tens * 10 + ones;
+    }
+
+    return null;
+}
+
 export function MainSelectPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     // 用 URL 里的 ?path=... 作为初始值，没有就用 "/"
@@ -215,7 +236,15 @@ export function MainSelectPage() {
 
     const childNodes = useMemo(() => currentNode.children
         .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, "zh-CN")), [currentNode]);
+        .sort((a, b) => {
+            const na = parseLeadingNumber(a.name);
+            const nb = parseLeadingNumber(b.name);
+
+            if (na != null && nb != null && na !== nb) return na - nb;
+            if (na != null && nb == null) return -1;
+            if (na == null && nb != null) return 1;
+            return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+        }), [currentNode]);
 
     const quizzesInCurrentDir = useMemo(
         () =>
@@ -244,7 +273,6 @@ export function MainSelectPage() {
     return (<div className="mt-8 w-fit max-w-5xl mx-auto space-y-6">
         {/* 顶部：当前目录 + 面包屑按钮 */}
         <div>
-            <h1 className="text-xl font-semibold">请选择要学习的内容</h1>
             <div className="mt-4 flex items-center justify-between w-full">
                 {/* 左边：当前目录 / 面包屑按钮 */}
                 <div className="flex items-center flex-wrap gap-3">
