@@ -1,7 +1,14 @@
 import React, { type ButtonHTMLAttributes, type ReactNode } from "react";
 import clsx from "clsx";
 
-type Variant = "primary" | "secondary" | "ghost" | "outline" | "link" | "none";
+type Variant =
+    | "primary"
+    | "secondary"
+    | "ghost"
+    | "ghostSecond"
+    | "outline"
+    | "link"
+    | "none";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     children: ReactNode;
@@ -61,6 +68,13 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
             "bg-transparent text-slate-700 hover:bg-slate-300 hover:text-slate-900 " +
             // 深色
             "dark:text-slate-200 dark:hover:bg-slate-600 dark:hover:text-white",
+        ghostSecond:
+            [
+                // 浅色：低调、与 outline 区分的柔和色
+                "bg-transparent text-teal-500 hover:bg-teal-50 hover:text-teal-600",
+                // 深色
+                "dark:text-teal-500 dark:hover:bg-teal-900/50 dark:hover:text-teal-200",
+            ].join(" "),
     };
 
     return (

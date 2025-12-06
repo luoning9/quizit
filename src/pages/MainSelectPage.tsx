@@ -2,7 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import {Folder, Layers} from "lucide-react";
-import { DeckStatus } from "../components/DeckStatus";
+import {DeckStatus} from "../components/DeckStatus";
 import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
 /**
@@ -56,22 +56,42 @@ type NavContext = {
 // 根据 view 的 path 构造目录树
 function buildDeckTree(stats: DeckStat[]): DeckTreeNode {
     const root: DeckTreeNode = {
-        name: "", fullPath: "", children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, recentUnlearnedCount: 0, isDeck: false, deckId: "",
+        name: "",
+        fullPath: "",
+        children: [],
+        deckCount: 0,
+        totalItems: 0,
+        totalEaseFactor: 0,
+        learnedCount: 0,
+        dueCount: 0,
+        recentUnlearnedCount: 0,
+        isDeck: false,
+        deckId: "",
     };
 
     const ensureChild = (parent: DeckTreeNode, name: string): DeckTreeNode => {
-            const existing = parent.children.find((c) => c.name === name);
-            if (existing) return existing;
+        const existing = parent.children.find((c) => c.name === name);
+        if (existing) return existing;
 
-            const fullPath = parent.fullPath ? `${parent.fullPath}/${name}` : name;
+        const fullPath = parent.fullPath ? `${parent.fullPath}/${name}` : name;
 
         const node: DeckTreeNode = {
-            name, fullPath, children: [], deckCount: 0, totalItems: 0, totalEaseFactor: 0, learnedCount: 0, dueCount: 0, recentUnlearnedCount: 0, isDeck: false, deckId: "",
+            name,
+            fullPath,
+            children: [],
+            deckCount: 0,
+            totalItems: 0,
+            totalEaseFactor: 0,
+            learnedCount: 0,
+            dueCount: 0,
+            recentUnlearnedCount: 0,
+            isDeck: false,
+            deckId: "",
         };
 
-            parent.children.push(node);
-            return node;
-        };
+        parent.children.push(node);
+        return node;
+    };
 
     for (const row of stats) {
         if (!row.deck_name) continue;
@@ -155,7 +175,7 @@ export function MainSelectPage() {
     const initialPath = searchParams.get("path") || "";
 
     const navigate = useNavigate();
-    const { setNavDueCount, setNavRecentNewCount } = useOutletContext<NavContext>();
+    const {setNavDueCount, setNavRecentNewCount} = useOutletContext<NavContext>();
     const [deckStats, setDeckStats] = useState<DeckStat[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPath, setSelectedPath] = useState(initialPath);
@@ -283,16 +303,16 @@ export function MainSelectPage() {
 
                         return (
                             <Button variant="outline"
-                                key={seg.fullPath || "__root__"}
-                                type="button"
-                                onClick={() => setSelectedPath(seg.fullPath)}
-                                className="px-4 py-2.5 text-xl gap-1"
+                                    key={seg.fullPath || "__root__"}
+                                    type="button"
+                                    onClick={() => setSelectedPath(seg.fullPath)}
+                                    className="px-4 py-2.5 text-xl gap-1"
 
                             >
                                 {isDeck ? (
-                                    <Layers size={28} className="text-amber-300" />
+                                    <Layers size={28} className="text-amber-300"/>
                                 ) : (
-                                    <Folder size={28} className="text-slate-300" />
+                                    <Folder size={28} className="text-slate-300"/>
                                 )}
                                 <span>{seg.name}</span>
                             </Button>
@@ -309,7 +329,8 @@ export function MainSelectPage() {
                         disabled={!selectedPath}
                         className="w-40 px-5 py-3 text-xl font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => {
-                            navigate(`/decks/${encodeURIComponent(selectedPath)}/practice`);}
+                            navigate(`/decks/${encodeURIComponent(selectedPath)}/practice`);
+                        }
                         }
                     >
                         学习
@@ -342,34 +363,54 @@ export function MainSelectPage() {
         <div className="grid grid-cols-1 md:grid-cols-[4fr_3fr] gap-6 items-start">
             <div className="flex flex-col gap-3">
                 {currentNode?.isDeck && currentNode.deckId && (
-                    <DeckStatus deckId={currentNode.deckId} />
+                    <DeckStatus deckId={currentNode.deckId}/>
                 )}
 
                 {/* 左侧：子目录 */}
-                <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
+                <section
+                    className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
 
                     {loading ? (
                         <div className="text-xs text-muted">正在载入目录统计…</div>) : childNodes.length === 0 ? (
                         <div className="text-xs text-muted">这个目录下没有子目录。</div>) : (
                         <div className="flex flex-col gap-2">
-                            {childNodes.map((node) => (<button
-                                key={node.fullPath}
-                                onClick={() => setSelectedPath(node.fullPath)}
-                                className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-slate-800/70"
-                            >
-                                <div className="grid grid-cols-[0.6fr_2fr_2fr_2fr] items-center gap-2 w-full">
-                                    {node.isDeck ? (
-                                        <Layers size={18} className="text-amber-500"/>     // ⭐ deck 图标
-                                    ) : (
-                                        <Folder size={18} className="text-slate-500"/>   // ⭐ 目录图标
-                                    )}
-                                    {/* 名称 + 统计信息 同一行 */}
-                                    <span className="text-sm  text-left">{node.name}</span>
-                                    <span
-                                        className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
-                                    <span>{calcProgress(node)}%</span>
+                            {childNodes.map((node) => (
+                                <div
+                                    key={node.fullPath}
+                                    className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100"
+                                >
+                                    <button
+                                        onClick={() => setSelectedPath(node.fullPath)}
+                                        className="flex items-center justify-start px-3 py-2 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-colors dark:hover:bg-slate-800/70"
+                                    >
+                                        <div className="w-10">
+                                            {node.isDeck ? (
+                                                <Layers size={24} className="text-amber-500"/>     // ⭐ deck 图标
+                                            ) : (
+                                                <Folder size={24} className="text-slate-500"/>   // ⭐ 目录图标
+                                            )}
+                                        </div>
+                                        <div className="w-full">
+                                            <div className="grid grid-cols-[2fr_2fr_1fr] items-center gap-2 w-full">
+
+                                                {/* 名称 + 统计信息 同一行 */}
+                                                <span className="text-sm  text-left">{node.name}</span>
+                                                <span
+                                                    className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
+                                                <span>{calcProgress(node)}%</span>
+                                            </div>
+                                            <div
+                                                className="ml-0 mr-3 mb-2 h-[2px] rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                                <div
+                                                    className="h-full bg-blue-800 dark:bg-blue-700 transition-all"
+                                                    style={{width: `${Math.min(100, Math.max(0, calcProgress(node)))}%`}}
+                                                />
+                                            </div>
+                                        </div>
+                                    </button>
+
                                 </div>
-                            </button>))}
+                            ))}
                         </div>)}
                 </section>
             </div>
@@ -397,7 +438,7 @@ export function MainSelectPage() {
 
                             <div className="flex items-center gap-2">
                                 <Button
-                                    variant="ghost"
+                                    variant="ghostSecond"
                                     className="w-20 text-sm"
                                     onClick={() => navigate(`/quiz-runs/${quiz.id}`)}
                                 >
