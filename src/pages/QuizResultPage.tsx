@@ -231,6 +231,65 @@ export default function QuizResultPage() {
         setEditingDeckName(false);
     }
 
+    async function saveTitle() {
+        if (!titleInput.trim()) return;
+        const targetId = templateStats?.id ?? quizId ?? result?.template?.id;
+        if (!targetId) return;
+        setSavingTitle(true);
+        const { error: updErr } = await supabase
+            .from("quiz_templates")
+            .update({ title: titleInput.trim() })
+            .eq("id", targetId);
+        setSavingTitle(false);
+        if (updErr) {
+            alert("更新标题失败，请稍后再试");
+            return;
+        }
+        setTemplateStats((prev) =>
+            prev ? { ...prev, title: titleInput.trim() } : prev
+        );
+        setResult((prev) =>
+            prev
+                ? {
+                    ...prev,
+                    template: prev.template
+                        ? { ...prev.template, title: titleInput.trim() }
+                        : prev.template,
+                }
+                : prev
+        );
+        setEditingTitle(false);
+    }
+
+    async function saveDescription() {
+        const targetId = templateStats?.id ?? quizId ?? result?.template?.id;
+        if (!targetId) return;
+        setSavingDesc(true);
+        const { error: updErr } = await supabase
+            .from("quiz_templates")
+            .update({ description: descInput })
+            .eq("id", targetId);
+        setSavingDesc(false);
+        if (updErr) {
+            alert("更新描述失败，请稍后再试");
+            return;
+        }
+        setTemplateStats((prev) =>
+            prev ? { ...prev, description: descInput } : prev
+        );
+        setResult((prev) =>
+            prev
+                ? {
+                    ...prev,
+                    template: prev.template
+                        ? { ...prev.template, description: descInput }
+                        : prev.template,
+                }
+                : prev
+        );
+        setEditingDesc(false);
+    }
+
     function handleDeckNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -294,40 +353,22 @@ export default function QuizResultPage() {
                                     value={titleInput}
                                     onChange={(e) => setTitleInput(e.target.value)}
                                     autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            void saveTitle();
+                                        }
+                                        if (e.key === "Escape") {
+                                            e.preventDefault();
+                                            setEditingTitle(false);
+                                        }
+                                    }}
                                 />
                                 <Button
                                     variant="primary"
                                     className="px-4 py-1 text-sm whitespace-nowrap"
                                     disabled={savingTitle || !titleInput.trim()}
-                                    onClick={async () => {
-                                        if (!titleInput.trim()) return;
-                                        const targetId = templateStats?.id ?? quizId ?? result?.template?.id;
-                                        if (!targetId) return;
-                                        setSavingTitle(true);
-                                        const { error: updErr } = await supabase
-                                            .from("quiz_templates")
-                                            .update({ title: titleInput.trim() })
-                                            .eq("id", targetId);
-                                        setSavingTitle(false);
-                                        if (updErr) {
-                                            alert("更新标题失败，请稍后再试");
-                                            return;
-                                        }
-                                        setTemplateStats((prev) =>
-                                            prev ? { ...prev, title: titleInput.trim() } : prev
-                                        );
-                                        setResult((prev) =>
-                                            prev
-                                                ? {
-                                                    ...prev,
-                                                    template: prev.template
-                                                        ? { ...prev.template, title: titleInput.trim() }
-                                                        : prev.template,
-                                                }
-                                                : prev
-                                        );
-                                        setEditingTitle(false);
-                                    }}
+                                    onClick={() => void saveTitle()}
                                 >
                                     {savingTitle ? "保存中…" : <Check className="w-4 h-4" />}
                                 </Button>
@@ -347,7 +388,9 @@ export default function QuizResultPage() {
                                 }}
                                 title="双击编辑描述"
                             >
-                                {descriptionText ?? "[测验说明]"}
+                                {descriptionText?.trim()
+                                    ? descriptionText
+                                    : <span className="text-slate-400 dark:text-slate-500">[双击添加测验说明]</span>}
                             </button>
                         )}
                         {editingDesc && (
@@ -357,39 +400,22 @@ export default function QuizResultPage() {
                                     value={descInput}
                                     onChange={(e) => setDescInput(e.target.value)}
                                     autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            void saveDescription();
+                                        }
+                                        if (e.key === "Escape") {
+                                            e.preventDefault();
+                                            setEditingDesc(false);
+                                        }
+                                    }}
                                 />
                                 <Button
                                     variant="primary"
                                     className="px-3 py-1 text-xs"
                                     disabled={savingDesc}
-                                    onClick={async () => {
-                                        const targetId = templateStats?.id ?? quizId ?? result?.template?.id;
-                                        if (!targetId) return;
-                                        setSavingDesc(true);
-                                        const { error: updErr } = await supabase
-                                            .from("quiz_templates")
-                                            .update({ description: descInput })
-                                            .eq("id", targetId);
-                                        setSavingDesc(false);
-                                        if (updErr) {
-                                            alert("更新描述失败，请稍后再试");
-                                            return;
-                                        }
-                                        setTemplateStats((prev) =>
-                                            prev ? { ...prev, description: descInput } : prev
-                                        );
-                                        setResult((prev) =>
-                                            prev
-                                                ? {
-                                                    ...prev,
-                                                    template: prev.template
-                                                        ? { ...prev.template, description: descInput }
-                                                        : prev.template,
-                                                }
-                                                : prev
-                                        );
-                                        setEditingDesc(false);
-                                    }}
+                                    onClick={() => void saveDescription()}
                                 >
                                     {savingDesc ? "保存中…" : <Check className="w-4 h-4" />}
                                 </Button>
@@ -413,19 +439,19 @@ export default function QuizResultPage() {
                             )}
                         </div>
                     ) : (
-                        deckPath && (
-                            <button
-                                type="button"
-                                className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
-                                onDoubleClick={() => {
-                                    setDeckNameInput(deckPath);
-                                    setEditingDeckName(true);
-                                }}
-                                title="双击编辑所属路径（回车保存）"
-                            >
-                                {deckPath}
-                            </button>
-                        )
+                        <button
+                            type="button"
+                            className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
+                            onDoubleClick={() => {
+                                setDeckNameInput(deckPath);
+                                setEditingDeckName(true);
+                            }}
+                            title="双击编辑所属路径（回车保存）"
+                        >
+                            {deckPath?.trim()
+                                ? deckPath
+                                : <span className="text-slate-400 dark:text-slate-500">[双击设置路径]</span>}
+                        </button>
                     )}
                     <Button
                         variant="link"
