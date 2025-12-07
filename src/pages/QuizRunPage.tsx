@@ -249,6 +249,8 @@ function QuizRunPage() {
     }, [runResult, currentQuestion]);
     // 存储测验结果
     const [resultSaved, setResultSaved] = useState(false);
+    const [wrongReason, setWrongReason] = useState("");
+    const [checkingAnswer, setCheckingAnswer] = useState(false);
     useEffect(() => {
         if (!finished || !runResult || !userId || resultSaved) return;
 
@@ -296,15 +298,53 @@ function QuizRunPage() {
     }, [finished, runResult, userId, template, resultSaved, navigate, templateId]);
 
     // ===== 2. 用户作答逻辑 =====
-    function handleSubmitAnswer() {
+    async function handleSubmitAnswer() {
         if (!currentQuestion) return;
+        const { front, back } = currentQuestion;
 
-        // 用统一的 string[] UserAnswer 判分
-        const isCorrect = checkAnswer(
-            currentQuestion.front,
-            currentQuestion.back,
-            currentUserAnswer
-        );
+        let isCorrect = false;
+
+        if (front.type === "basic") {
+            // 优先调用 edge function 进行判题
+            const standardAnswer = back.answers?.[0]?.[0] ?? "";
+            const userText = currentUserAnswer ? currentUserAnswer[0] : "";
+            if (standardAnswer && userText) {
+                setCheckingAnswer(true);
+                try {
+                    const { data, error } = await supabase.functions.invoke("check-answer", {
+                        body: {
+                            standardAnswer,
+                            userAnswer: userText,
+                        },
+                    });
+                    if (!error && data && typeof data.correct === "boolean") {
+                        isCorrect = data.correct;
+                        if (!isCorrect && typeof data.reason === "string") {
+                            setWrongReason(data.reason);
+                        } else if (isCorrect) {
+                            setWrongReason("");
+                        }
+                    } else {
+                        console.warn("check-answer invoke failed, fallback to local check", error);
+                        isCorrect = checkAnswer(front, back, currentUserAnswer);
+                        setWrongReason("");
+                    }
+                } catch (err) {
+                    console.error("check-answer invoke error", err);
+                    isCorrect = checkAnswer(front, back, currentUserAnswer);
+                    setWrongReason("");
+                } finally {
+                    setCheckingAnswer(false);
+                }
+            } else {
+                isCorrect = false;
+                setWrongReason("");
+            }
+        } else {
+            // 其他题型使用本地判题
+            isCorrect = checkAnswer(front, back, currentUserAnswer);
+            setWrongReason("");
+        }
         // 2) Fire-and-forget 异步写入 card_reviews
         void (async () => {
             const reviewData = {
@@ -400,6 +440,8 @@ function QuizRunPage() {
 
     function handleNextQuestion() {
         if (!currentQuestion) return;
+
+        setWrongReason("");
         const nextIndex = currentIndex + 1;
 
         if (nextIndex >= totalQuestions) {
@@ -518,14 +560,22 @@ function QuizRunPage() {
                 </div>
                 <div className="flex flex-col justify-center flex-none">
                     {/* ----- 这里是大图标区域 ----- */}
-                    <div className="h-18 flex justify-center">
+                    <div className="h-18 flex justify-center items-center">
                         {showAnswer && currentCorrect && (
                             <CheckCircle className="w-14 h-14 text-emerald-500 drop-shadow-lg" />
                         )}
                         {showAnswer && !currentCorrect && (
                             <XCircle className="w-14 h-14 text-red-500 drop-shadow-lg" />
                         )}
+                        {!showAnswer && checkingAnswer && (
+                            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                        )}
                     </div>
+                    {wrongReason && (
+                        <div className="w-40 mt-2 text-sm text-amber-500 dark:text-amber-300 whitespace-normal break-words">
+                            {wrongReason}
+                        </div>
+                    )}
                     {/* 统一一个按钮：未显示答案时是“提交答案”，显示答案后变成“下一题” */}
                     {!(showAnswer && currentCorrect === false) && (
                         <Button
