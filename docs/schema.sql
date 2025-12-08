@@ -116,7 +116,8 @@ as $$
     from user_card_stats_view v
     join public.cards c on c.id = v.card_id
     cross join params p
-    where v.deck_name ilike p.path || '%'
+    where v.deck_name = p.path
+       or v.deck_name ilike p.path || '/%'
     order by random()
     limit (select lim from params);
 $$;

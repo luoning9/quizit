@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
-import clsx from "clsx";
+import { Loader2 } from "lucide-react";
 
 type Mode = "mixed";
 
@@ -83,7 +83,7 @@ function AiDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div>
               <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
                 题目数量：<span className="font-semibold text-emerald-700 dark:text-emerald-300">{count}</span>
@@ -124,62 +124,62 @@ function AiDialog({
                 ))}
               </div>
             </div>
-            </div>
+          </div>
 
-            <div className="flex flex-wrap gap-4 items-start">
-              <div>
-                <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
-                  题型（可多选）
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {[
-                    { label: "单选", value: "single" },
-                    { label: "多选", value: "multiple" },
-                    { label: "填空", value: "fill_in_blank" },
-                    { label: "简答", value: "basic" },
-                  ].map((opt) => {
-                    const checked = questionTypes.includes(opt.value as AiDialogProps["questionTypes"][number]);
-                    return (
-                      <label
-                        key={opt.value}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-                        style={{ outline: "none" }}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={checked}
-                          disabled={loading}
-                          onChange={(e) => {
-                            setQuestionTypes((prev) => {
-                              const set = new Set(prev);
-                              if (e.target.checked) {
-                                set.add(opt.value as AiDialogProps["questionTypes"][number]);
-                              } else {
-                                set.delete(opt.value as AiDialogProps["questionTypes"][number]);
-                              }
-                              return Array.from(set);
-                            });
-                          }}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start">
+            <div>
+              <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
+                题型（可多选）
               </div>
-              <div className="flex-1 min-w-[200px]">
-                <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
-                  学习路径
-                </div>
-                <input
-                  type="text"
-                  value={path}
-                  readOnly
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                />
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { label: "单选", value: "single" },
+                  { label: "多选", value: "multiple" },
+                  { label: "填空", value: "fill_in_blank" },
+                  { label: "简答", value: "basic" },
+                ].map((opt) => {
+                  const checked = questionTypes.includes(opt.value as AiDialogProps["questionTypes"][number]);
+                  return (
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                      style={{ outline: "none" }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={checked}
+                        disabled={loading}
+                        onChange={(e) => {
+                          setQuestionTypes((prev) => {
+                            const set = new Set(prev);
+                            if (e.target.checked) {
+                              set.add(opt.value as AiDialogProps["questionTypes"][number]);
+                            } else {
+                              set.delete(opt.value as AiDialogProps["questionTypes"][number]);
+                            }
+                            return Array.from(set);
+                          });
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
+            <div>
+              <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
+                学习路径
+              </div>
+              <input
+                type="text"
+                value={path}
+                readOnly
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+              />
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -387,6 +387,7 @@ export default function NewQuizTemplatePage() {
 
   async function handleAiGenerate() {
     setAiLoading(true);
+    setAiOpen(false);
     const countNum = Number(aiCount);
     const prompt = aiPrompt.trim() || "请根据卡片内容生成题目";
     const types = aiQuestionTypes.length ? aiQuestionTypes : (["single"] as string[]);
@@ -435,7 +436,6 @@ export default function NewQuizTemplatePage() {
       setError("AI 生成异常，请稍后再试");
     } finally {
       setAiLoading(false);
-      setAiOpen(false);
     }
   }
 
@@ -496,8 +496,15 @@ export default function NewQuizTemplatePage() {
 
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">题目内容（JSON）</div>
-          <div className="flex gap-2">
-            <Button variant="outline" type="button" className="text-sm" onClick={() => setAiOpen(true)}>
+          <div className="flex items-center gap-2">
+            {aiLoading && <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />}
+            <Button
+              variant="outline"
+              type="button"
+              className="text-sm"
+              onClick={() => setAiOpen(true)}
+              disabled={aiLoading || !path}
+            >
               AI 生成…
             </Button>
           </div>
@@ -530,10 +537,10 @@ export default function NewQuizTemplatePage() {
           <Button
             type="submit"
             variant="primary"
-            disabled={saving || !title.trim()}
+            disabled={saving || aiLoading || !title.trim()}
             className="text-sm px-4 py-2"
           >
-            {saving ? "创建中…" : "创建测验"}
+            {saving || aiLoading ? "创建中…" : "创建测验"}
           </Button>
         </div>
       </form>
