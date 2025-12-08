@@ -97,6 +97,32 @@ create table public.cards (
 
 create index IF not exists idx_cards_owner on public.cards using btree (owner_id) TABLESPACE pg_default;
 
+-- 随机获取匹配前缀的卡片
+create or replace function public.select_cards_by_path(
+    in _path text,
+    in _limit int default 100,
+    in _mode text default 'random'
+)
+returns table(card_id uuid, front text, back text)
+language sql
+security definer
+as $$
+    with params as (
+        select
+            coalesce(nullif(trim(_path), ''), '') as path,
+            least(greatest(coalesce(_limit, 100), 1), 500) as lim
+    )
+    select v.card_id, c.front, c.back
+    from user_card_stats_view v
+    join public.cards c on c.id = v.card_id
+    cross join params p
+    where v.deck_name ilike p.path || '%'
+    order by random()
+    limit (select lim from params);
+$$;
+
+grant execute on function public.select_cards_by_path(text,int,text) to anon, authenticated;
+
 
 create view public.deck_folder_stats as
 with

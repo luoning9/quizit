@@ -23,10 +23,13 @@ interface AiDialogProps {
   open: boolean;
   prompt: string;
   setPrompt: (v: string) => void;
-  count: "5" | "10" | "20";
-  setCount: (v: "5" | "10" | "20") => void;
+  count: number;
+  setCount: (v: number) => void;
   difficulty: "easy" | "medium" | "hard";
   setDifficulty: (v: "easy" | "medium" | "hard") => void;
+  questionTypes: Array<"single" | "multiple" | "fill" | "short">;
+  setQuestionTypes: (v: Array<"single" | "multiple" | "fill" | "short">) => void;
+  path: string;
   onGenerate: () => void;
   onClose: () => void;
   loading?: boolean;
@@ -40,6 +43,9 @@ function AiDialog({
   setCount,
   difficulty,
   setDifficulty,
+  questionTypes,
+  setQuestionTypes,
+  path,
   onGenerate,
   onClose,
   loading,
@@ -48,7 +54,7 @@ function AiDialog({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900 dark:border dark:border-slate-700">
+      <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-900 dark:border dark:border-slate-700">
         <div className="flex items-center justify-between mb-3">
           <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
             AI 生成
@@ -80,60 +86,100 @@ function AiDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
-                题目数量
+                题目数量：<span className="font-semibold text-emerald-700 dark:text-emerald-300">{count}</span>
               </div>
-              <div className="flex gap-2">
-                {[
-                  { label: "少量", value: "5" },
-                  { label: "适中", value: "10" },
-                  { label: "多些", value: "20" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={clsx(
-                      "px-3 py-1.5 rounded-lg text-sm border",
-                      count === opt.value
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
-                    )}
-                    onClick={() => setCount(opt.value as "5" | "10" | "20")}
-                    disabled={loading}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <input
+                type="range"
+                min={1}
+                max={25}
+                step={1}
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                className="w-full accent-blue-500 h-1.5 rounded-full bg-blue-100"
+                disabled={loading}
+              />
             </div>
 
             <div>
               <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
                 难度
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-4 text-lg text-slate-700 dark:text-slate-200">
                 {[
                   { label: "易", value: "easy" },
                   { label: "中", value: "medium" },
                   { label: "难", value: "hard" },
                 ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={clsx(
-                      "px-3 py-1.5 rounded-lg text-sm border",
-                      difficulty === opt.value
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
-                    )}
-                    onClick={() => setDifficulty(opt.value as "easy" | "medium" | "hard")}
-                    disabled={loading}
-                  >
-                    {opt.label}
-                  </button>
+                  <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ai-difficulty"
+                      value={opt.value}
+                      checked={difficulty === opt.value}
+                      onChange={() => setDifficulty(opt.value as "easy" | "medium" | "hard")}
+                      disabled={loading}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
                 ))}
               </div>
             </div>
-          </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 items-start">
+              <div>
+                <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
+                  题型（可多选）
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    { label: "单选", value: "single" },
+                    { label: "多选", value: "multiple" },
+                    { label: "填空", value: "fill_in_blank" },
+                    { label: "简答", value: "basic" },
+                  ].map((opt) => {
+                    const checked = questionTypes.includes(opt.value as AiDialogProps["questionTypes"][number]);
+                    return (
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                        style={{ outline: "none" }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          disabled={loading}
+                          onChange={(e) => {
+                            setQuestionTypes((prev) => {
+                              const set = new Set(prev);
+                              if (e.target.checked) {
+                                set.add(opt.value as AiDialogProps["questionTypes"][number]);
+                              } else {
+                                set.delete(opt.value as AiDialogProps["questionTypes"][number]);
+                              }
+                              return Array.from(set);
+                            });
+                          }}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
+                  学习路径
+                </div>
+                <input
+                  type="text"
+                  value={path}
+                  readOnly
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+                />
+              </div>
+            </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -236,15 +282,16 @@ export default function NewQuizTemplatePage() {
   const [title, setTitle] = useState(path ? `${path} 测验` : "");
   const [description, setDescription] = useState("");
   const [mode] = useState<Mode>("mixed");
-  const [itemsText, setItemsText] = useState(SAMPLE_JSON);
+  const [itemsText, setItemsText] = useState("");
   const [hasTypedItems, setHasTypedItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
-  const [aiCount, setAiCount] = useState<"5" | "10" | "20">("10");
+  const [aiCount, setAiCount] = useState<number>(10);
   const [aiDifficulty, setAiDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [aiQuestionTypes, setAiQuestionTypes] = useState<Array<"single" | "multiple" | "fill" | "short">>(["single"]);
   const [aiLoading, setAiLoading] = useState(false);
 
   const parsedItems = useMemo(() => parseItems(itemsText), [itemsText]);
@@ -338,19 +385,58 @@ export default function NewQuizTemplatePage() {
     }
   }
 
-  function handleAiGenerate() {
+  async function handleAiGenerate() {
     setAiLoading(true);
-    // 先用简单占位生成，后续可替换为 Edge Function 调用
     const countNum = Number(aiCount);
-    const prompt = aiPrompt.trim() || "请完善题目";
-    const generated = Array.from({ length: countNum }).map((_, idx) => ({
-      front: `${prompt} (${idx + 1})`,
-      back: `答案（${aiDifficulty}）`,
-      score: 1,
-    }));
-    setItemsText(JSON.stringify({ items: generated }, null, 2));
-    setAiLoading(false);
-    setAiOpen(false);
+    const prompt = aiPrompt.trim() || "请根据卡片内容生成题目";
+    const types = aiQuestionTypes.length ? aiQuestionTypes : (["single"] as string[]);
+
+    try {
+      // 先获取卡片内容
+      const { data: cards, error: cardsError } = await supabase.rpc("select_cards_by_path", {
+        _path: path,
+        _limit: countNum * 3,
+        _mode: "random",
+      });
+
+      if (cardsError || !Array.isArray(cards) || cards.length === 0) {
+        console.error("select_cards_by_path error", cardsError);
+        setError("未能获取学习路径下的卡片，无法生成题目");
+        setAiLoading(false);
+        return;
+      }
+
+      const payloadCards = cards
+        .map((row: any) => ({
+          front: String(row.front ?? "").trim(),
+          back: String(row.back ?? "").trim(),
+        }))
+        .filter((row) => row.front || row.back);
+      console.log(payloadCards);
+
+      const { data, error } = await supabase.functions.invoke("gen-questions", {
+        body: {
+          count: countNum,
+          prompt,
+          questionTypes: types,
+          cards: payloadCards,
+        },
+      });
+
+      if (error) {
+        console.error("gen-questions error", error);
+        setError("AI 生成失败，请稍后再试");
+      } else if (data) {
+        const content = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+        setItemsText(content);
+      }
+    } catch (err) {
+      console.error("invoke gen-questions error", err);
+      setError("AI 生成异常，请稍后再试");
+    } finally {
+      setAiLoading(false);
+      setAiOpen(false);
+    }
   }
 
   return (
@@ -381,7 +467,7 @@ export default function NewQuizTemplatePage() {
         onSubmit={handleSubmit}
         className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
           <div className="space-y-1.5">
             <label className="block text-sm text-slate-700 dark:text-slate-200">
               标题 <span className="text-rose-500">*</span>
@@ -396,24 +482,16 @@ export default function NewQuizTemplatePage() {
           </div>
           <div className="space-y-1.5">
             <label className="block text-sm text-slate-700 dark:text-slate-200">
-              模式
+              描述（可选）
             </label>
-            <div className="px-3 py-2 rounded-lg text-sm border bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600">
-              混合（固定）
-            </div>
+            <input
+              type="text"
+              className="w-full rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="简单描述这个测验的目的或范围。"
+            />
           </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-sm text-slate-700 dark:text-slate-200">
-            描述（可选）
-          </label>
-          <textarea
-            className="w-full h-20 rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 resize-none dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="简单描述这个测验的目的或范围。"
-          />
         </div>
 
         <div className="flex items-center justify-between">
@@ -468,6 +546,9 @@ export default function NewQuizTemplatePage() {
         setCount={setAiCount}
       difficulty={aiDifficulty}
       setDifficulty={setAiDifficulty}
+      questionTypes={aiQuestionTypes}
+      setQuestionTypes={setAiQuestionTypes}
+      path={path}
       onGenerate={handleAiGenerate}
       onClose={() => setAiOpen(false)}
       loading={aiLoading}
