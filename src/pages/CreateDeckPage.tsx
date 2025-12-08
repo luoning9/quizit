@@ -1,10 +1,10 @@
-// src/features/decks/NewDeckPage.tsx
+// src/features/decks/CreateDeckPage.tsx
 import React, { useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
 
-const NewDeckPage: React.FC = () => {
+const CreateDeckPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     // 用 URL 里的 ?path=... 作为初始值，没有就用 "/"
     const initialPath = searchParams.get("path") || "";
@@ -138,4 +138,4 @@ const NewDeckPage: React.FC = () => {
     );
 };
 
-export default NewDeckPage;
+export default CreateDeckPage;

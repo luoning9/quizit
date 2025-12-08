@@ -10,7 +10,7 @@ import { DeckPracticePage } from "./pages/DeckPracticePage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import { MainSelectPage } from "./pages/MainSelectPage.tsx";
 import DeckEditPage from "./pages/DeckEditPage.tsx";
-import NewDeckPage from "./pages/NewDeckPage";
+import CreateDeckPage from "./pages/CreateDeckPage.tsx";
 import NewQuizTemplatePage from "./pages/NewQuizTemplatePage";
 import QuizResultPage from "./pages/QuizResultPage";
 import "katex/dist/katex.min.css";
@@ -37,7 +37,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/quiz-runs/:quizId" element={<QuizResultPage />} />
                     <Route path="/quiz-runs/:quizId/:runId" element={<QuizResultPage />} />
                     <Route path="/decks/:deckId/edit" element={<DeckEditPage />} />
-                    <Route path="/decks/new" element={<NewDeckPage />} />
+                    <Route path="/decks/new" element={<CreateDeckPage />} />
                     <Route path="/decks/newest" element={<NewDecksPage />} />
                     <Route path="/decks/due" element={<DueDecksPage />} />
                 </Route>
