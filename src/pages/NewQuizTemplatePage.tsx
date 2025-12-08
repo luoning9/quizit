@@ -497,7 +497,7 @@ export default function NewQuizTemplatePage() {
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">题目内容（JSON）</div>
           <div className="flex items-center gap-2">
-            {aiLoading && <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />}
+            {aiLoading && <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />}
             <Button
               variant="outline"
               type="button"

@@ -10,7 +10,8 @@ import { MarkdownText } from "../components/MarkdownText";
 
 // 去掉选项文本前面的 "A."、"B、" 等前缀，避免重复显示
 function stripChoicePrefix(text: string): string {
-    return text.replace(/^\s*[A-Ha-h][.:、，]?\s*/, "");
+    // 只在前缀后跟分隔符或空格时剥离，避免误伤单词如 "address"
+    return text.replace(/^\s*[A-Ha-h](?:[.:、，]\s+|\s+)/, "");
 }
 
 export type PromptRenderOptions = {
