@@ -18,26 +18,23 @@ export function DeckStatus({ deckId }: DeckStatusProps) {
         async function load() {
             if (!deckId) return;
             const { data, error } = await supabase
-                .from("deck_folder_stats")
-                .select("total_items, total_ease_factor, deck_id")
+                .from("user_deck_stats_view")
+                .select("item_count, ease_sum, recent_unlearned_count")
                 .eq("deck_id", deckId)
                 .maybeSingle();
+
             if (error || !data) {
                 console.error("load deck status error", error);
                 setInfo(null);
                 return;
             }
-            const totalItems = data.total_items ?? 0;
+
+            const totalItems = Number(data.item_count ?? 0);
+            const easeSum = Number(data.ease_sum ?? 0);
             const progress = totalItems > 0
-                ? Math.round((Number(data.total_ease_factor ?? 0) / (totalItems * 4)) * 100)
+                ? Math.round((easeSum / (totalItems * 4)) * 100)
                 : 0;
-            // recent_unlearned_count 在 deck 视图里没有，转而查 user_deck_stats_view
-            const { data: stats, error: statsErr } = await supabase
-                .from("user_deck_stats_view")
-                .select("recent_unlearned_count")
-                .eq("deck_id", deckId)
-                .maybeSingle();
-            const recent = stats && !statsErr ? Number(stats.recent_unlearned_count ?? 0) : 0;
+            const recent = Number(data.recent_unlearned_count ?? 0);
 
             setInfo({ totalItems, progress, recentUnlearned: recent });
         }
