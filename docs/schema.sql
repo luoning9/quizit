@@ -394,7 +394,9 @@ pooled AS (
         card_id,
         deck_id,
         deck_name AS deck_title,
-        row_number() OVER (ORDER BY deck_created_at DESC) + (_limit * 4) AS seq
+        row_number() OVER (
+            ORDER BY coalesce(ease_factor, 0) ASC, deck_created_at DESC
+        ) + (_limit * 4) AS seq
     FROM base
     LIMIT _limit
 ),
