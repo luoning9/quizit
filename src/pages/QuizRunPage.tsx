@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
-import {BookOpen, Loader2, CheckCircle, XCircle} from "lucide-react";
+import {BookOpen, Loader2, CheckCircle, XCircle, LogOut} from "lucide-react";
 import {type QuizTemplate, renderPrompt, renderAnswer, type QuizRunResult} from "./quizRenderer";
 import {
     type BackSchema,
@@ -14,6 +14,7 @@ import {
 import { useTimer } from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
 import { Button } from "../components/ui/Button";
 import { addCardToWrongBook } from "../../lib/WrongBook.ts";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 
 interface QuizQuestion {
     cardId: string;
@@ -251,6 +252,7 @@ function QuizRunPage() {
     const [resultSaved, setResultSaved] = useState(false);
     const [wrongReason, setWrongReason] = useState("");
     const [checkingAnswer, setCheckingAnswer] = useState(false);
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
     useEffect(() => {
         if (!finished || !runResult || !userId || resultSaved) return;
 
@@ -512,6 +514,12 @@ function QuizRunPage() {
 
     // ===== 5. 正常做题界面 =====
 
+    const handleExitConfirm = () => {
+        const pathParam = template?.deck_name ? `?path=${encodeURIComponent(template.deck_name)}` : "";
+        setShowExitConfirm(false);
+        navigate(`/quizzes${pathParam}`);
+    };
+
     return (
         <div className="w-fit max-w-4xl mx-auto py-8 px-4 text-slate-900 dark:text-slate-100">
             {/* 头部 */}
@@ -529,8 +537,17 @@ function QuizRunPage() {
                         )}
                     </div>
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">
-                    题目 {currentIndex + 1} / {totalQuestions}
+                <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                    <span>题目 {currentIndex + 1} / {totalQuestions}</span>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="p-2 text-rose-500 hover:text-white hover:bg-rose-500 dark:text-rose-300 dark:hover:text-rose-100 dark:hover:bg-rose-700"
+                        onClick={() => setShowExitConfirm(true)}
+                        title="退出测验"
+                    >
+                        <LogOut className="w-5 h-5" />
+                    </Button>
                 </div>
             </header>
 
@@ -634,6 +651,14 @@ function QuizRunPage() {
                     </Button>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={showExitConfirm}
+                title="退出测验"
+                description="确定要退出测验并返回列表吗？"
+                onConfirm={handleExitConfirm}
+                onCancel={() => setShowExitConfirm(false)}
+            />
         </div>
     );
 }
