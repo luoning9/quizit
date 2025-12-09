@@ -451,19 +451,37 @@ left join public.card_stats cs
   on cs.card_id = dc.card_id
  and cs.user_id = auth.uid();
 
--- 用户 deck 统计视图
+-- 用户 deck 统计视图（包含无卡片的 deck）
 create or replace view public.user_deck_stats_view as
+with deck_base as (
+    select
+        d.id as deck_id,
+        d.title as deck_name,
+        d.created_at as deck_created_at
+    from public.decks d
+    where d.owner_id = auth.uid()
+), card_stats as (
+    select
+        deck_id,
+        count(*) as item_count,
+        sum(case when learned then 1 else 0 end) as learned_count,
+        sum(case when (learned and next_due_at is null) or next_due_at <= now() then 1 else 0 end) as due_count,
+        sum(coalesce(ease_factor, 0)) as ease_sum,
+        sum(case when learned = false and card_created_at >= now() - interval '7 days' then 1 else 0 end) as recent_unlearned_count
+    from public.user_card_stats_view
+    group by deck_id
+)
 select
-    deck_id,
-    deck_name,
-    deck_created_at,
-    count(*) as item_count,
-    sum(case when learned then 1 else 0 end) as learned_count,
-    sum(case when (learned and next_due_at is null) or next_due_at <= now() then 1 else 0 end) as due_count,
-    sum(coalesce(ease_factor, 0)) as ease_sum,
-    sum(case when learned = false and card_created_at >= now() - interval '7 days' then 1 else 0 end) as recent_unlearned_count
-from public.user_card_stats_view
-group by deck_id, deck_name, deck_created_at;
+    b.deck_id,
+    b.deck_name,
+    b.deck_created_at,
+    coalesce(s.item_count, 0) as item_count,
+    coalesce(s.learned_count, 0) as learned_count,
+    coalesce(s.due_count, 0) as due_count,
+    coalesce(s.ease_sum, 0) as ease_sum,
+    coalesce(s.recent_unlearned_count, 0) as recent_unlearned_count
+from deck_base b
+left join card_stats s on s.deck_id = b.deck_id;
 
 -- 用户目录统计视图：基于 user_deck_stats_view 聚合
 create or replace view public.user_folder_stats_view as

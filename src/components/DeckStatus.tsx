@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { Pencil } from "lucide-react";
 
 interface DeckStatusProps {
     deckId: string;
@@ -45,13 +46,25 @@ export function DeckStatus({ deckId }: DeckStatusProps) {
 
     return (
         <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
-            {info ? (
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {info.totalItems} 张卡片 · 进度 {info.progress}% · 最近新增未学 {info.recentUnlearned}
-                </div>
-            ) : (
-                <div className="text-sm text-slate-500 dark:text-slate-400">加载中…</div>
-            )}
+            <div className="flex items-center justify-between gap-2">
+                {info ? (
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {info.totalItems} 张卡片 · 进度 {info.progress}% · 最近新增未学 {info.recentUnlearned}
+                    </div>
+                ) : (
+                    <div className="text-sm text-slate-500 dark:text-slate-400">加载中…</div>
+                )}
+                <button
+                    type="button"
+                    className="p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
+                    title="编辑"
+                    onClick={() => {
+                        window.location.href = `/decks/${deckId}/edit`;
+                    }}
+                >
+                    <Pencil className="w-5 h-5" />
+                </button>
+            </div>
         </section>
     );
 }

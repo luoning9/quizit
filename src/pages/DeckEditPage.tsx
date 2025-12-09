@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers } from "lucide-react";
+import { Trash2, Check, Layers, List } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -695,19 +695,20 @@ const DeckEditPage: React.FC = () => {
                     <Button
                         type="button"
                         variant="ghost"
-                        className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                        className="p-2 text-red-600 hover:text-white hover:bg-red-600 dark:text-red-400 dark:hover:text-red-100 dark:hover:bg-red-700"
                         onClick={() => setShowDeleteDeckConfirm(true)}
                         aria-label="删除这个 deck"
                     >
-                        <Trash2 size={18} />
+                        <Trash2 size={20} />
                     </Button>
                     <Button
                         type="button"
                         variant="link"
-                        className="text-sm px-0 text-sky-400 hover:text-sky-300 underline underline-offset-4"
-                        onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title)}`)}
+                        className="p-3 rounded-full text-sky-500 hover:text-white hover:bg-sky-500 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
+                        onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title ?? "")}`)}
+                        title="返回列表页"
                     >
-                        返回列表页
+                        <List className="w-6 h-6" />
                     </Button>
                 </div>
             </div>

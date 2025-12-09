@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {Folder, Layers} from "lucide-react";
+import {Folder, Layers, PencilLine} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
@@ -348,26 +348,6 @@ export function MainSelectPage() {
                     >
                         学习
                     </Button>
-                    {/* 左侧：查看 + 新增（上下排列） */}
-                    <div className="flex flex-col items-start gap-1">
-                        {currentNode?.isDeck && (
-                            <Button
-                                variant="link"
-                                className="text-sm px-1 py-0.5 h-auto leading-tight rounded-lg text-blue-300 underline underline-offset-4 hover:text-blue-200"
-                                onClick={() => navigate(`/decks/${currentNode.deckId}/edit`)}
-                            >
-                                Edit Cards
-                            </Button>
-                        )}
-
-                        <Button
-                            variant="link"
-                            className="text-sm px-1 py-0.5 h-auto leading-tight rounded-lg text-blue-700 underline underline-offset-4 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200"
-                            onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
-                        >
-                            New Deck
-                        </Button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -468,13 +448,23 @@ export function MainSelectPage() {
                         </div>))}
                     </div>)}
                 </section>
-                <div className="flex justify-end">
+                <div className="flex justify-between gap-2">
                     <Button
-                        variant="outline"
-                        className="text-sm"
+                        variant="ghost"
+                        className="text-sm flex items-center gap-1"
+                        onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
+                        title="新建知识卡片组"
+                    >
+                        <Layers size={16} />
+                        <span>新建卡组</span>
+                    </Button>
+                    <Button
+                        variant="none"
+                        className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg px-3 py-2 flex items-center gap-1 dark:border-blue-600 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-800/60"
                         onClick={() => navigate(`/quizzes/new?path=${encodeURIComponent(selectedPath)}`)}
                     >
-                        新增测验
+                        <PencilLine size={16} />
+                        <span>新增测验</span>
                     </Button>
                 </div>
             </div>

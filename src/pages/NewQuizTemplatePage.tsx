@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
+import { List, PencilLine } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
 type Mode = "mixed";
@@ -443,17 +444,23 @@ export default function NewQuizTemplatePage() {
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 text-slate-900 dark:text-slate-100">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">新建测验</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            输入题目内容（front/back），系统会为每题创建卡片并生成测验模板。
-          </p>
+          <div className="flex items-center gap-3">
+            <PencilLine className="w-6 h-6 text-emerald-600 dark:text-sky-300" />
+            <div>
+              <h1 className="text-xl font-semibold">新建测验</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                输入题目内容（front/back），系统会为每题创建卡片并生成测验模板。
+              </p>
+            </div>
+          </div>
         </div>
         <Button
           variant="link"
-          className="text-xs px-0 text-emerald-700 hover:text-emerald-800 underline underline-offset-4 dark:text-sky-300 dark:hover:text-sky-200"
+          className="p-3 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
           onClick={() => navigate(-1)}
+          title="返回"
         >
-          返回
+          <List className="w-6 h-6" />
         </Button>
       </div>
 

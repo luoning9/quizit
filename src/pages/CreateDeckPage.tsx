@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
+import { List, Layers } from "lucide-react";
 
 const CreateDeckPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -72,19 +73,25 @@ const CreateDeckPage: React.FC = () => {
             {/* 顶部标题 */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-semibold">新建 Deck</h1>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        只需填写标题和简介，创建后可以在编辑页添加卡片。
-                    </p>
+                    <div className="flex items-center gap-3">
+                        <Layers className="w-8 h-8 text-emerald-600 dark:text-sky-300" />
+                        <div>
+                            <h1 className="text-xl font-semibold">新建 Deck</h1>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                只需填写标题和简介，创建后可以在编辑页添加卡片。
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <Button
                     type="button"
                     variant="link"
-                    className="text-xs px-0 text-emerald-700 hover:text-emerald-800 underline underline-offset-4 dark:text-sky-300 dark:hover:text-sky-200"
+                    className="p-3 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
                     onClick={() => navigate(-1)}
+                    title="返回"
                 >
-                    返回
+                    <List className="w-6 h-6" />
                 </Button>
             </div>
 
@@ -127,7 +134,12 @@ const CreateDeckPage: React.FC = () => {
                     <Button
                         type="submit"
                         variant="primary"
-                        disabled={submitting || !title.trim()}
+                        disabled={
+                            submitting ||
+                            !title.trim() ||
+                            title.trim() === initialPath.trim() ||
+                            title.trim().endsWith("/")
+                        }
                         className="text-sm font-medium px-4 py-2 rounded-xl"
                     >
                         {submitting ? "创建中…" : "创建 Deck"}
