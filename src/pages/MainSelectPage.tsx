@@ -461,7 +461,12 @@ export function MainSelectPage() {
                     <Button
                         variant="none"
                         className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg px-3 py-2 flex items-center gap-1 dark:border-blue-600 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-800/60"
-                        onClick={() => navigate(`/quizzes/new?path=${encodeURIComponent(selectedPath)}`)}
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            params.set("path", selectedPath);
+                            if (currentNode?.isDeck) params.set("is_deck", "1");
+                            navigate(`/quizzes/new?${params.toString()}`);
+                        }}
                     >
                         <PencilLine size={16} />
                         <span>新增测验</span>
