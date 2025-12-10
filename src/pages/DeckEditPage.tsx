@@ -25,24 +25,26 @@ interface CardRow {
 }
 
 type ImportedCardLite = {
+    id?: string;
     front: string;
     back: string;
 };
 
 interface JsonCardsShape {
-    cards?: Array<{ front?: unknown; back?: unknown }>;
+    cards?: Array<{ id?: unknown; front?: unknown; back?: unknown }>;
 }
 
 function normalizeJsonCards(
-    items: Array<{ front?: unknown; back?: unknown }>
+    items: Array<{ id?: unknown; front?: unknown; back?: unknown }>
 ): ImportedCardLite[] {
     return items
         .map((item): ImportedCardLite => {
+            const id = typeof item.id === "string" ? item.id : undefined;
             const front =
                 typeof item.front === "string" ? item.front : String(item.front ?? "");
             const back =
                 typeof item.back === "string" ? item.back : String(item.back ?? "");
-            return {front, back};
+            return {id, front, back};
         })
         .filter((c) => c.front.length > 0 || c.back.length > 0);
 }
@@ -292,7 +294,7 @@ const DeckEditPage: React.FC = () => {
                 back: c.back,
             })),
         };
-        setExportJson(JSON.stringify(payload, null, 2));
+        setExportJson(JSON.stringify(payload.cards, null, 2));
     }
 
     // 4. 导入
@@ -328,26 +330,65 @@ const DeckEditPage: React.FC = () => {
                 return;
             }
 
-            // 3) 插入 cards 表（card_type 统一为 basic）
-            const insertPayload = imported.map((c) => ({
-                front: c.front,
-                back: c.back,
-                card_type: "basic" as const,
-            }));
+            // 根据是否包含 id 分为更新和新增
+            const toUpdate = imported.filter((c) => c.id);
+            const toInsert = imported.filter((c) => !c.id);
 
-            const {data: insertedCards, error: insertError} = await supabase
-                .from("cards")
-                .insert(insertPayload)
-                .select("id, front, back");
+            // 3) 逐条更新已有卡片（只更新 front/back）
+            const updatedCards: CardRow[] = [];
+            const missingIds: string[] = [];
+            for (const card of toUpdate) {
+                const {data, error} = await supabase
+                    .from("cards")
+                    .update({
+                        front: card.front,
+                        back: card.back,
+                    })
+                    .eq("id", card.id!)
+                    .select("id, front, back");
 
-            if (insertError || !insertedCards || insertedCards.length === 0) {
-                console.error("insert cards error", insertError);
-                setError("导入失败：写入 cards 表时出现错误。");
-                setImporting(false);
-                return;
+                if (error) {
+                    console.error("update card error", error);
+                    setError("导入失败：更新已有卡片时出现错误。");
+                    setImporting(false);
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    missingIds.push(card.id!);
+                    continue;
+                }
+
+                // 取第一条（id 唯一）
+                const updated = data[0];
+                updatedCards.push(updated as CardRow);
             }
 
-            // 4) 构造新的 deck.items，完全按导入顺序覆盖
+            // 4) 插入新的 cards（card_type 统一为 basic）
+            let insertedCards: CardRow[] = [];
+            if (toInsert.length > 0) {
+                const insertPayload = toInsert.map((c) => ({
+                    front: c.front,
+                    back: c.back,
+                    card_type: "basic" as const,
+                }));
+
+                const {data, error: insertError} = await supabase
+                    .from("cards")
+                    .insert(insertPayload)
+                    .select("id, front, back");
+
+                if (insertError || !data) {
+                    console.error("insert cards error", insertError);
+                    setError("导入失败：写入 cards 表时出现错误。");
+                    setImporting(false);
+                    return;
+                }
+
+                insertedCards = data as CardRow[];
+            }
+
+            // 5) 构造新的 deck.items：仅追加新增的卡片，保留原顺序
             const prevItems = ((deck?.items?.items ?? []) as DeckItem[]);
             const startPos = prevItems.length + 1;
 
@@ -371,8 +412,7 @@ const DeckEditPage: React.FC = () => {
                 return;
             }
 
-            // 5) 更新本地状态：deck.items + cards 列表
-            // 5) 更新本地状态：deck.items + cards 列表
+            // 6) 更新本地状态：deck.items + cards 列表
             setDeck((prev) =>
                 prev
                     ? {
@@ -382,15 +422,27 @@ const DeckEditPage: React.FC = () => {
                     : prev
             );
 
-// 旧的 cards 保留，在末尾追加新插入的 cards
-            setCards((prev) => [...prev, ...insertedCards]);
+            // 旧的 cards 更新 front/back；末尾追加新插入的 cards
+            setCards((prev) => {
+                const updatedMap = new Map(updatedCards.map((c) => [c.id, c]));
+                const next = prev.map((c) => updatedMap.get(c.id) ?? c);
+                return [...next, ...insertedCards];
+            });
 
             setSelectedIds(new Set<string>()); // 如果你有选中逻辑，顺便清空
             setExportJson("");
             setError(null);
-            setSaveMetaMessage(
-                `导入成功：已追加 ${insertedCards.length} 张新卡片到当前 deck。`
-            );
+            const parts = [];
+            if (updatedCards.length > 0) {
+                parts.push(`更新 ${updatedCards.length} 张`);
+            }
+            if (insertedCards.length > 0) {
+                parts.push(`追加 ${insertedCards.length} 张`);
+            }
+            if (missingIds.length > 0) {
+                parts.push(`忽略 ${missingIds.length} 张未找到的 id`);
+            }
+            setSaveMetaMessage(`导入完成：${parts.join("，")}。`);
             setImporting(false);
         } catch (e) {
             console.error(e);
