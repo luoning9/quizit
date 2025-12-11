@@ -105,7 +105,9 @@ export function DotRender({
         document.documentElement.classList.contains("dark");
 
     const mergedClass = clsx(
-        "rounded-md p-2",
+        "rounded-md p-2 w-full",
+        // 让 SVG 随容器缩放：宽度 100%，高度自适应，并在视口内留余量（70vh）
+        "[&>svg]:w-full [&>svg]:h-auto [&>svg]:max-w-full [&>svg]:max-h-[70vh]",
         isDark ? "bg-slate-200" : "bg-slate-50",
         className
     );

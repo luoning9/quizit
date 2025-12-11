@@ -621,8 +621,6 @@ export function DeckPracticePage() {
                                             e.stopPropagation();
                                             setMediaModal({ cardId: current.id, name });
                                         }}
-                                        onMouseEnter={() => setHoverInfo(`查看图片：${name}`)}
-                                        onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
                                         title={`查看图示 (${name})`}
                                     >
                                         <ImageIcon className="h-8 w-8" aria-hidden />
@@ -667,7 +665,7 @@ export function DeckPracticePage() {
                         <DotRender
                             cardId={mediaModal.cardId}
                             fileName={mediaModal.name}
-                            className="w-full [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-[80vh]"
+                            className="w-full"
                         />
                     </div>
                 </div>
