@@ -137,7 +137,7 @@ const DeckEditPage: React.FC = () => {
     const navigate = useNavigate();
 
     const [loading, setLoading] = useState(true);
-    const [, setImporting] = useState(false);
+    const [importing, setImporting] = useState(false);
     // 新增：多选 & 删除状态
     const [selectedIds, setSelectedIds] = useState<Set<string>>(
         () => new Set<string>()
@@ -794,8 +794,9 @@ const DeckEditPage: React.FC = () => {
                             type="button"
                             onClick={handleImport}
                             className="text-sm w-30 font-light"
+                            disabled={importing}
                         >
-                            导入这些卡片
+                            {importing ? "导入中..." : "导入这些卡片"}
                         </Button>
                         <Button
                             variant="ghost"
