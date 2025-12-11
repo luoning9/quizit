@@ -19,14 +19,25 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface MapPdfViewerProps {
     pdfUrl: string;
+    posOf3x3?: NineGridPos;
     title?: string;
     pageNumber?: number;
     onClose?: () => void;
     className?: string;
-    initialScale?: number;
-    minScale?: number;
-    maxScale?: number;
 }
+
+type NineGridPos =
+    | "left"
+    | "right"
+    | "up"
+    | "down"
+    | "center"
+    | "middle"
+    | "左"
+    | "右"
+    | "上"
+    | "下"
+    | "中";
 
 const clamp = (value: number, min: number, max: number) =>
     Math.min(max, Math.max(min, value));
@@ -37,11 +48,11 @@ const clamp = (value: number, min: number, max: number) =>
  */
 export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
     pdfUrl,
+    posOf3x3 = "center",
     title = "地图 PDF 预览",
     pageNumber = 1,
     onClose,
     className = "",
-    initialScale = 1,
 }) => {
     const minScale = 0.2;
     const maxScale = 3;
@@ -60,7 +71,27 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
     const [numPages, setNumPages] = useState<number>();
     const [error, setError] = useState<string | null>(null);
     const [pageRenderSize, setPageRenderSize] = useState<{ width: number; height: number } | null>(null);
-    const [activeGrid, setActiveGrid] = useState<{ row: number; col: number } | null>(null);
+    const resolveGrid = useCallback((pos: NineGridPos | undefined): { row: number; col: number } => {
+        const text = (pos ?? "").toLowerCase();
+        let row: 0 | 1 | 2 = 1;
+        let col: 0 | 1 | 2 = 1;
+        const has = (key: string) => text.includes(key);
+
+        if (has("中") || has("middle") || has("center")) {
+            row = 1;
+            col = 1;
+        }
+        if (has("上") || has("up")) row = 0;
+        if (has("下") || has("down")) row = 2;
+        if (has("左") || has("left")) col = 0;
+        if (has("右") || has("right")) col = 2;
+
+        return { row, col };
+    }, []);
+
+    const initialGrid = useMemo(() => resolveGrid(posOf3x3), [posOf3x3, resolveGrid]);
+
+    const [activeGrid, setActiveGrid] = useState<{ row: number; col: number } | null>(initialGrid);
     const [hasFitted, setHasFitted] = useState(false);
 
     const clampOffsetXY = useCallback(
@@ -254,13 +285,30 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
     useEffect(() => {
         if (hasFitted) return;
         if (!pageSize || !containerSize.width || !containerSize.height) return;
-        resetView();
-    }, [hasFitted, pageSize, containerSize.width, containerSize.height, resetView]);
+
+        // 初次定位：根据传入的初始九宫格位置
+        if (initialGrid.row === 1 && initialGrid.col === 1) {
+            resetView();
+        } else {
+            centerToGridCell(initialGrid.row, initialGrid.col);
+        }
+        setHasFitted(true);
+    }, [
+        hasFitted,
+        pageSize,
+        containerSize.width,
+        containerSize.height,
+        resetView,
+        centerToGridCell,
+        initialGrid.row,
+        initialGrid.col,
+    ]);
 
     // 切换 PDF 时允许重新自适配
     useEffect(() => {
         setHasFitted(false);
-    }, [pdfUrl]);
+        setActiveGrid(initialGrid);
+    }, [pdfUrl, posOf3x3, initialGrid]);
 
     return (
         <div
