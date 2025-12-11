@@ -1,0 +1,53 @@
+{
+  "engine": "echarts_geo",
+  // [string] 渲染引擎类型。
+  // 目前固定为 "echarts_geo"。
+  // 将来可扩展为 "leaflet", "maplibre", "canvas_static" 等。
+
+  "version": 1,
+  // [number] 描述文件版本号。
+  // 若未来格式变更（字段增加或语义调整），可升级版本。
+
+  "baseMap": {
+    "type": "builtin",
+    // [string] 底图类型：
+    //   "builtin"  —— 使用本地内置底图（推荐）
+    //   "custom"   —— 使用外部或自定义 GeoJSON
+
+    "name": "world",
+    // [string] 底图的逻辑名称（给用户和编辑器识别用）。
+    // 示例： "world" / "china" / "china_province" / "east_asia_simplified"
+
+    "geoMapName": "world",
+    // [string] 注册给 ECharts 的 map 名称（必须传给 option.geo.map）。
+    // builtin 时对应 assets/geo/*.json
+    // custom 时对应外部 GeoJSON 的注册名
+
+    "provinceCode": null
+    // [string|null] 省级地图行政区代码。
+    // 仅当 name === "china_province" 时使用，如 "11"（北京），"51"（四川）
+    // 其它情况为 null。
+  },
+
+  "assets": {
+    "geoJsonUrl": null
+    // [string|null] 当 baseMap.type === "custom" 时必填。
+    // 指向自定义 GeoJSON 的 URL。
+    // builtin 底图时必须为 null（避免歧义）。
+  },
+
+  "option": {
+    // [object] 完整合法的 ECharts option（无函数、无回调、无外部请求）。
+    // 要求是纯 JSON，可直接在前端执行：
+    //   chart.setOption(mapSpec.option)
+    //
+    // 注意：
+    //   geo.map 字段不一定要写，前端会强制覆盖为 baseMap.geoMapName。
+    //   但写了也无妨（最终会被替换）。
+    //
+    // 典型结构：
+    //   geo: { ... }
+    //   series: [ ... ]
+    //   title / tooltip / visualMap 也可存在（按需）
+  }
+}
