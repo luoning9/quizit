@@ -7,6 +7,7 @@ import {Button} from "../components/ui/Button";
 import clsx from "clsx";
 import {useTimer} from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
 import {DotRender} from "../components/ui/DotRender";
+import { MapPdfViewer } from "../components/ui/MapPdfViewer";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 
@@ -440,7 +441,7 @@ export function DeckPracticePage() {
     const ringBgColor = isDarkMode ? "#1f2937" : "#e2e8f0";
 
     const frontMediaNames = current.mediaList?.filter((m) => m.name.startsWith("front."))?.map((m) => m.name) ?? [];
-    const backMediaNames = current.mediaList?.filter((m) => m.name.startsWith("back."))?.map((m) => m.name) ?? [];
+    const backMediaNames = current.mediaList?.filter((m) => m.name.startsWith("back"))?.map((m) => m.name) ?? [];
 
     //const dotNames = (current.mediaList ?? []).filter((m) => m.name.endsWith(".dot")).map((m) => m.name);
     //const frontDotNames = dotNames.filter((n) => n.startsWith("front."));
@@ -613,20 +614,30 @@ export function DeckPracticePage() {
                                 )}
                                 ref={backRef}
                             >
-                                {backMediaNames.filter((n) => n.endsWith(".dot")).map((name) => (
-                                    <button
-                                        key={name}
-                                        className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setMediaModal({ cardId: current.id, name });
-                                        }}
-                                        title={`查看图示 (${name})`}
-                                    >
-                                        <ImageIcon className="h-8 w-8" aria-hidden />
-                                        <span className="sr-only">查看图示</span>
-                                    </button>
-                                ))}
+                                {backMediaNames.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {backMediaNames
+                                            .filter(
+                                                (n) =>
+                                                    n.toLowerCase().endsWith(".dot") ||
+                                                    n.toLowerCase().endsWith(".map")
+                                            )
+                                            .map((name) => (
+                                                <button
+                                                    key={name}
+                                                    className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-300 underline"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setMediaModal({ cardId: current.id, name });
+                                                    }}
+                                                    title={`查看图示 (${name})`}
+                                                >
+                                                    <ImageIcon className="h-6 w-6" aria-hidden />
+                                                    <span>{name}</span>
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
                                 {frontSchema && backSchema
                                     ? renderAnswer(frontSchema, backSchema)
                                     : backClean}
@@ -647,7 +658,7 @@ export function DeckPracticePage() {
                     onClick={() => setMediaModal(null)}
                 >
                     <div
-                        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-auto p-4"
+                        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-auto p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-center mb-3">
@@ -662,11 +673,23 @@ export function DeckPracticePage() {
                                 关闭
                             </button>
                         </div>
-                        <DotRender
-                            cardId={mediaModal.cardId}
-                            fileName={mediaModal.name}
-                            className="w-full"
-                        />
+                        {mediaModal.name.toLowerCase().endsWith(".dot") ? (
+                            <DotRender
+                                cardId={mediaModal.cardId}
+                                fileName={mediaModal.name}
+                                className="w-full"
+                            />
+                        ) : mediaModal.name.toLowerCase().endsWith(".map") ? (
+                            <MapPdfViewer
+                                cardId={mediaModal.cardId}
+                                filename={mediaModal.name}
+                                className="w-full"
+                            />
+                        ) : (
+                            <div className="text-sm text-rose-500">
+                                暂不支持的文件类型：{mediaModal.name}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

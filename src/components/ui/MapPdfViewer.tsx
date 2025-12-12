@@ -505,7 +505,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
 
             <div
                 ref={containerRef}
-                className="relative max-h-[80vh] min-h-[360px] bg-slate-950/80 overflow-hidden rounded-b-2xl flex items-center justify-center"
+                className="relative h-[75vh] bg-slate-950/80 overflow-hidden rounded-b-2xl flex items-center justify-center"
             >
                 {mapLoading && (
                     <div className="text-sm text-slate-200 text-center py-6">
