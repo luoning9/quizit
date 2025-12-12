@@ -626,7 +626,7 @@ export function DeckPracticePage() {
                                             .map((name) => {
                                                 const lower = name.toLowerCase();
                                                 const isDot = lower.endsWith(".dot");
-                                                const isMap = lower.endsWith(".map");
+                                                //const isMap = lower.endsWith(".map");
                                                 return (
                                                     <button
                                                         key={name}
