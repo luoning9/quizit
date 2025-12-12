@@ -40,7 +40,7 @@ def get_sp_client() -> Client:
 def upload_to_storage(
     card_id: str,
     content: bytes,
-    filename: str = "card.dot",
+    filename: str,
     content_type: Optional[str] = None,
 ) -> Optional[str]:
     path = f"{card_id}/{filename}"
@@ -48,7 +48,8 @@ def upload_to_storage(
         client = get_sp_client()
         ct = content_type
         if not ct:
-            ct = "text/dot" if filename.endswith(".dot") else "application/octet-stream"
+            ext = Path(filename).suffix.lstrip(".")
+            ct = f"text/{ext}" if ext else "text/plain"
         res = client.storage.from_(SUPABASE_BUCKET).upload(
             path,
             content,
