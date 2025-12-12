@@ -10,6 +10,7 @@ import {DotRender} from "../components/ui/DotRender";
 import { MapPdfViewer } from "../components/ui/MapPdfViewer";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
+import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon } from "lucide-react";
 
 interface CardData {
     id: string;
@@ -622,20 +623,29 @@ export function DeckPracticePage() {
                                                     n.toLowerCase().endsWith(".dot") ||
                                                     n.toLowerCase().endsWith(".map")
                                             )
-                                            .map((name) => (
-                                                <button
-                                                    key={name}
-                                                    className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-300 underline"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setMediaModal({ cardId: current.id, name });
-                                                    }}
-                                                    title={`查看图示 (${name})`}
-                                                >
-                                                    <ImageIcon className="h-6 w-6" aria-hidden />
-                                                    <span>{name}</span>
-                                                </button>
-                                            ))}
+                                            .map((name) => {
+                                                const lower = name.toLowerCase();
+                                                const isDot = lower.endsWith(".dot");
+                                                const isMap = lower.endsWith(".map");
+                                                return (
+                                                    <button
+                                                        key={name}
+                                                        className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-300 underline"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setMediaModal({ cardId: current.id, name });
+                                                        }}
+                                                        title={`查看图示 (${name})`}
+                                                    >
+                                                        {isDot ? (
+                                                            <GitBranch className="h-5 w-5 text-emerald-500" />
+                                                        ) : (
+                                                            <MapIcon className="h-5 w-5 text-sky-500" />
+                                                        )}
+                                                        <span>{name}</span>
+                                                    </button>
+                                                );
+                                            })}
                                     </div>
                                 )}
                                 {frontSchema && backSchema
@@ -768,4 +778,3 @@ function BreakScreen({
         </div>
     );
 }
-import { Image as ImageIcon, X as XIcon, LogOut } from "lucide-react";

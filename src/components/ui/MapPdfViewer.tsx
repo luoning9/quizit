@@ -273,7 +273,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         return () => {
             active = false;
         };
-    }, [storageKey]);
+    }, [storageKey, getSignedUrlWithCache]);
 
     const handleZoom = useCallback(
         (delta: number) => {
@@ -294,16 +294,22 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         });
     }, []);
 
+    // 容器宽度驱动渲染宽度（按容器尺寸的 2x 渲染）
+    const renderWidth = useMemo(() => {
+        return containerSize.width ? containerSize.width * RENDER_MULTIPLIER : undefined;
+    }, [containerSize.width]);
+
     const calcFitScale = useCallback(() => {
         if (!pageSize || !containerSize.width || !containerSize.height) return null;
-        const baseW = (containerSize.width || pageSize.width) * RENDER_MULTIPLIER;
+        const baseW = renderWidth ?? containerSize.width * RENDER_MULTIPLIER;
         const baseH = baseW * (pageSize.height / pageSize.width);
         const widthScale = containerSize.width / baseW;
         const heightScale = containerSize.height / baseH;
         return clamp(Math.min(widthScale, heightScale), minScale, maxScale);
-    }, [containerSize.height, containerSize.width, pageSize, minScale, maxScale]);
+    }, [containerSize.height, containerSize.width, pageSize, minScale, maxScale, renderWidth]);
 
     const resetView = useCallback(() => {
+        if (!pageSize || !containerSize.width || !containerSize.height) return;
         const fit = calcFitScale();
         const fitScale = fit ?? 1;
         setScale(fitScale);
@@ -311,7 +317,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         setOffset(clampOffsetXY(0, 0, fitScale, { row: 1, col: 1 }));
         setActiveGrid({ row: 1, col: 1 });
         setHasFitted(true);
-    }, [calcFitScale, clampOffsetXY]);
+    }, [calcFitScale, clampOffsetXY, pageSize, containerSize.width, containerSize.height]);
 
     // PDF 资源配置
     const fileConfig = useMemo(() => {
@@ -322,11 +328,6 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         } as const;
     }, [pdfFileUrl]);
 
-    // 容器宽度驱动渲染宽度（按容器尺寸的 2x 渲染）
-    const renderWidth = useMemo(() => {
-        return containerSize.width ? containerSize.width * RENDER_MULTIPLIER : undefined;
-    }, [containerSize.width]);
-
     const pageTransform = useMemo(
         () => `translate(${offset.x}px, ${offset.y}px)`,
         [offset.x, offset.y]
@@ -334,7 +335,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
 
     const centerToGridCell = useCallback(
         (row: number, col: number) => {
-            if (!pageSize) return;
+            if (!pageSize || !containerSize.width || !containerSize.height) return;
 
             // 中心格：先计算适配，再应用居中
             if (row === 1 && col === 1) {
@@ -347,8 +348,10 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
                 return;
             }
 
-            // 非中心格：固定使用容器基准的 2x 尺寸，再计算偏移
-            const baseW = (containerSize.width || pageSize.width) * RENDER_MULTIPLIER;
+            // 非中心格：用实际渲染宽度近似页面尺寸，避免偏移误差
+            const baseW =
+                renderWidth ??
+                ((containerSize.width || pageSize.width) * RENDER_MULTIPLIER);
             const baseH = baseW * (pageSize.height / pageSize.width);
             const displayedWidth = baseW;
             const displayedHeight = baseH;
@@ -359,7 +362,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
             setOffset(clampOffsetXY(-cellX, -cellY, 1, { row, col }));
             setActiveGrid({ row, col });
         },
-        [pageSize, calcFitScale, clampOffsetXY, containerSize.width]
+        [pageSize, calcFitScale, clampOffsetXY, containerSize.width, containerSize.height, renderWidth]
     );
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -417,11 +420,14 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         <div
             className={`relative max-w-5xl w-full rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900 ${className}`}
         >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 gap-3">
-                <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                    {pdfFileTitle}
-                </div>
-                <div className="flex items-center gap-2 flex-1 justify-center">
+            <div
+                ref={containerRef}
+                className="relative h-[75vh] bg-slate-950/80 overflow-hidden rounded-b-2xl flex items-center justify-center"
+            >
+                <div className="absolute top-3 right-3 z-10 flex items-center gap-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm px-3 py-2 rounded-full shadow-lg">
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 mr-1">
+                        {pdfFileTitle}
+                    </div>
                     <Button
                         type="button"
                         variant="ghost"
@@ -468,8 +474,8 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
                         <RefreshCw className="w-4 h-4" />
                     </Button>
                     <div
-                        className="hidden sm:grid grid-cols-3 grid-rows-3 gap-[2px] border border-emerald-200 bg-emerald-50 overflow-hidden dark:border-slate-600 dark:bg-slate-800/80"
-                        style={{ width: "56px", height: "42px" }}
+                        className="hidden sm:grid grid-cols-3 grid-rows-3 gap-[1px] border border-emerald-200 bg-emerald-50 overflow-hidden dark:border-slate-600 dark:bg-slate-800/80"
+                        style={{ width: "44px", height: "32px" }}
                     >
                         {[0, 1, 2].map((r) =>
                             [0, 1, 2].map((c) => {
@@ -501,12 +507,6 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
                         )}
                     </div>
                 </div>
-            </div>
-
-            <div
-                ref={containerRef}
-                className="relative h-[75vh] bg-slate-950/80 overflow-hidden rounded-b-2xl flex items-center justify-center"
-            >
                 {mapLoading && (
                     <div className="text-sm text-slate-200 text-center py-6">
                         正在加载地图配置…
