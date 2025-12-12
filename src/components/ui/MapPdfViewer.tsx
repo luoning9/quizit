@@ -14,6 +14,9 @@ import type { PDFPageProxy } from "pdfjs-dist";
 // 按容器尺寸的 3x 渲染
 const RENDER_MULTIPLIER = 2;
 //const SCALE_MULTIPLIER = 0.667;
+const SIGNED_URL_TTL_SECONDS = 24 * 60 * 60; // 1 day
+const SIGNED_URL_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // cache for 12 hours
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 // 让 pdf.js worker 在 Vite 下正确解析
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -194,6 +197,27 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         return () => observer.disconnect();
     }, []);
 
+    const getSignedUrlWithCache = useCallback(async (bucket: string, path: string) => {
+        const cacheKey = `${bucket}:${path}`;
+        const now = Date.now();
+        const cached = signedUrlCache.get(cacheKey);
+        if (cached && cached.expiresAt > now) {
+            return cached.url;
+        }
+        const { data, error } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+        if (error || !data?.signedUrl) {
+            throw new Error(error?.message || "无法获取签名链接");
+        }
+        const ttl = Math.min(SIGNED_URL_CACHE_TTL_MS, SIGNED_URL_TTL_SECONDS * 1000);
+        signedUrlCache.set(cacheKey, {
+            url: data.signedUrl,
+            expiresAt: now + ttl,
+        });
+        return data.signedUrl;
+    }, []);
+
     // 加载 .map 文件，解析出 PDF 及视图配置
     useEffect(() => {
         let active = true;
@@ -207,13 +231,8 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
             setMapError(null);
             setError(null);
             try {
-                const { data: signed, error: signError } = await supabase.storage
-                    .from("quizit_card_medias")
-                    .createSignedUrl(storageKey, 120);
-                if (signError || !signed?.signedUrl) {
-                    throw new Error(signError?.message || "无法获取签名链接");
-                }
-                const resp = await fetch(signed.signedUrl);
+                const signedMapUrl = await getSignedUrlWithCache("quizit_card_medias", storageKey);
+                const resp = await fetch(signedMapUrl);
                 if (!resp.ok) {
                     throw new Error(`下载失败 (${resp.status})`);
                 }
@@ -235,15 +254,8 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
                 }
                 const normalizedMapFile = mapFile.replace(/^\/+/, "");
                 const mapFilePage = `maps/${normalizedMapFile}/page_${pageFromMap}.pdf`;
-                const { data: signedPdfUrl, error: signPdfUrlError } = await supabase.storage
-                    .from("quizit_big_medias")
-                    .createSignedUrl(mapFilePage, 12000);
-                if (signPdfUrlError || !signedPdfUrl?.signedUrl) {
-                    throw new Error(
-                        signPdfUrlError?.message || `无法获取 pdf 签名链接: ${mapFilePage}`
-                    );
-                }
-                setPdfFileUrl(signedPdfUrl.signedUrl);
+                const signedPdfUrl = await getSignedUrlWithCache("quizit_big_medias", mapFilePage);
+                setPdfFileUrl(signedPdfUrl);
                 setPdfFileTitle(mapName ?? "");
                 setPosOfGrid(pagePosition as NineGridPos | undefined);
             } catch (err) {
