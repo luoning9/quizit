@@ -6,8 +6,10 @@ import React, {
     useState,
 } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { Plus, Minus, RotateCcw, RotateCw, RefreshCw, X } from "lucide-react";
+import { Plus, Minus, RotateCcw, RotateCw, RefreshCw } from "lucide-react";
 import { Button } from "./Button.tsx";
+import { supabase } from "../../../lib/supabaseClient";
+import type { PDFPageProxy } from "pdfjs-dist";
 
 // 按容器尺寸的 3x 渲染
 const RENDER_MULTIPLIER = 2;
@@ -18,9 +20,8 @@ import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface MapPdfViewerProps {
-    pdfUrl: string;
-    posOf3x3?: NineGridPos;
-    title?: string;
+    cardId: string;
+    filename: string;
     pageNumber?: number;
     onClose?: () => void;
     className?: string;
@@ -42,22 +43,46 @@ type NineGridPos =
 const clamp = (value: number, min: number, max: number) =>
     Math.min(max, Math.max(min, value));
 
+type MapFileConfig = {
+    map_file: string;
+    name: string;
+    page: number;
+    position?: NineGridPos;
+};
+
+const isRecord = (val: unknown): val is Record<string, unknown> =>
+    typeof val === "object" && val !== null;
+
+const getStringField = (obj: Record<string, unknown>, key: keyof MapFileConfig) => {
+    const v = obj[key as string];
+    return typeof v === "string" ? v : undefined;
+};
+
+const getNumberField = (obj: Record<string, unknown>, key: keyof MapFileConfig) => {
+    const v = obj[key as string];
+    if (typeof v === "number") return v;
+    if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) {
+        return Number(v);
+    }
+    return undefined;
+};
 /**
  * 单页 PDF 查看组件：固定 3x 高清渲染，支持缩放、拖动、旋转、重置。
  * 仅在首次加载/重置/切换文件时自适配窗口，不会覆盖用户缩放。
  */
 export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
-    pdfUrl,
-    posOf3x3 = "center",
-    title = "地图 PDF 预览",
-    pageNumber = 1,
-    onClose,
+    cardId,
+    filename,
     className = "",
 }) => {
     const minScale = 0.2;
     const maxScale = 3;
     const containerRef = useRef<HTMLDivElement>(null);
     const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+    const storageKey = useMemo(
+        () => (cardId && filename ? `${cardId}/${filename}` : ""),
+        [cardId, filename]
+    );
 
     const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
         width: 0,
@@ -68,9 +93,16 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
     const [rotation, setRotation] = useState(0);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [dragging, setDragging] = useState(false);
-    const [numPages, setNumPages] = useState<number>();
     const [error, setError] = useState<string | null>(null);
     const [pageRenderSize, setPageRenderSize] = useState<{ width: number; height: number } | null>(null);
+    const [mapLoading, setMapLoading] = useState(false);
+    const [mapError, setMapError] = useState<string | null>(null);
+
+    const [pdfFileTitle, setPdfFileTitle] = useState<string | null>("");
+    const [pdfFileUrl, setPdfFileUrl] = useState<string | null>(null);
+    const [posOfGrid, setPosOfGrid] = useState<NineGridPos | undefined>("center");
+    //const effectivePos = mapRefProps?.posOf3x3 ?? "center";
+    //const effectiveTitle = mapRefProps?.title ?? "地图 PDF 预览";
     const resolveGrid = useCallback((pos: NineGridPos | undefined): { row: number; col: number } => {
         const text = (pos ?? "").toLowerCase();
         let row: 0 | 1 | 2 = 1;
@@ -89,7 +121,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         return { row, col };
     }, []);
 
-    const initialGrid = useMemo(() => resolveGrid(posOf3x3), [posOf3x3, resolveGrid]);
+    const initialGrid = useMemo(() => resolveGrid(posOfGrid), [posOfGrid, resolveGrid]);
 
     const [activeGrid, setActiveGrid] = useState<{ row: number; col: number } | null>(initialGrid);
     const [hasFitted, setHasFitted] = useState(false);
@@ -162,6 +194,75 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         return () => observer.disconnect();
     }, []);
 
+    // 加载 .map 文件，解析出 PDF 及视图配置
+    useEffect(() => {
+        let active = true;
+            async function loadMap() {
+            if (!storageKey) {
+                setMapError("缺少 cardId 或 filename");
+                setPdfFileUrl(null);
+                return;
+            }
+            setMapLoading(true);
+            setMapError(null);
+            setError(null);
+            try {
+                const { data: signed, error: signError } = await supabase.storage
+                    .from("quizit_card_medias")
+                    .createSignedUrl(storageKey, 120);
+                if (signError || !signed?.signedUrl) {
+                    throw new Error(signError?.message || "无法获取签名链接");
+                }
+                const resp = await fetch(signed.signedUrl);
+                if (!resp.ok) {
+                    throw new Error(`下载失败 (${resp.status})`);
+                }
+                const content = await resp.text();
+                const parsedRaw = JSON.parse(content) as unknown;
+                if (!isRecord(parsedRaw)) {
+                    throw new Error("map 文件不是有效 JSON 对象");
+                }
+                const parsed = parsedRaw as MapFileConfig;
+                if (!active) return;
+
+                const mapFile = getStringField(parsed, "map_file");
+                const pageFromMap = getNumberField(parsed, "page");
+                const pagePosition = getStringField(parsed, "position");
+                const mapName = getStringField(parsed, "name");
+
+                if (!mapFile || pageFromMap === undefined) {
+                    throw new Error("map 文件缺少 map_file 或 page");
+                }
+                const normalizedMapFile = mapFile.replace(/^\/+/, "");
+                const mapFilePage = `maps/${normalizedMapFile}/page_${pageFromMap}.pdf`;
+                const { data: signedPdfUrl, error: signPdfUrlError } = await supabase.storage
+                    .from("quizit_big_medias")
+                    .createSignedUrl(mapFilePage, 12000);
+                if (signPdfUrlError || !signedPdfUrl?.signedUrl) {
+                    throw new Error(
+                        signPdfUrlError?.message || `无法获取 pdf 签名链接: ${mapFilePage}`
+                    );
+                }
+                setPdfFileUrl(signedPdfUrl.signedUrl);
+                setPdfFileTitle(mapName ?? "");
+                setPosOfGrid(pagePosition as NineGridPos | undefined);
+            } catch (err) {
+                if (active) {
+                    const message = err instanceof Error ? err.message : "加载 map 文件失败";
+                    setMapError(message);
+                }
+            } finally {
+                if (active) {
+                    setMapLoading(false);
+                }
+            }
+        }
+        loadMap();
+        return () => {
+            active = false;
+        };
+    }, [storageKey]);
+
     const handleZoom = useCallback(
         (delta: number) => {
             setScale((prev) => {
@@ -172,15 +273,6 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
             });
         },
         [minScale, maxScale, clampOffsetXY, activeGrid]
-    );
-
-    const handleWheel = useCallback(
-        (e: React.WheelEvent<HTMLDivElement>) => {
-            e.preventDefault();
-            const step = e.deltaY > 0 ? -0.1 : 0.1;
-            handleZoom(step);
-        },
-        [handleZoom]
     );
 
     const rotate = useCallback((deg: number) => {
@@ -210,14 +302,13 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
     }, [calcFitScale, clampOffsetXY]);
 
     // PDF 资源配置
-    const fileConfig = useMemo(
-        () =>
-            ({
-                url: pdfUrl,
-                withCredentials: false,
-            }) as const,
-        [pdfUrl]
-    );
+    const fileConfig = useMemo(() => {
+        if (!pdfFileUrl) return null;
+        return {
+            url: pdfFileUrl,
+            withCredentials: false,
+        } as const;
+    }, [pdfFileUrl]);
 
     // 容器宽度驱动渲染宽度（按容器尺寸的 2x 渲染）
     const renderWidth = useMemo(() => {
@@ -249,7 +340,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
             const baseH = baseW * (pageSize.height / pageSize.width);
             const displayedWidth = baseW;
             const displayedHeight = baseH;
-            let cellX = (col - 1) * (displayedWidth / 3);
+            const cellX = (col - 1) * (displayedWidth / 3);
             const cellY = (row - 1) * (displayedHeight / 3);
 
             setScale(1);
@@ -308,7 +399,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
     useEffect(() => {
         setHasFitted(false);
         setActiveGrid(initialGrid);
-    }, [pdfUrl, posOf3x3, initialGrid]);
+    }, [pdfFileUrl, posOfGrid, initialGrid]);
 
     return (
         <div
@@ -316,7 +407,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
         >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 gap-3">
                 <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                    {title} {numPages ? `(共 ${numPages} 页)` : ""}
+                    {pdfFileTitle}
                 </div>
                 <div className="flex items-center gap-2 flex-1 justify-center">
                     <Button
@@ -376,7 +467,7 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
                                         key={`${r}-${c}`}
                                         type="button"
                                         className={[
-                                            "block w-full h-full p-0 m-0 leading-none text-transparent transition-colors flex items-center justify-center",
+                                            "w-full h-full p-0 m-0 leading-none text-transparent transition-colors flex items-center justify-center",
                                             active
                                                 ? "bg-emerald-500/80 dark:bg-sky-500/70"
                                                 : "bg-slate-100 dark:bg-slate-700",
@@ -397,90 +488,90 @@ export const MapPdfViewer: React.FC<MapPdfViewerProps> = ({
                             })
                         )}
                     </div>
-                    {onClose && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white"
-                            onClick={onClose}
-                            aria-label="关闭"
-                        >
-                            <X className="w-4 h-4" />
-                        </Button>
-                    )}
                 </div>
             </div>
 
             <div
                 ref={containerRef}
                 className="relative max-h-[80vh] min-h-[360px] bg-slate-950/80 overflow-hidden rounded-b-2xl flex items-center justify-center"
-                onWheel={handleWheel}
             >
-                <Document
-                    file={fileConfig}
-                    onLoadSuccess={(info) => {
-                        setNumPages(info.numPages);
-                        setError(null);
-                    }}
-                    onLoadError={(err) => {
-                        console.error("pdf load error", err);
-                        setError("PDF 加载失败，请检查链接或鉴权。");
-                    }}
-                    loading={
-                        <div className="text-sm text-slate-200 text-center py-6">
-                            正在加载 PDF…
-                        </div>
-                    }
-                    error={
-                        <div className="text-sm text-rose-300 text-center py-6">
-                            PDF 加载失败。
-                        </div>
-                    }
+                {mapLoading && (
+                    <div className="text-sm text-slate-200 text-center py-6">
+                        正在加载地图配置…
+                    </div>
+                )}
+                {mapError && !mapLoading && (
+                    <div className="text-sm text-rose-200 text-center py-6">
+                        {mapError}
+                    </div>
+                )}
+                {!mapLoading && !mapError && fileConfig && (
+                    <Document
+                        file={fileConfig}
+                        onLoadSuccess={() => {
+                            setError(null);
+                        }}
+                        onLoadError={(err) => {
+                            console.error("pdf load error", err);
+                            setError("PDF 加载失败，请检查链接或鉴权。");
+                        }}
+                        loading={
+                            <div className="text-sm text-slate-200 text-center py-6">
+                                正在加载 PDF…
+                            </div>
+                        }
+                        error={
+                            <div className="text-sm text-rose-300 text-center py-6">
+                                PDF 加载失败。
+                            </div>
+                        }
                     >
                         <div
                             className="relative"
                             style={{
                                 cursor: dragging ? "grabbing" : "grab",
                             }}
-                        onPointerDown={handlePointerDown}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={endDrag}
-                        onPointerCancel={endDrag}
-                    >
-                        <div
-                            className="transform-gpu"
-                            style={{
-                                transform: pageTransform,
-                                transformOrigin: "center center",
-                            }}
+                            onPointerDown={handlePointerDown}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={endDrag}
+                            onPointerCancel={endDrag}
                         >
-                            <Page
-                                pageNumber={pageNumber}
-                                width={renderWidth}
-                                scale={scale}
-                                rotate={rotation}
-                                renderAnnotationLayer={false}
-                                renderTextLayer={false}
-                                className="shadow-lg"
-                                onLoadSuccess={(page) => {
-                                    const w = (page as any).originalWidth ?? page.width;
-                                    const h = (page as any).originalHeight ?? page.height;
-                                    if (!w || !h) return;
-                                    setPageRenderSize({
-                                        width: page.width ?? 0,
-                                        height: page.height ?? 0,
-                                    });
-                                    setPageSize((prev) => {
-                                        if (prev && prev.width === w && prev.height === h) {
-                                            return prev;
-                                        }
-                                        return { width: w, height: h };
-                                    });
+                            <div
+                                className="transform-gpu"
+                                style={{
+                                    transform: pageTransform,
+                                    transformOrigin: "center center",
                                 }}
-                            />
+                            >
+                                <Page
+                                    pageNumber={1}
+                                    width={renderWidth}
+                                    scale={scale}
+                                    rotate={rotation}
+                                    renderAnnotationLayer={false}
+                                    renderTextLayer={false}
+                                    className="shadow-lg"
+                                    onLoadSuccess={(page: PDFPageProxy) => {
+                                        const viewport = page.getViewport({ scale: 1 });
+                                        const w = viewport?.width;
+                                        const h = viewport?.height;
+                                        if (!w || !h) return;
+                                        setPageRenderSize({
+                                            width: w ?? 0,
+                                            height: h ?? 0,
+                                        });
+                                        setPageSize((prev) => {
+                                            if (prev && prev.width === w && prev.height === h) {
+                                                return prev;
+                                            }
+                                            return { width: w, height: h };
+                                        });
+                                    }}
+                                />
+                            </div>
                         </div>
-                    </div>
                 </Document>
+                )}
                 {error && (
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-rose-300 text-center px-3 py-1 bg-rose-900/70 rounded-lg">
                         {error}
