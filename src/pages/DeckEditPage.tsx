@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, List } from "lucide-react";
+import { Trash2, Check, Layers, List, RotateCcw } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -160,6 +160,8 @@ const DeckEditPage: React.FC = () => {
     const [editingDesc, setEditingDesc] = useState(false);
     const [savingTitle, setSavingTitle] = useState(false);
     const [savingDesc, setSavingDesc] = useState(false);
+    const [resetting, setResetting] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const titleEditRef = useRef<HTMLDivElement | null>(null);
     const descEditRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -500,6 +502,42 @@ const DeckEditPage: React.FC = () => {
         });
     }
 
+    async function handleResetDeckStats() {
+        if (!deckId) return;
+        setResetting(true);
+        setError(null);
+        setSaveMetaMessage(null);
+        try {
+            const { data: userData, error: userErr } = await supabase.auth.getUser();
+            const user = userData?.user;
+            if (userErr || !user) {
+                setError("未登录，无法重置学习记录。");
+                return;
+            }
+            const cardIds = ((deck?.items?.items ?? []) as DeckItem[])
+                .map((it) => it.card_id)
+                .filter(Boolean);
+            if (cardIds.length === 0) {
+                setSaveMetaMessage("当前 deck 没有可重置的卡片。");
+                return;
+            }
+            const { error: delErr } = await supabase
+                .from("card_stats")
+                .delete()
+                .eq("user_id", user.id)
+                .in("card_id", cardIds);
+            if (delErr) {
+                console.error("reset card_stats error", delErr);
+                setError("重置失败，请稍后再试。");
+                return;
+            }
+            setSaveMetaMessage("已重置当前 deck 的学习记录。");
+        } finally {
+            setResetting(false);
+            setShowResetConfirm(false);
+        }
+    }
+
 // 6. 删除选中卡片
     async function handleDeleteSelected() {
         if (!deckId) return;
@@ -755,6 +793,16 @@ const DeckEditPage: React.FC = () => {
                     </Button>
                     <Button
                         type="button"
+                        variant="ghost"
+                        className="p-2 text-amber-600 hover:text-white hover:bg-amber-600 dark:text-amber-300 dark:hover:text-amber-100 dark:hover:bg-amber-700"
+                        onClick={() => setShowResetConfirm(true)}
+                        aria-label="重置学习记录"
+                        title="重置学习记录"
+                    >
+                        <RotateCcw size={20} />
+                    </Button>
+                    <Button
+                        type="button"
                         variant="link"
                         className="p-3 rounded-full text-sky-500 hover:text-white hover:bg-sky-500 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
                         onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title ?? "")}`)}
@@ -928,6 +976,20 @@ front,back
                     // 直接调用已有的删除逻辑
                     void handleDeleteSelected();
                     setShowDeleteConfirm(false);
+                }}
+            />
+            <ConfirmDialog
+                open={showResetConfirm}
+                title="重置学习记录"
+                description="是否要重置这个知识点的学习记录？重置操作不可恢复。"
+                confirmLabel={resetting ? "重置中…" : "确认重置"}
+                cancelLabel="取消"
+                loading={resetting}
+                onCancel={() => {
+                    if (!resetting) setShowResetConfirm(false);
+                }}
+                onConfirm={() => {
+                    void handleResetDeckStats();
                 }}
             />
             <ConfirmDialog

@@ -27,12 +27,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
     return (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 p-4 shadow-xl">
-                <div className="text-sm font-semibold text-slate-100 mb-2">
+            <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-xl">
+                <div className="text-base font-semibold text-slate-100 mb-3">
                     {title}
                 </div>
                 {description && (
-                    <div className="text-xs text-slate-300 mb-4 whitespace-pre-wrap">
+                    <div className="text-sm text-slate-300 mb-5 whitespace-pre-wrap leading-relaxed">
                         {description}
                     </div>
                 )}
@@ -40,7 +40,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     <Button
                         type="button"
                         variant="outline"
-                        className="px-3 py-1.5 text-xs border-slate-600 text-slate-300 hover:bg-slate-800"
+                        className="px-4 py-2 text-sm border-slate-600 text-slate-300 hover:bg-slate-800"
                         onClick={onCancel}
                         disabled={loading}
                     >
@@ -49,7 +49,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     <Button
                         type="button"
                         variant="primary"
-                        className="px-3 py-1.5 text-xs bg-rose-600 border-rose-500 hover:bg-rose-500 text-white"
+                        className="px-4 py-2 text-sm bg-rose-600 border-rose-500 hover:bg-rose-500 text-white"
                         onClick={onConfirm}
                         disabled={loading}
                     >

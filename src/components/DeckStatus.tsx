@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Pencil } from "lucide-react";
 
@@ -14,6 +15,7 @@ interface DeckInfo {
 
 export function DeckStatus({ deckId }: DeckStatusProps) {
     const [info, setInfo] = useState<DeckInfo | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         async function load() {
@@ -59,7 +61,7 @@ export function DeckStatus({ deckId }: DeckStatusProps) {
                     className="p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
                     title="编辑"
                     onClick={() => {
-                        window.location.href = `/decks/${deckId}/edit`;
+                        navigate(`/decks/${deckId}/edit`);
                     }}
                 >
                     <Pencil className="w-5 h-5" />
