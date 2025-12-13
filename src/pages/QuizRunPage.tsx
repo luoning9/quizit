@@ -15,6 +15,7 @@ import { useTimer } from "../components/TimerContext";  // ← 新增，路径�
 import { Button } from "../components/ui/Button";
 import { addCardToWrongBook } from "../../lib/WrongBook.ts";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { differenceInSeconds } from "date-fns";
 
 interface QuizQuestion {
     cardId: string;
@@ -60,6 +61,7 @@ function QuizRunPage() {
     const actionBtnRef = useRef<HTMLButtonElement | null>(null);
     const [showFloatingAction, setShowFloatingAction] = useState(false);
     const [floatingPos, setFloatingPos] = useState<{ left: number; top: number } | null>(null);
+    const questionStartRef = useRef<Date | null>(null);
 
     // 当前题目的作答：统一 string[]，初始为空数组
     const [currentUserAnswer, setCurrentUserAnswer] = useState<UserAnswer>([]);
@@ -200,11 +202,12 @@ function QuizRunPage() {
             setCurrentIndex(0);
             setCurrentUserAnswer([]);
             setHasSubmitted(false);
-            setShowAnswer(false);
-            //setAnswers([]);
-            setFinished(false);
-            setLoading(false);
-        }
+        setShowAnswer(false);
+        //setAnswers([]);
+        setFinished(false);
+        setLoading(false);
+        questionStartRef.current = new Date();
+    }
 
         loadQuiz();
     }, [templateId]);
@@ -349,12 +352,16 @@ function QuizRunPage() {
         }
         // 2) Fire-and-forget 异步写入 card_reviews
         void (async () => {
+            const timeSpentSeconds =
+                questionStartRef.current && !Number.isNaN(questionStartRef.current.getTime())
+                    ? Math.max(0, differenceInSeconds(new Date(), questionStartRef.current))
+                    : null;
             const reviewData = {
                 user_id: userId,
                 card_id: currentQuestion.cardId,
                 user_answer: JSON.stringify(currentUserAnswer),
                 is_correct: isCorrect,
-                time_spent: null,
+                time_spent: timeSpentSeconds,
                 meta: {
                     position: currentQuestion.position,
                     score: currentQuestion.score,
@@ -458,6 +465,7 @@ function QuizRunPage() {
             setCurrentUserAnswer([]);
             setHasSubmitted(false);
             setShowAnswer(false);
+            questionStartRef.current = new Date();
         }
     }
 

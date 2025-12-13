@@ -10,6 +10,7 @@ import {DotRender} from "../components/ui/DotRender";
 import { MapPdfViewer } from "../components/ui/MapPdfViewer";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
+import { differenceInSeconds } from "date-fns";
 import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon } from "lucide-react";
 
 interface CardData {
@@ -206,6 +207,7 @@ export function DeckPracticePage() {
                 setIndex(0);
                 setShowBack(false);
                 setHoverInfo("点击显示背面");
+                cardStartTimeRef.current = new Date();
             } finally {
                 setLoading(false);
             }
@@ -216,6 +218,7 @@ export function DeckPracticePage() {
 
     // 记录所抽取卡片的ease_factor之和
     const totalEaseFactorOfCards = useRef(0);
+    const cardStartTimeRef = useRef<Date | null>(null);
 
     // 3. 加载当前用户对这些卡片的 card_stats
     useEffect(() => {
@@ -247,6 +250,7 @@ export function DeckPracticePage() {
         }
 
         loadStats();
+        cardStartTimeRef.current = new Date();
     }, [cards]);
     // 计时器：全局顶栏那个
     const {reset, start, pause} = useTimer();
@@ -326,6 +330,12 @@ export function DeckPracticePage() {
         const user_id = user.id;
         const card_id = currentCard.id;
         const now = new Date().toISOString();
+        const startAt = cardStartTimeRef.current;
+        const timeSpentSeconds =
+            startAt && !Number.isNaN(startAt.getTime())
+                ? Math.max(0, differenceInSeconds(new Date(), startAt))
+                : null;
+        cardStartTimeRef.current = new Date();
 
         const is_correct = ease_factor >2;
 
@@ -335,7 +345,7 @@ export function DeckPracticePage() {
             reviewed_at: now,
             user_answer: null,         // 你目前没有输入作答内容
             is_correct: is_correct,          // 没有对错概念，写 null
-            time_spent: null,          // 如果需要计时可以以后加
+            time_spent: timeSpentSeconds,
             meta: {difficulty: ease_factor} // 把点击难度记在 meta 里
         });
 
