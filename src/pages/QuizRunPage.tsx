@@ -202,12 +202,12 @@ function QuizRunPage() {
             setCurrentIndex(0);
             setCurrentUserAnswer([]);
             setHasSubmitted(false);
-        setShowAnswer(false);
-        //setAnswers([]);
-        setFinished(false);
-        setLoading(false);
-        questionStartRef.current = new Date();
-    }
+            setShowAnswer(false);
+            //setAnswers([]);
+            setFinished(false);
+            setLoading(false);
+            questionStartRef.current = new Date();
+        }
 
         loadQuiz();
     }, [templateId]);
@@ -245,6 +245,9 @@ function QuizRunPage() {
 
     const totalQuestions = questions.length;
     const currentQuestion = questions[currentIndex] ?? null;
+    useEffect(() => {
+        questionStartRef.current = new Date();
+    }, [currentQuestion?.cardId]);
 
     const currentCorrect = useMemo(() => {
         if (!currentQuestion || !runResult) return null;
