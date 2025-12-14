@@ -4,6 +4,7 @@ import {BookOpen, Trophy, Trash2, Check, List} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 
 type QuizRunRecord = {
     id: string;
@@ -61,6 +62,7 @@ export default function QuizResultPage() {
     const [deckNameInput, setDeckNameInput] = useState("");
     const [savingDeckName, setSavingDeckName] = useState(false);
     const deckNameEditRef = useRef<HTMLDivElement | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         async function load() {
@@ -75,7 +77,7 @@ export default function QuizResultPage() {
 
             const templatePromise = quizId
                 ? supabase
-                    .from("quiz_template_stats")
+                    .from("user_quiz_stats_view")
                     .select("id, title, description, deck_name, attempt_count, last_score")
                     .eq("id", quizId)
                     .maybeSingle()
@@ -124,7 +126,7 @@ export default function QuizResultPage() {
             if (targetTemplateId) {
                 setRunsLoading(true);
                 const {data: runsData, error: runsErr} = await supabase
-                    .from("quiz_runs_user")
+                    .from("user_quiz_runs_view")
                     .select("id, template_id, started_at, finished_at, score, config")
                     .eq("template_id", targetTemplateId)
                     .order("finished_at", {ascending: false});
@@ -199,10 +201,12 @@ export default function QuizResultPage() {
         if (!quizId && !templateStats?.id) return;
         const targetId = quizId ?? templateStats?.id;
         if (!targetId) return;
-        const ok = window.confirm("确认删除该测验模板？此操作不可恢复。");
-        if (!ok) return;
         setDeleting(true);
-        const {error: delErr} = await supabase.from("quiz_templates").delete().eq("id", targetId);
+        setShowDeleteConfirm(false);
+        const {error: delErr} = await supabase
+            .from("quiz_templates")
+            .update({ is_deleted: true })
+            .eq("id", targetId);
         setDeleting(false);
         if (delErr) {
             alert("删除失败，请稍后再试");
@@ -537,7 +541,7 @@ export default function QuizResultPage() {
                             <Button
                                 variant="ghost"
                                 disabled={deleting}
-                                onClick={handleDeleteTemplate}
+                                onClick={() => setShowDeleteConfirm(true)}
                                 className="text-sm px-2 py-2"
                                 title="删除测验"
                             >
@@ -551,6 +555,17 @@ export default function QuizResultPage() {
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={showDeleteConfirm}
+                title="删除测验模板"
+                description="确认删除该测验模板？此操作不可恢复。"
+                confirmLabel="确认删除"
+                cancelLabel="取消"
+                loading={deleting}
+                onConfirm={handleDeleteTemplate}
+                onCancel={() => !deleting && setShowDeleteConfirm(false)}
+            />
 
             {/* 历史测验记录 */}
             <div

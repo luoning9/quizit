@@ -6,7 +6,7 @@ import {DeckStatus} from "../components/DeckStatus";
 import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
 /**
- * 来自 view：deck_folder_stats 的记录
+ * 来自 view：user_deck_folder_view 的记录
  * path            目录路径，如 "A", "A/B", "Physics/Grade8"
  * deck_count      该节点下（含子节点）的 deck 数量
  * total_items     该节点下（含子节点）的 items 总数
@@ -210,7 +210,7 @@ export function MainSelectPage() {
     useEffect(() => {
         async function loadQuizTemplates() {
             const {data, error} = await supabase
-                .from("quiz_template_stats")
+                .from("user_quiz_stats_view")
                 .select(`
                     id,
                     title,
@@ -223,7 +223,7 @@ export function MainSelectPage() {
                 `);
 
             if (error) {
-                console.error("Error loading quiz_template_stats:", error);
+                console.error("Error loading user_quiz_stats_view:", error);
                 return;
             }
             setQuizTemplates((data || []) as QuizTemplate[]);
@@ -241,7 +241,7 @@ export function MainSelectPage() {
                 .order("deck_name", {ascending: true});
 
             if (error) {
-                console.error("Error loading deck_folder_stats:", error);
+                console.error("Error loading user_deck_stats_view:", error);
             } else if (data) {
                 setDeckStats(data as DeckStat[]);
             }

@@ -603,7 +603,7 @@ const DeckEditPage: React.FC = () => {
 
         const { error: deleteError } = await supabase
             .from("decks")
-            .delete()
+            .update({ is_deleted: true })
             .eq("id", deckId);
 
         if (deleteError) {

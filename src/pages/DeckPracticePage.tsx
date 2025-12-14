@@ -132,16 +132,16 @@ export function DeckPracticePage() {
             setAnswersSinceBreak(0);
 
             try {
-                // 先读 deck_folder_stats 当前节点的数据
+                // 先读 user_deck_folder_view 当前节点的数据
                 if (decodedName) {
                     const {data: statsRow, error: statsError} = await supabase
-                        .from("deck_folder_stats")
+                        .from("user_deck_folder_view")
                         .select("path, deck_count, total_items, total_ease_factor, is_deck")
                         .eq("path", decodedName)
                         .maybeSingle();
 
                     if (statsError) {
-                        console.error("load deck_folder_stats error", statsError);
+                        console.error("load user_deck_folder_view error", statsError);
                     } else {
                         setFolderStats(statsRow as DeckFolderStatsRow);
                     }

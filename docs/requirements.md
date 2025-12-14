@@ -18,12 +18,12 @@
 - 未登录时，创建/编辑等需要鉴权的操作需提示登录。
 
 ### 3.2 目录与选择（MainSelect）
-- 读取 `deck_folder_stats` 视图构建目录树，按路径展示层级。
+- 读取 `user_deck_folder_view` 视图构建目录树，按路径展示层级。
 - 面包屑导航切换当前路径；支持根路径和任意子路径。
 - 展示子目录/Deck 列表（名称、Deck 数、卡片数、熟练度百分比）。
 - 当前路径为 Deck 时可跳转“查看”（编辑页）与“学习”（练习页）。
 - “新增”按钮携带当前路径跳转至新建 Deck 页面。
-- 右侧显示该路径关联的测验模板（来自 `quiz_template_stats`），可开始测验。
+- 右侧显示该路径关联的测验模板（来自 `user_quiz_stats_view`），可开始测验。
 
 ### 3.3 Deck 管理
 - **列表页** `/decks`：显示 Deck 名称、层级路径、描述、卡片数量、更新时间。
@@ -67,7 +67,7 @@
 - Supabase 表/视图/RPC（前端使用）：
   - `decks`，`cards`，`card_stats`，`card_reviews`
   - `quiz_templates`，`quiz_runs`
-  - 视图：`deck_folder_stats`，`quiz_template_stats`
+  - 视图：`user_deck_folder_view`，`user_quiz_stats_view`
   - RPC：`select_practice_cards`
 - 环境变量：`VITE_SUPABASE_URL`，`VITE_SUPABASE_ANON_KEY`（存放于 `.env.local`）。
 - 主要依赖：React 19、React Router 7、Supabase JS、Tailwind v4、Lucide 图标、PapaParse（CSV）。
