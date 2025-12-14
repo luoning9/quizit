@@ -547,3 +547,120 @@ create table if not exists public.daily_user_stats (
     inserted_at timestamptz default now(),
     constraint daily_user_stats_pkey primary key (user_id, date)
 );
+
+-- 计算指定日期（可选用户）的统计，不落表，返回 daily_user_stats 结构
+create or replace function public.compute_daily_user_stats(target_date date default current_date, target_user uuid default null)
+returns table (
+  user_id uuid,
+  date date,
+  questions_reviewed int,
+  question_time_spent int,
+  quizzes jsonb,
+  cards_reviewed int,
+  card_time_spent int,
+  decks jsonb
+)
+language plpgsql
+as $$
+begin
+  return query
+  with base as (
+    select
+      cr.user_id,
+      date(cr.reviewed_at) as day,
+      cr.is_question,
+      cr.belongs_to,
+      count(*) as cnt,
+      coalesce(sum(cr.time_spent), 0) as spent
+    from card_reviews cr
+    where date(cr.reviewed_at) = target_date
+      and (target_user is null or cr.user_id = target_user)
+    group by cr.user_id, day, cr.is_question, cr.belongs_to
+  ),
+  cards as (
+    select
+      base.user_id as user_id,
+      base.day as day,
+      sum(base.cnt)::int as cards_reviewed,
+      sum(base.spent)::int as card_time_spent,
+      jsonb_object_agg(d.title, base.cnt) filter (where d.title is not null) as decks
+    from base
+    left join decks d on d.id = base.belongs_to
+    where base.is_question = false
+    group by base.user_id, base.day
+  ),
+  quizzes as (
+    select
+      base.user_id as user_id,
+      base.day as day,
+      sum(base.cnt)::int as questions_reviewed,
+      sum(base.spent)::int as question_time_spent,
+      jsonb_object_agg(qt.title, base.cnt) filter (where qt.title is not null) as quizzes
+    from base
+    left join quiz_templates qt on qt.id = base.belongs_to
+    where base.is_question = true
+    group by base.user_id, base.day
+  )
+  select
+    coalesce(q.user_id, c.user_id) as user_id,
+    coalesce(q.day, c.day) as date,
+    coalesce(q.questions_reviewed, 0) as questions_reviewed,
+    coalesce(q.question_time_spent, 0) as question_time_spent,
+    q.quizzes,
+    coalesce(c.cards_reviewed, 0) as cards_reviewed,
+    coalesce(c.card_time_spent, 0) as card_time_spent,
+    c.decks
+  from quizzes q
+  full join cards c
+    on q.user_id = c.user_id and q.day = c.day;
+end;
+$$;
+
+-- 批量补齐缺失的 daily_user_stats（默认补最近 30 天）
+create or replace function public.compute_missing_daily_user_stats(p_days int default 30)
+returns void
+language plpgsql
+as $$
+declare
+  target date;
+begin
+  if p_days is null or p_days < 1 then
+    raise exception 'p_days must be >= 1';
+  end if;
+
+  -- 从昨天开始往前 p_days 天，缺失则补
+  for target in select generate_series(current_date - 1, current_date - p_days, '-1 day'::interval)::date
+  loop
+    -- 若该日已存在记录，则跳过
+    if exists (select 1 from daily_user_stats where date = target) then
+      continue;
+    end if;
+
+    -- 计算该日所有用户的统计并写入 daily_user_stats
+    insert into daily_user_stats (
+      user_id, date,
+      questions_reviewed, question_time_spent, quizzes,
+      cards_reviewed, card_time_spent, decks
+    )
+    select
+      user_id,
+      date,
+      questions_reviewed,
+      question_time_spent,
+      quizzes,
+      cards_reviewed,
+      card_time_spent,
+      decks
+    from public.compute_daily_user_stats(target, null)
+    on conflict (user_id, date)
+    do update set
+      questions_reviewed = excluded.questions_reviewed,
+      question_time_spent = excluded.question_time_spent,
+      quizzes = excluded.quizzes,
+      cards_reviewed = excluded.cards_reviewed,
+      card_time_spent = excluded.card_time_spent,
+      decks = excluded.decks,
+      inserted_at = now();
+  end loop;
+end;
+$$;
