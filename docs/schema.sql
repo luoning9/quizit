@@ -6,6 +6,8 @@ create table public.card_reviews (
                                      user_answer text null,
                                      is_correct boolean null,
                                      time_spent integer null,
+                                     is_question boolean not null default false,
+                                     belongs_to text null,
                                      meta jsonb null,
                                      constraint card_reviews_pkey primary key (id),
                                      constraint card_reviews_card_id_fkey foreign KEY (card_id) references cards (id) on delete CASCADE,
@@ -529,3 +531,19 @@ select
 from prefixes p
 group by path
 order by path;
+
+-- 每日用户学习汇总（练习题/闪卡分开）
+create table if not exists public.daily_user_stats (
+    user_id uuid not null,
+    date date not null,
+    -- 练习题（测验）
+    questions_reviewed int not null default 0,
+    question_time_spent int not null default 0,       -- 秒
+    quizzes jsonb,                                    -- 按测验分组的题目数量
+    -- 闪卡
+    cards_reviewed int not null default 0,
+    card_time_spent int not null default 0,           -- 秒
+    decks jsonb,                                      -- 按 deck 分组的卡片数量
+    inserted_at timestamptz default now(),
+    constraint daily_user_stats_pkey primary key (user_id, date)
+);

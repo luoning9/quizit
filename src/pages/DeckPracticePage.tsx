@@ -346,6 +346,8 @@ export function DeckPracticePage() {
             user_answer: null,         // 你目前没有输入作答内容
             is_correct: is_correct,          // 没有对错概念，写 null
             time_spent: timeSpentSeconds,
+            belongs_to: currentCard.deck_title ?? null,
+            is_question: false,
             meta: {difficulty: ease_factor} // 把点击难度记在 meta 里
         });
 
