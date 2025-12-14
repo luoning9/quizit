@@ -363,7 +363,7 @@ export default function NewQuizTemplatePage() {
             };
 
             const {data: tmpl, error: tmplError} = await supabase
-                .from("quiz_templates")
+                .from("quizzes")
                 .insert({
                     title: trimmedTitle,
                     description: description.trim() || null,
@@ -376,7 +376,7 @@ export default function NewQuizTemplatePage() {
                 .single();
 
             if (tmplError || !tmpl) {
-                console.error("insert quiz_template error", tmplError);
+                console.error("insert quiz error", tmplError);
                 setError("创建测验失败。");
                 setSaving(false);
                 return;

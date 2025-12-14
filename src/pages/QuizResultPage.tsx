@@ -86,7 +86,7 @@ export default function QuizResultPage() {
             const runPromise = runId
                 ? supabase
                     .from("quiz_runs")
-                    .select("id, template_id, score, total_items, correct_items, started_at, finished_at, template:quiz_templates(id, title, description)")
+                    .select("id, template_id, score, total_items, correct_items, started_at, finished_at, template:quizzes(id, title, description)")
                     .eq("id", runId)
                     .maybeSingle()
                 : Promise.resolve({data: null, error: null});
@@ -204,7 +204,7 @@ export default function QuizResultPage() {
         setDeleting(true);
         setShowDeleteConfirm(false);
         const {error: delErr} = await supabase
-            .from("quiz_templates")
+            .from("quizzes")
             .update({ is_deleted: true })
             .eq("id", targetId);
         setDeleting(false);
@@ -223,7 +223,7 @@ export default function QuizResultPage() {
         const next = deckNameInput.trim();
         setSavingDeckName(true);
         const { error: updErr } = await supabase
-            .from("quiz_templates")
+            .from("quizzes")
             .update({ deck_name: next })
             .eq("id", targetId);
         setSavingDeckName(false);
@@ -241,7 +241,7 @@ export default function QuizResultPage() {
         if (!targetId) return;
         setSavingTitle(true);
         const { error: updErr } = await supabase
-            .from("quiz_templates")
+            .from("quizzes")
             .update({ title: titleInput.trim() })
             .eq("id", targetId);
         setSavingTitle(false);
@@ -270,7 +270,7 @@ export default function QuizResultPage() {
         if (!targetId) return;
         setSavingDesc(true);
         const { error: updErr } = await supabase
-            .from("quiz_templates")
+            .from("quizzes")
             .update({ description: descInput })
             .eq("id", targetId);
         setSavingDesc(false);

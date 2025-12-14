@@ -240,20 +240,11 @@ create index IF not exists idx_decks_owner on public.decks using btree (owner_id
 
 create index IF not exists idx_decks_tags on public.decks using gin (tags) TABLESPACE pg_default;
 
--- 当前用户的未删除 Deck 视图
 create or replace view public.user_active_decks as
 select *
 from public.decks
 where owner_id = auth.uid()
   and is_deleted = false;
-
--- 当前用户的未删除测验模板
-create or replace view public.user_active_quizzes as
-select *
-from public.quiz_templates
-where owner_id = auth.uid()
-  and is_deleted = false;
-
 
 create table public.profiles (
                                  id uuid not null,
@@ -278,7 +269,7 @@ create table public.quiz_runs (
                                   config jsonb null,
                                   created_at timestamp with time zone null default now(),
                                   constraint quizzes_pkey primary key (id),
-                                  constraint quizzes_template_id_fkey foreign KEY (template_id) references quiz_templates (id) on delete set null,
+                                  constraint quizzes_template_id_fkey foreign KEY (template_id) references quizzes (id) on delete set null,
                                   constraint quizzes_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
 ) TABLESPACE pg_default;
 
@@ -337,7 +328,7 @@ order by
   qt.created_at desc;
 
 
-create table public.quiz_templates (
+create table public.quizzes (
                                        id uuid not null default gen_random_uuid (),
                                        owner_id uuid not null default auth.uid(),
                                        title text not null,
@@ -349,11 +340,22 @@ create table public.quiz_templates (
                                        updated_at timestamp with time zone null default now(),
                                        deck_name text null,
                                        is_deleted boolean not null default false,
-                                       constraint quiz_templates_pkey primary key (id),
-                                       constraint quiz_templates_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete cascade
+                                       constraint quizzes_pkey primary key (id),
+                                       constraint quizzes_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete cascade
 ) TABLESPACE pg_default;
 
-create index IF not exists idx_quiz_templates_owner on public.quiz_templates using btree (owner_id) TABLESPACE pg_default;
+create index IF not exists idx_quizzes_owner on public.quizzes using btree (owner_id) TABLESPACE pg_default;
+
+-- 兼容旧名：提供只读视图 quiz_templates
+create or replace view public.quiz_templates as
+select * from public.quizzes;
+
+-- 当前用户的未删除测验模板
+create or replace view public.user_active_quizzes as
+select *
+from public.quizzes
+where owner_id = auth.uid()
+  and is_deleted = false;
 
 
 CREATE OR REPLACE FUNCTION public.select_practice_cards_leitner(
@@ -605,7 +607,7 @@ begin
       sum(base.spent)::int as question_time_spent,
       jsonb_object_agg(qt.title, base.cnt) filter (where qt.title is not null) as quizzes
     from base
-    left join quiz_templates qt on qt.id = base.belongs_to and qt.is_deleted = false
+    left join quizzes qt on qt.id = base.belongs_to and qt.is_deleted = false
     where base.is_question = true
     group by base.user_id, base.day
   )

@@ -80,11 +80,12 @@ function QuizRunPage() {
             setLoadingError(null);
             setFrontMediaMap({});
 
-            // 1. 读取 quiz_templates
+            // 1. 读取 quizzes（旧名 quiz_templates）
             const {data: tmpl, error: tmplError} = await supabase
-                .from("quiz_templates")
+                .from("quizzes")
                 .select("id, title, description, deck_name, items")
                 .eq("id", templateId)
+                .eq("is_deleted", false)
                 .maybeSingle();
 
             if (tmplError || !tmpl) {
