@@ -18,6 +18,7 @@ import './index.css';
 import NewDecksPage from "./pages/NewDecksPage";
 import DueDecksPage from "./pages/DueDecksPage";
 import MapPdfTestPage from "./pages/MapPdfTestPage.tsx";
+import StatsPage from "./pages/StatsPage.tsx";
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
@@ -42,6 +43,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/decks/newest" element={<NewDecksPage />} />
                     <Route path="/decks/due" element={<DueDecksPage />} />
                     <Route path="/debug/map-pdf" element={<MapPdfTestPage />} />
+                    <Route path="/stats" element={<StatsPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>
