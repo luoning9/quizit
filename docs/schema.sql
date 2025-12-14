@@ -127,7 +127,7 @@ $$;
 grant execute on function public.select_cards_by_path(text,int,text) to anon, authenticated;
 
 
-create view public.deck_folder_stats as
+create or replace view public.user_deck_folder_view as
 with
     base as (
         select
@@ -136,12 +136,8 @@ with
             d.items,
             COALESCE(jsonb_array_length(d.items -> 'items'::text), 0) as item_count
         from
-            decks d
-        where
-            d.title is not null
-          and btrim(d.title) <> ''::text
-          and d.owner_id = auth.uid()
-        ),
+            user_active_decks d
+    ),
         deck_cards as (
         select
         b.deck_id,
@@ -197,10 +193,9 @@ select
         select
             d.id
         from
-            decks d
+            user_active_decks d
         where
             d.title = p.path
-          and d.owner_id = auth.uid()
         limit 1
     ) as deck_id,
   count(distinct deck_id) as deck_count,
@@ -211,10 +206,9 @@ select
       select
         1
       from
-        decks d
+        user_active_decks d
       where
         d.title = p.path
-        and d.owner_id = auth.uid()
     )
   ) as is_deck
 from
@@ -237,6 +231,7 @@ create table public.decks (
                               items jsonb not null default '{"items": []}'::jsonb,
                               created_at timestamp with time zone null default now(),
                               updated_at timestamp with time zone null default now(),
+                              is_deleted boolean not null default false,
                               constraint decks_pkey primary key (id),
                               constraint decks_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete CASCADE
 ) TABLESPACE pg_default;
@@ -244,6 +239,20 @@ create table public.decks (
 create index IF not exists idx_decks_owner on public.decks using btree (owner_id) TABLESPACE pg_default;
 
 create index IF not exists idx_decks_tags on public.decks using gin (tags) TABLESPACE pg_default;
+
+-- 当前用户的未删除 Deck 视图
+create or replace view public.user_active_decks as
+select *
+from public.decks
+where owner_id = auth.uid()
+  and is_deleted = false;
+
+-- 当前用户的未删除测验模板
+create or replace view public.user_active_quizzes as
+select *
+from public.quiz_templates
+where owner_id = auth.uid()
+  and is_deleted = false;
 
 
 create table public.profiles (
@@ -278,13 +287,13 @@ create index IF not exists idx_quiz_runs_user on public.quiz_runs using btree (u
 create index IF not exists idx_quiz_runs_template on public.quiz_runs using btree (template_id) TABLESPACE pg_default;
 
 -- 当前用户的测验记录视图
-create or replace view public.quiz_runs_user as
+create or replace view public.user_quiz_runs_view as
 select *
 from public.quiz_runs
 where user_id = auth.uid();
 
 
-create view public.quiz_template_stats as
+create or replace view public.user_quiz_stats_view as
 select
     qt.id,
     qt.owner_id,
@@ -298,7 +307,7 @@ select
     qs.last_attempt_at,
     qs.last_score
 from
-    quiz_templates qt
+    user_active_quizzes qt
         left join (
         select
             qr_outer.template_id,
@@ -339,6 +348,7 @@ create table public.quiz_templates (
                                        created_at timestamp with time zone null default now(),
                                        updated_at timestamp with time zone null default now(),
                                        deck_name text null,
+                                       is_deleted boolean not null default false,
                                        constraint quiz_templates_pkey primary key (id),
                                        constraint quiz_templates_owner_id_fkey foreign KEY (owner_id) references auth.users (id) on delete cascade
 ) TABLESPACE pg_default;
@@ -433,9 +443,8 @@ with deck_cards as (
         d.title as deck_name,
         d.created_at as deck_created_at,
         (elem->>'card_id')::uuid as card_id
-    from public.decks d
+    from public.user_active_decks d
     cross join lateral jsonb_array_elements(d.items->'items') elem
-    where d.owner_id = auth.uid()
 )
 select
   dc.card_id,
@@ -460,8 +469,7 @@ with deck_base as (
         d.id as deck_id,
         d.title as deck_name,
         d.created_at as deck_created_at
-    from public.decks d
-    where d.owner_id = auth.uid()
+    from public.user_active_decks d
 ), card_stats as (
     select
         deck_id,
@@ -585,7 +593,7 @@ begin
       sum(base.spent)::int as card_time_spent,
       jsonb_object_agg(d.title, base.cnt) filter (where d.title is not null) as decks
     from base
-    left join decks d on d.id = base.belongs_to
+    left join decks d on d.id = base.belongs_to and d.is_deleted = false
     where base.is_question = false
     group by base.user_id, base.day
   ),
@@ -597,7 +605,7 @@ begin
       sum(base.spent)::int as question_time_spent,
       jsonb_object_agg(qt.title, base.cnt) filter (where qt.title is not null) as quizzes
     from base
-    left join quiz_templates qt on qt.id = base.belongs_to
+    left join quiz_templates qt on qt.id = base.belongs_to and qt.is_deleted = false
     where base.is_question = true
     group by base.user_id, base.day
   )
