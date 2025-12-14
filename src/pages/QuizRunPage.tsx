@@ -365,7 +365,7 @@ function QuizRunPage() {
                 user_answer: JSON.stringify(currentUserAnswer),
                 is_correct: isCorrect,
                 time_spent: timeSpentSeconds,
-                belongs_to: template ? `${template.deck_name ?? ""}-${template.title}` : null,
+                belongs_to: template?.id ?? null,
                 meta: {
                     position: currentQuestion.position,
                     score: currentQuestion.score,

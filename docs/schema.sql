@@ -7,7 +7,7 @@ create table public.card_reviews (
                                      is_correct boolean null,
                                      time_spent integer null,
                                      is_question boolean not null default false,
-                                     belongs_to text null,
+                                     belongs_to uuid null,
                                      meta jsonb null,
                                      constraint card_reviews_pkey primary key (id),
                                      constraint card_reviews_card_id_fkey foreign KEY (card_id) references cards (id) on delete CASCADE,

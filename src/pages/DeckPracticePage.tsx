@@ -18,6 +18,7 @@ interface CardData {
     front: string;
     back: string;
     deck_title: string;
+    deck_id: string;
     mediaList?: { name: string; id?: string }[];
 }
 
@@ -200,6 +201,7 @@ export function DeckPracticePage() {
                         front: r.front,
                         back: r.back,
                         deck_title: r.deck_title,
+                        deck_id: r.deck_id,
                         mediaList: mediaMap[r.card_id] ?? [],
                     }))
                 );
@@ -346,7 +348,7 @@ export function DeckPracticePage() {
             user_answer: null,         // 你目前没有输入作答内容
             is_correct: is_correct,          // 没有对错概念，写 null
             time_spent: timeSpentSeconds,
-            belongs_to: currentCard.deck_title ?? null,
+            belongs_to: currentCard.deck_id ?? null,
             is_question: false,
             meta: {difficulty: ease_factor} // 把点击难度记在 meta 里
         });
