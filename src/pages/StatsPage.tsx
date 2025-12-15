@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
+import { useNavigate } from "react-router-dom";
 
 type DailyStat = {
     user_id: string;
@@ -34,6 +35,7 @@ function isSameDayCN(a: string, b: Date) {
 }
 
 export default function StatsPage() {
+    const navigate = useNavigate();
     const today = useMemo(() => new Date(), []);
     const [userId, setUserId] = useState<string | null>(null);
     const [month, setMonth] = useState(() => {
@@ -48,6 +50,8 @@ export default function StatsPage() {
     const [liveLoading, setLiveLoading] = useState(false);
     const [liveError, setLiveError] = useState<string | null>(null);
     const [authChecked, setAuthChecked] = useState(false);
+    const [deckNames, setDeckNames] = useState<Record<string, string>>({});
+    const [quizNames, setQuizNames] = useState<Record<string, string>>({});
 
     // 获取用户 ID
     useEffect(() => {
@@ -86,26 +90,72 @@ export default function StatsPage() {
                     map[(row as DailyStat).date] = row as DailyStat;
                 });
                 setMonthStats(map);
-                // 如缺失昨天记录，则尝试补数据
-                const yesterday = new Date();
-                yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-                const yesterdayStr = formatDateCN(yesterday);
-                const hasYesterday = Boolean(map[yesterdayStr]);
-                if (!hasYesterday) {
-                    supabase
-                        .rpc("compute_missing_daily_user_stats", { p_days: 1 })
-                        .then(({ error: missErr }) => {
-                            if (missErr) {
-                                console.error("补齐昨天统计失败", missErr);
-                            } else {
-                                // 重新加载当月数据
-                                setMonth((prev) => new Date(prev)); // trigger effect
-                            }
-                        });
+                // 当前月且缺失昨天记录时尝试补数据
+                const isCurrentMonth =
+                    month.getUTCFullYear() === today.getUTCFullYear() &&
+                    month.getUTCMonth() === today.getUTCMonth();
+                if (isCurrentMonth) {
+                    const yesterday = new Date();
+                    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+                    const yesterdayStr = formatDateCN(yesterday);
+                    const hasYesterday = Boolean(map[yesterdayStr]);
+                    if (!hasYesterday) {
+                        supabase
+                            .rpc("compute_missing_daily_user_stats", { p_days: 1 })
+                            .then(({ error: missErr }) => {
+                                if (missErr) {
+                                    console.error("补齐昨天统计失败", missErr);
+                                } else {
+                                    // 重新加载当月数据
+                                    setMonth((prev) => new Date(prev)); // trigger effect
+                                }
+                            });
+                    }
                 }
                 setMonthLoading(false);
             });
     }, [userId, month]);
+
+    const mergedStats = useMemo(() => {
+        const merged = { ...monthStats };
+        if (todayLive) {
+            merged[todayLive.date] = todayLive;
+        }
+        return merged;
+    }, [monthStats, todayLive]);
+
+    const todayStr = useMemo(() => formatDateCN(today), [today]);
+    const selectedDateObj = useMemo(() => new Date(selectedDate + "T00:00:00Z"), [selectedDate]);
+    const isFutureSelected = selectedDate > todayStr;
+    const selectedStat = isFutureSelected ? null : mergedStats[selectedDate] ?? null;
+
+    const fetchNames = useCallback(
+        async (ids: string[], type: "deck" | "quiz") => {
+            const unique = Array.from(new Set(ids)).filter(Boolean);
+            if (!unique.length) return;
+            const cache = type === "deck" ? deckNames : quizNames;
+            const missing = unique.filter((id) => !cache[id]);
+            if (!missing.length) return;
+            const { data, error } = await supabase
+                .from(type === "deck" ? "decks" : "quizzes")
+                .select("id, title, is_deleted")
+                .in("id", missing);
+            if (error) {
+                console.error(`load ${type} names error`, error);
+                return;
+            }
+            const map: Record<string, { name: string; deleted: boolean }> = {};
+            (data || []).forEach((row: any) => {
+                if (row?.id) map[row.id] = { name: row.title ?? row.id, deleted: !!row.is_deleted };
+            });
+            if (type === "deck") {
+                setDeckNames((prev) => ({ ...prev, ...map }));
+            } else {
+                setQuizNames((prev) => ({ ...prev, ...map }));
+            }
+        },
+        [deckNames, quizNames]
+    );
 
     // 今天实时数据
     const loadLiveToday = useCallback(() => {
@@ -144,17 +194,14 @@ export default function StatsPage() {
         return copy.getUTCDay(); // 0-6
     }, [month]);
 
-    const mergedStats = useMemo(() => {
-        const merged = { ...monthStats };
-        if (todayLive) {
-            merged[todayLive.date] = todayLive;
-        }
-        return merged;
-    }, [monthStats, todayLive]);
-
-    const selectedDateObj = useMemo(() => new Date(selectedDate + "T00:00:00Z"), [selectedDate]);
-    const isFutureSelected = selectedDateObj > today;
-    const selectedStat = isFutureSelected ? null : mergedStats[selectedDate] ?? null;
+    useEffect(() => {
+        const decksObj = selectedStat?.decks ?? null;
+        const deckIds = decksObj ? Object.keys(decksObj) : [];
+        void fetchNames(deckIds, "deck");
+        const quizzesObj = selectedStat?.quizzes ?? null;
+        const quizIds = quizzesObj ? Object.keys(quizzesObj) : [];
+        void fetchNames(quizIds, "quiz");
+    }, [selectedStat, fetchNames]);
 
     function changeMonth(offset: number) {
         setMonth((prev) => {
@@ -174,7 +221,7 @@ export default function StatsPage() {
 
     function handleSelectDate(dateStr: string) {
         const target = new Date(dateStr + "T00:00:00Z");
-        if (target > today) return;
+        if (dateStr > todayStr) return;
         const stat = mergedStats[dateStr];
         if (!stat || ((stat.cards_reviewed ?? 0) === 0 && (stat.questions_reviewed ?? 0) === 0)) {
             return;
@@ -187,7 +234,7 @@ export default function StatsPage() {
         const stat = mergedStats[dateStr];
         const isToday = isSameDayCN(dateStr, today);
         const isSelected = selectedDate === dateStr;
-        const isFuture = new Date(dateStr + "T00:00:00Z") > today;
+        const isFuture = dateStr > todayStr;
         const cardCount = stat?.cards_reviewed ?? 0;
         const quizCount = stat?.questions_reviewed ?? 0;
         const isEmptyDay = cardCount === 0 && quizCount === 0;
@@ -239,20 +286,54 @@ export default function StatsPage() {
         );
     }
 
-    function renderMap(obj: Record<string, number> | null, emptyText: string) {
-        const entries = obj ? Object.entries(obj) : [];
-        if (!entries.length) return <div className="text-xs text-slate-500 dark:text-slate-400">{emptyText}</div>;
-        return (
-            <div className="space-y-2">
-                {entries.map(([name, cnt]) => (
-                    <div key={name} className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
-                        <span className="truncate max-w-[65%]" title={name}>{name}</span>
+function renderMap(
+    obj: Record<string, unknown> | null,
+    emptyText: string,
+    type: "deck" | "quiz",
+    onNavigate?: (path: string) => void,
+    nameMap?: Record<string, { name: string; deleted: boolean }>
+) {
+    const entries = obj ? Object.entries(obj) : [];
+    if (!entries.length) return <div className="text-xs text-slate-500 dark:text-slate-400">{emptyText}</div>;
+    return (
+        <div className="space-y-2">
+            {entries.map(([key, payload]) => {
+                const isNumber = typeof payload === "number";
+                const cnt = isNumber ? (payload as number) : (payload as any)?.count ?? 0;
+                const id = isNumber ? key : (payload as any)?.id ?? key;
+                const nameEntry = nameMap?.[id] ?? null;
+                const nameFallback = nameEntry?.name ?? key;
+                const name = isNumber ? nameFallback : (payload as any)?.name ?? nameFallback;
+                const deleted = nameEntry?.deleted ?? false;
+                const href =
+                    id && type === "deck"
+                        ? `/decks/${encodeURIComponent(id)}/edit`
+                        : id && type === "quiz"
+                            ? `/quiz-runs/${encodeURIComponent(id)}`
+                            : undefined;
+                const clickable = href && onNavigate && !deleted;
+                const Wrapper: any = clickable ? "button" : "div";
+                return (
+                    <Wrapper
+                        key={name}
+                        onClick={clickable ? () => onNavigate?.(href!) : undefined}
+                        className={`flex items-center justify-between text-sm text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-300 ${clickable ? "w-full text-left cursor-pointer" : ""}`}
+                        type={clickable ? "button" : undefined}
+                    >
+                        <span
+                            className="max-w-[65%] inline-block overflow-hidden text-ellipsis whitespace-nowrap text-left"
+                            style={{ direction: "rtl" }}
+                            title={name}
+                        >
+                            {name}
+                        </span>
                         <span className="font-semibold">{cnt}</span>
-                    </div>
-                ))}
-            </div>
-        );
-    }
+                    </Wrapper>
+                );
+            })}
+        </div>
+    );
+}
 
     const monthLabel = `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, "0")}`;
 
@@ -330,7 +411,7 @@ export default function StatsPage() {
                                         <div className="text-xs text-blue-700 dark:text-blue-200 mb-1">闪卡</div>
                                         {renderDetailRow("卡片数", selectedStat.cards_reviewed)}
                                         {renderDetailRow("用时", selectedStat.card_time_spent, "s")}
-                                        <div className="mt-2">{renderMap(selectedStat.decks, "当日没有闪卡数据")}</div>
+                                        <div className="mt-2">{renderMap(selectedStat.decks, "当日没有闪卡数据", "deck", navigate, deckNames)}</div>
                                     </div>
                                 )}
 
@@ -339,7 +420,7 @@ export default function StatsPage() {
                                         <div className="text-xs text-amber-700 dark:text-amber-200 mb-1">测验</div>
                                         {renderDetailRow("题目数", selectedStat.questions_reviewed)}
                                         {renderDetailRow("用时", selectedStat.question_time_spent, "s")}
-                                        <div className="mt-2">{renderMap(selectedStat.quizzes, "当日没有测验数据")}</div>
+                                        <div className="mt-2">{renderMap(selectedStat.quizzes, "当日没有测验数据", "quiz", navigate, quizNames)}</div>
                                     </div>
                                 )}
                             </div>

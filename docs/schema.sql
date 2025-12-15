@@ -593,9 +593,8 @@ begin
       base.day as day,
       sum(base.cnt)::int as cards_reviewed,
       sum(base.spent)::int as card_time_spent,
-      jsonb_object_agg(d.title, base.cnt) filter (where d.title is not null) as decks
+      jsonb_object_agg(base.belongs_to::text, base.cnt) filter (where base.belongs_to is not null) as decks
     from base
-    left join decks d on d.id = base.belongs_to and d.is_deleted = false
     where base.is_question = false
     group by base.user_id, base.day
   ),
@@ -605,9 +604,8 @@ begin
       base.day as day,
       sum(base.cnt)::int as questions_reviewed,
       sum(base.spent)::int as question_time_spent,
-      jsonb_object_agg(qt.title, base.cnt) filter (where qt.title is not null) as quizzes
+      jsonb_object_agg(base.belongs_to::text, base.cnt) filter (where base.belongs_to is not null) as quizzes
     from base
-    left join quizzes qt on qt.id = base.belongs_to and qt.is_deleted = false
     where base.is_question = true
     group by base.user_id, base.day
   )
