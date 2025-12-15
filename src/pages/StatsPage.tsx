@@ -165,8 +165,8 @@ export default function StatsPage() {
             }
             // 切换月份后，选中该月第一天（若是本月且未来则回退到今天）
             const nextSelected = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), 1));
-            const nextMonthStartStr = formatDate(nextSelected);
-            const todayStr = formatDate(today);
+            const nextMonthStartStr = formatDateCN(nextSelected);
+            const todayStr = formatDateCN(today);
             setSelectedDate(nextSelected > today ? todayStr : nextMonthStartStr);
             return next;
         });
