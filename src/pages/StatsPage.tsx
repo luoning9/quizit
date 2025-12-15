@@ -50,8 +50,8 @@ export default function StatsPage() {
     const [liveLoading, setLiveLoading] = useState(false);
     const [liveError, setLiveError] = useState<string | null>(null);
     const [authChecked, setAuthChecked] = useState(false);
-    const [deckNames, setDeckNames] = useState<Record<string, string>>({});
-    const [quizNames, setQuizNames] = useState<Record<string, string>>({});
+    const [deckNames, setDeckNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
+    const [quizNames, setQuizNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
 
     // 获取用户 ID
     useEffect(() => {
@@ -125,7 +125,6 @@ export default function StatsPage() {
     }, [monthStats, todayLive]);
 
     const todayStr = useMemo(() => formatDateCN(today), [today]);
-    const selectedDateObj = useMemo(() => new Date(selectedDate + "T00:00:00Z"), [selectedDate]);
     const isFutureSelected = selectedDate > todayStr;
     const selectedStat = isFutureSelected ? null : mergedStats[selectedDate] ?? null;
 
@@ -220,7 +219,6 @@ export default function StatsPage() {
     }
 
     function handleSelectDate(dateStr: string) {
-        const target = new Date(dateStr + "T00:00:00Z");
         if (dateStr > todayStr) return;
         const stat = mergedStats[dateStr];
         if (!stat || ((stat.cards_reviewed ?? 0) === 0 && (stat.questions_reviewed ?? 0) === 0)) {
