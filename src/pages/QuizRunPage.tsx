@@ -367,6 +367,7 @@ function QuizRunPage() {
                 is_correct: isCorrect,
                 time_spent: timeSpentSeconds,
                 belongs_to: template?.id ?? null,
+                is_question: true,
                 meta: {
                     position: currentQuestion.position,
                     score: currentQuestion.score,

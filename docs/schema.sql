@@ -577,13 +577,13 @@ begin
   with base as (
     select
       cr.user_id,
-      date(cr.reviewed_at) as day,
+      (timezone('Asia/Shanghai', cr.reviewed_at))::date as day,
       cr.is_question,
       cr.belongs_to,
       count(*) as cnt,
       coalesce(sum(cr.time_spent), 0) as spent
     from card_reviews cr
-    where date(cr.reviewed_at) = target_date
+    where (timezone('Asia/Shanghai', cr.reviewed_at))::date = target_date
       and (target_user is null or cr.user_id = target_user)
     group by cr.user_id, day, cr.is_question, cr.belongs_to
   ),
@@ -638,8 +638,12 @@ begin
     raise exception 'p_days must be >= 1';
   end if;
 
-  -- 从昨天开始往前 p_days 天，缺失则补
-  for target in select generate_series(current_date - 1, current_date - p_days, '-1 day'::interval)::date
+  -- 以北京时间为基准，从昨天开始往前 p_days 天，缺失则补
+  for target in select generate_series(
+      (timezone('Asia/Shanghai', now())::date - 1),
+      (timezone('Asia/Shanghai', now())::date - p_days),
+      '-1 day'::interval
+  )::date
   loop
     -- 若该日已存在记录，则跳过
     if exists (select 1 from daily_user_stats where date = target) then

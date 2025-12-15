@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useTimer } from "../components/TimerContext";
 import { Button } from "../components/ui/Button";
-import { Moon, Sun, Sparkles, Bell } from "lucide-react";
+import { Moon, Sun, Sparkles, Bell, BarChart3 } from "lucide-react";
 
 function TimerBar() {
     const { seconds } = useTimer();
@@ -135,13 +135,20 @@ export function AppLayout() {
                                 </span>
                             )}
                         </Button>
-
                         {/* 登录 / 用户信息 */}
                         {user ? (
                             <div className="flex items-center gap-2 text-[11px] text-white dark:text-slate-300">
-                <span className="max-w-[150px] truncate">
-                  {user.email ?? ""}
-                </span>
+                                <span className="max-w-[150px] truncate">
+                                    {user.email ?? ""}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    className="text-base text-white dark:text-slate-200"
+                                    onClick={() => navigate("/stats")}
+                                    title="学习统计"
+                                >
+                                    <BarChart3 size={18} />
+                                </Button>
                                 <Button
                                     type="button"
                                     variant="none"

@@ -13,20 +13,24 @@ type DailyStat = {
     decks: Record<string, number> | null;
 };
 
-function formatDate(d: Date) {
-    return d.toISOString().slice(0, 10);
+const CN_OFFSET_MINUTES = 8 * 60;
+
+function formatDateCN(d: Date) {
+    // 将时间调整到北京时间后取日期部分
+    const shifted = new Date(d.getTime() + CN_OFFSET_MINUTES * 60 * 1000);
+    return shifted.toISOString().slice(0, 10);
 }
 
-function getMonthRange(month: Date) {
-    const year = month.getFullYear();
-    const m = month.getMonth();
+function getMonthRangeCN(monthStart: Date) {
+    const year = monthStart.getUTCFullYear();
+    const m = monthStart.getUTCMonth();
     const start = new Date(Date.UTC(year, m, 1));
     const end = new Date(Date.UTC(year, m + 1, 1));
     return { start, end };
 }
 
-function isSameDay(a: string, b: Date) {
-    return a === formatDate(b);
+function isSameDayCN(a: string, b: Date) {
+    return a === formatDateCN(b);
 }
 
 export default function StatsPage() {
@@ -34,9 +38,9 @@ export default function StatsPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [month, setMonth] = useState(() => {
         const now = new Date();
-        return new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     });
-    const [selectedDate, setSelectedDate] = useState<string>(() => formatDate(new Date()));
+    const [selectedDate, setSelectedDate] = useState<string>(() => formatDateCN(new Date()));
     const [monthStats, setMonthStats] = useState<Record<string, DailyStat>>({});
     const [monthLoading, setMonthLoading] = useState(false);
     const [monthError, setMonthError] = useState<string | null>(null);
@@ -60,7 +64,7 @@ export default function StatsPage() {
     // 读取当月统计
     useEffect(() => {
         if (!userId) return;
-        const { start, end } = getMonthRange(month);
+        const { start, end } = getMonthRangeCN(month);
         setMonthLoading(true);
         setMonthError(null);
 
@@ -68,8 +72,8 @@ export default function StatsPage() {
             .from("daily_user_stats")
             .select("user_id, date, questions_reviewed, question_time_spent, quizzes, cards_reviewed, card_time_spent, decks")
             .eq("user_id", userId)
-            .gte("date", formatDate(start))
-            .lt("date", formatDate(end))
+            .gte("date", formatDateCN(start))
+            .lt("date", formatDateCN(end))
             .then(({ data, error }) => {
                 if (error) {
                     console.error("load month stats error", error);
@@ -82,6 +86,23 @@ export default function StatsPage() {
                     map[(row as DailyStat).date] = row as DailyStat;
                 });
                 setMonthStats(map);
+                // 如缺失昨天记录，则尝试补数据
+                const yesterday = new Date();
+                yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+                const yesterdayStr = formatDateCN(yesterday);
+                const hasYesterday = Boolean(map[yesterdayStr]);
+                if (!hasYesterday) {
+                    supabase
+                        .rpc("compute_missing_daily_user_stats", { p_days: 1 })
+                        .then(({ error: missErr }) => {
+                            if (missErr) {
+                                console.error("补齐昨天统计失败", missErr);
+                            } else {
+                                // 重新加载当月数据
+                                setMonth((prev) => new Date(prev)); // trigger effect
+                            }
+                        });
+                }
                 setMonthLoading(false);
             });
     }, [userId, month]);
@@ -89,11 +110,8 @@ export default function StatsPage() {
     // 今天实时数据
     const loadLiveToday = useCallback(() => {
         if (!userId) return;
-        const selectedIsToday = isSameDay(selectedDate, today);
-        if (!selectedIsToday) {
-            setTodayLive(null);
-            return;
-        }
+        const selectedIsToday = isSameDayCN(selectedDate, today);
+        if (!selectedIsToday) return;
         setLiveLoading(true);
         setLiveError(null);
         supabase
@@ -134,45 +152,72 @@ export default function StatsPage() {
         return merged;
     }, [monthStats, todayLive]);
 
-    const selectedStat = mergedStats[selectedDate] ?? null;
+    const selectedDateObj = useMemo(() => new Date(selectedDate + "T00:00:00Z"), [selectedDate]);
+    const isFutureSelected = selectedDateObj > today;
+    const selectedStat = isFutureSelected ? null : mergedStats[selectedDate] ?? null;
 
     function changeMonth(offset: number) {
-        setMonth((prev) => new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + offset, 1)));
+        setMonth((prev) => {
+            const next = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + offset, 1));
+            const thisMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+            if (next > thisMonthStart) {
+                return prev; // 不允许选择未来的月份
+            }
+            // 切换月份后，选中该月第一天（若是本月且未来则回退到今天）
+            const nextSelected = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), 1));
+            const nextMonthStartStr = formatDate(nextSelected);
+            const todayStr = formatDate(today);
+            setSelectedDate(nextSelected > today ? todayStr : nextMonthStartStr);
+            return next;
+        });
     }
 
     function handleSelectDate(dateStr: string) {
+        const target = new Date(dateStr + "T00:00:00Z");
+        if (target > today) return;
+        const stat = mergedStats[dateStr];
+        if (!stat || ((stat.cards_reviewed ?? 0) === 0 && (stat.questions_reviewed ?? 0) === 0)) {
+            return;
+        }
         setSelectedDate(dateStr);
     }
 
     function renderDayCell(day: number) {
-        const dateStr = formatDate(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
+        const dateStr = formatDateCN(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
         const stat = mergedStats[dateStr];
-        const isToday = isSameDay(dateStr, today);
+        const isToday = isSameDayCN(dateStr, today);
         const isSelected = selectedDate === dateStr;
+        const isFuture = new Date(dateStr + "T00:00:00Z") > today;
         const cardCount = stat?.cards_reviewed ?? 0;
         const quizCount = stat?.questions_reviewed ?? 0;
+        const isEmptyDay = cardCount === 0 && quizCount === 0;
+        const disabled = isFuture || isEmptyDay;
         return (
             <button
                 key={dateStr}
                 onClick={() => handleSelectDate(dateStr)}
-                className={`h-20 w-full rounded-xl border transition flex flex-col items-start justify-between p-2 text-left ${
+                disabled={disabled}
+                className={`h-16 w-full rounded-xl border transition flex flex-col items-start justify-between p-2 text-left ${
                     isSelected
                         ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-500/10"
                         : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-                } ${isToday ? "ring-2 ring-blue-400" : ""}`}
+                } ${isToday ? "bg-gradient-to-br from-blue-100/80 to-blue-50/70 dark:from-blue-950/50 dark:to-blue-900/40 border-blue-400 dark:border-blue-500 shadow-inner" : ""} ${disabled && !isToday ? "opacity-40 cursor-not-allowed" : ""}`}
             >
-                <div className="flex items-center justify-between w-full text-xs text-slate-600 dark:text-slate-300">
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{day}</span>
-                    {isToday && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">今天</span>}
-                </div>
-                <div className="w-full space-y-1 text-[11px] text-slate-500 dark:text-slate-300">
-                    <div className="flex items-center justify-between">
-                        <span className="rounded px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">闪卡</span>
-                        <span className="font-semibold text-blue-700 dark:text-blue-200">{cardCount}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="rounded px-2 py-0.5 bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">测验</span>
-                        <span className="font-semibold text-amber-700 dark:text-amber-200">{quizCount}</span>
+                <div className="flex items-start justify-between w-full gap-2">
+                    <div className="text-2xl font-semibold tracking-tight leading-none text-slate-400 dark:text-slate-500">{day}</div>
+                    <div className="flex-1 flex flex-col items-end text-xs text-slate-600 dark:text-slate-300 pr-1">
+                        {!isEmptyDay ? (
+                            <>
+                                <span className="inline-flex min-w-[2rem] justify-center rounded-full px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-100 font-semibold font-mono text-sm">
+                                    {cardCount}
+                                </span>
+                                <span className="inline-flex min-w-[2rem] justify-center rounded-full px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100 font-semibold font-mono text-sm">
+                                    {quizCount}
+                                </span>
+                            </>
+                        ) : (
+                            <span className="text-[11px] text-slate-400 dark:text-slate-500">无数据</span>
+                        )}
                     </div>
                 </div>
             </button>
@@ -239,7 +284,7 @@ export default function StatsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                    <div className="grid grid-cols-7 gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    <div className="grid grid-cols-7 gap-2 text-xl text-slate-500 dark:text-slate-400 mb-2">
                         {["日", "一", "二", "三", "四", "五", "六"].map((d) => (
                             <div key={d} className="text-center font-medium">{d}</div>
                         ))}
@@ -253,16 +298,16 @@ export default function StatsPage() {
                     )}
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 text-base">
                     <div className="flex items-center justify-between mb-3">
                         <div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">日期</div>
-                            <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedDate}</div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400">日期</div>
+                            <div className="text-xl font-semibold text-slate-900 dark:text-slate-100">{selectedDate}</div>
                         </div>
-                        {isSameDay(selectedDate, today) && (
+                        {isSameDayCN(selectedDate, today) && (
                             <Button
                                 variant="outline"
-                                className="px-3 py-1 text-sm"
+                                className="px-3 py-1 text-base"
                                 onClick={loadLiveToday}
                                 disabled={liveLoading}
                             >
@@ -276,21 +321,29 @@ export default function StatsPage() {
                     )}
 
                     {selectedStat ? (
-                        <div className="space-y-4">
-                            <div className="rounded-xl bg-blue-50 px-3 py-2 dark:bg-blue-900/30">
-                                <div className="text-xs text-blue-700 dark:text-blue-200 mb-1">闪卡</div>
-                                {renderDetailRow("卡片数", selectedStat.cards_reviewed)}
-                                {renderDetailRow("用时", selectedStat.card_time_spent, "s")}
-                                <div className="mt-2">{renderMap(selectedStat.decks, "当日没有闪卡数据")}</div>
-                            </div>
+                        selectedStat.cards_reviewed === 0 && selectedStat.questions_reviewed === 0 ? (
+                            <div className="text-sm text-slate-500 dark:text-slate-400">当日暂无数据。</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {selectedStat.cards_reviewed > 0 && (
+                                    <div className="rounded-xl bg-blue-50 px-3 py-2 dark:bg-blue-900/30">
+                                        <div className="text-xs text-blue-700 dark:text-blue-200 mb-1">闪卡</div>
+                                        {renderDetailRow("卡片数", selectedStat.cards_reviewed)}
+                                        {renderDetailRow("用时", selectedStat.card_time_spent, "s")}
+                                        <div className="mt-2">{renderMap(selectedStat.decks, "当日没有闪卡数据")}</div>
+                                    </div>
+                                )}
 
-                            <div className="rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-900/30">
-                                <div className="text-xs text-amber-700 dark:text-amber-200 mb-1">测验</div>
-                                {renderDetailRow("题目数", selectedStat.questions_reviewed)}
-                                {renderDetailRow("用时", selectedStat.question_time_spent, "s")}
-                                <div className="mt-2">{renderMap(selectedStat.quizzes, "当日没有测验数据")}</div>
+                                {selectedStat.questions_reviewed > 0 && (
+                                    <div className="rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-900/30">
+                                        <div className="text-xs text-amber-700 dark:text-amber-200 mb-1">测验</div>
+                                        {renderDetailRow("题目数", selectedStat.questions_reviewed)}
+                                        {renderDetailRow("用时", selectedStat.question_time_spent, "s")}
+                                        <div className="mt-2">{renderMap(selectedStat.quizzes, "当日没有测验数据")}</div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )
                     ) : (
                         <div className="text-sm text-slate-500 dark:text-slate-400">当日暂无数据。</div>
                     )}
