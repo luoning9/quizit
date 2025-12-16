@@ -448,8 +448,7 @@ export function DeckPracticePage() {
     const frontClean = trimEmptyLines(current.front);
     const backClean = trimEmptyLines(current.back);
     const backSchema = parseBack(current.back, true);
-    const backParsedFull = parseBack(current.back);
-    const footerText = backParsedFull.explanation?.trim();
+    const footerText = backSchema.footer ?? "";
     //console.log(backSchema);
     const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(frontClean);
     const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(backClean);
@@ -669,7 +668,7 @@ export function DeckPracticePage() {
                                     ? renderAnswer(frontSchema, backSchema)
                                     : backClean}
                                 {footerText && (
-                                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+                                    <div className="mt-0 pt-1 border-t border-slate-200 dark:border-slate-700 text-base text-slate-700 dark:text-slate-200">
                                         <MarkdownText content={footerText} />
                                     </div>
                                 )}
@@ -677,9 +676,13 @@ export function DeckPracticePage() {
                             </div>
                         </div>
                         {hoverInfo && (
-                            <div className="mt-auto text-center opacity-70 transition-opacity duration-200 pb-0 text-base text-slate-500 dark:text-slate-300">
+                            <button
+                                type="button"
+                                onClick={flip}
+                                className="mt-auto w-full text-center opacity-70 transition-opacity duration-200 pb-0 text-base text-slate-500 dark:text-slate-300 hover:opacity-100"
+                            >
                                 {hoverInfo}
-                            </div>
+                            </button>
                         )}
                     </div>
                 </Card>

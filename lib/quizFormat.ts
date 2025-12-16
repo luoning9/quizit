@@ -131,6 +131,7 @@ export interface FrontSchema {
 export interface BackSchema {
     answers: string[][];
     explanation?: string;
+    footer?: string;
 }
 
 export type UserAnswer = string[];
@@ -288,6 +289,25 @@ function splitCandidates(line: string): string[] {
 }
 
 /**
+ * 将一组行按第一条水平线 '---' 分隔成主内容和 footer。
+ */
+function splitFooter(lines: string[]): { main: string; footer?: string } {
+    let sepIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === "---") {
+            sepIndex = i;
+            break;
+        }
+    }
+    if (sepIndex !== -1) {
+        const main = lines.slice(0, sepIndex).join("\n").trim();
+        const footer = lines.slice(sepIndex + 1).join("\n").trim();
+        return { main, footer: footer || undefined };
+    }
+    return { main: lines.join("\n").trim() };
+}
+
+/**
  * 解析 back 字符串为 BackSchema。
  *
  * 行为：
@@ -326,34 +346,34 @@ export function parseBack(raw: string, no_answer = false): BackSchema {
         const answers: string[][] = answersRaw.map((slot) => {
             if (Array.isArray(slot)) {
                 return slot
-                    .map((s) => (typeof s === "string" ? s : String(s)))
+                    .map((s) => String(s))
                     .filter((s) => s.trim().length > 0);
-            }
-            if (typeof slot === "string") {
-                return [slot];
             }
             return [];
         }).filter((slot) => slot.length > 0);
 
         const explanation =
             typeof rec.explanation === "string" ? rec.explanation : undefined;
+        const footer =
+            typeof (rec as any).footer === "string" ? (rec as any).footer : undefined;
 
         return {
             answers,
             explanation,
+            footer,
         };
     }
 
     // 非 JSON 情况：按行解析 raw 文本
+    const unified = raw.replace(/\r\n?/g, "\n");
     if (no_answer) {
-        const explanationOnly = raw.replace(/\r\n?/g, "\n").trim();
+        const { main, footer } = splitFooter(unified.split("\n"));
         return {
             answers: [],
-            explanation: explanationOnly || undefined,
+            explanation: main || undefined,
+            footer,
         };
     }
-    // 统一换行符
-    const unified = raw.replace(/\r\n?/g, "\n");
     const allLines = unified.split("\n");
 
     // 去掉头尾空行
@@ -402,11 +422,13 @@ export function parseBack(raw: string, no_answer = false): BackSchema {
         };
     }
 
-    const explanationText = explanationLines.join("\n").trim();
+    // 识别水平线分隔 footer（优先级高于空行分隔）
+    const { main: explanationFinal, footer } = splitFooter(explanationLines);
 
     return {
         answers: slots,
-        explanation: explanationText || undefined,
+        explanation: explanationFinal || undefined,
+        footer,
     };
 }
 
