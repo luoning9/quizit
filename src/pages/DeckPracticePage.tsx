@@ -12,6 +12,7 @@ import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
 import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon } from "lucide-react";
+import MarkdownText from "../components/MarkdownText";
 
 interface CardData {
     id: string;
@@ -447,6 +448,8 @@ export function DeckPracticePage() {
     const frontClean = trimEmptyLines(current.front);
     const backClean = trimEmptyLines(current.back);
     const backSchema = parseBack(current.back, true);
+    const backParsedFull = parseBack(current.back);
+    const footerText = backParsedFull.explanation?.trim();
     //console.log(backSchema);
     const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(frontClean);
     const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(backClean);
@@ -665,6 +668,11 @@ export function DeckPracticePage() {
                                 {frontSchema && backSchema
                                     ? renderAnswer(frontSchema, backSchema)
                                     : backClean}
+                                {footerText && (
+                                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+                                        <MarkdownText content={footerText} />
+                                    </div>
+                                )}
                                 {/* JSON.stringify(frontSchema) */}
                             </div>
                         </div>
