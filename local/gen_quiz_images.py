@@ -90,7 +90,16 @@ def main(argv: Optional[List[str]] = None) -> None:
         default=False,
         help="默认仅使用缓存图片，开启后才会调用 AI 生成新图",
     )
+    parser.add_argument(
+        "--subject",
+        choices=["B", "H", "P"],
+        help="学科：P(物理)/H(历史)/B(生物)；开启 --doit 时必填",
+    )
     args = parser.parse_args(argv)
+
+    if args.doit and not args.subject:
+        print("❌ 开启 --doit 时必须提供 --subject（B/H/P）", file=sys.stderr)
+        sys.exit(2)
 
     cards = fetch_cards_by_quiz_title(args.title)
     if not cards:
@@ -120,7 +129,7 @@ def main(argv: Optional[List[str]] = None) -> None:
                     print(f"    cache found: {local_path}")
                 elif args.doit:
                     try:
-                        img_bytes, mime = generate_image_bytes(desc)
+                        img_bytes, mime = generate_image_bytes(desc, subject=args.subject)
                         local_path.write_bytes(img_bytes)
                         print(f"    image generated & cached: {local_path}")
                     except RuntimeError as e:

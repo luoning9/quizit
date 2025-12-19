@@ -7,7 +7,8 @@ import {Button} from "../components/ui/Button";
 import clsx from "clsx";
 import {useTimer} from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
 import {DotRender} from "../components/ui/DotRender";
-import { MapPdfViewer } from "../components/ui/MapPdfViewer";
+import {MapPdfViewer} from "../components/ui/MapPdfViewer";
+import {ImageRender} from "../components/ui/ImageRender";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
@@ -92,6 +93,14 @@ function trimEmptyLines(content: string): string {
     while (lines.length && !lines[0].trim()) lines.shift();
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return lines.join("\n");
+}
+
+function getMediaType(name: string): "dot" | "map" | "image" | null {
+    const lower = name.toLowerCase();
+    if (lower.endsWith(".dot")) return "dot";
+    if (lower.endsWith(".map")) return "map";
+    if (/\.(png|jpe?g)$/.test(lower)) return "image";
+    return null;
 }
 
 export function DeckPracticePage() {
@@ -593,23 +602,36 @@ export function DeckPracticePage() {
                                 )}
                                 ref={frontRef}
                             >
-                                {frontMediaNames?.filter((n) => n.endsWith(".dot"))
-                                    .map((name) => (
-                                        <button
-                                            key={name}
-                                            className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setMediaModal({ cardId: current.id, name });
-                                            }}
-                                            onMouseEnter={() => setHoverInfo(`查看图片：${name}`)}
-                                            onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
-                                            title={`查看图示 (${name})`}
-                                        >
-                                            <ImageIcon className="h-8 w-8" aria-hidden />
-                                            <span className="sr-only">查看图示</span>
-                                        </button>
-                                    ))}
+                                {frontMediaNames
+                                    .filter((n) => getMediaType(n))
+                                    .map((name) => {
+                                        const mediaType = getMediaType(name);
+                                        const lower = name.toLowerCase();
+                                        const Icon =
+                                            mediaType === "dot"
+                                                ? GitBranch
+                                                : mediaType === "map"
+                                                    ? MapIcon
+                                                    : ImageIcon;
+                                        return (
+                                            <button
+                                                key={name}
+                                                className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMediaModal({ cardId: current.id, name });
+                                                }}
+                                                onMouseEnter={() => setHoverInfo(`查看媒体：${name}`)}
+                                                onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
+                                                title={`查看媒体 (${name})`}
+                                            >
+                                                <Icon className="h-8 w-8" aria-hidden />
+                                                <span className="sr-only">
+                                                    {lower.endsWith(".dot") ? "查看图示" : "查看媒体"}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 {frontSchema
                                     ? renderPrompt(frontSchema, {
                                         userAnswer: [] as UserAnswer,
@@ -634,15 +656,15 @@ export function DeckPracticePage() {
                                 {backMediaNames.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-2">
                                         {backMediaNames
-                                            .filter(
-                                                (n) =>
-                                                    n.toLowerCase().endsWith(".dot") ||
-                                                    n.toLowerCase().endsWith(".map")
-                                            )
+                                            .filter((n) => getMediaType(n))
                                             .map((name) => {
-                                                const lower = name.toLowerCase();
-                                                const isDot = lower.endsWith(".dot");
-                                                //const isMap = lower.endsWith(".map");
+                                                const mediaType = getMediaType(name);
+                                                const Icon =
+                                                    mediaType === "dot"
+                                                        ? GitBranch
+                                                        : mediaType === "map"
+                                                            ? MapIcon
+                                                            : ImageIcon;
                                                 return (
                                                     <button
                                                         key={name}
@@ -651,13 +673,18 @@ export function DeckPracticePage() {
                                                             e.stopPropagation();
                                                             setMediaModal({ cardId: current.id, name });
                                                         }}
-                                                        title={`查看图示 (${name})`}
+                                                        title={`查看媒体 (${name})`}
                                                     >
-                                                        {isDot ? (
-                                                            <GitBranch className="h-5 w-5 text-emerald-500" />
-                                                        ) : (
-                                                            <MapIcon className="h-5 w-5 text-sky-500" />
-                                                        )}
+                                                        <Icon
+                                                            className={clsx(
+                                                                "h-5 w-5",
+                                                                mediaType === "dot"
+                                                                    ? "text-emerald-500"
+                                                                    : mediaType === "map"
+                                                                        ? "text-sky-500"
+                                                                        : "text-blue-500"
+                                                            )}
+                                                        />
                                                         <span>{name}</span>
                                                     </button>
                                                 );
@@ -708,16 +735,22 @@ export function DeckPracticePage() {
                                 关闭
                             </button>
                         </div>
-                        {mediaModal.name.toLowerCase().endsWith(".dot") ? (
+                        {getMediaType(mediaModal.name) === "dot" ? (
                             <DotRender
                                 cardId={mediaModal.cardId}
                                 fileName={mediaModal.name}
                                 className="w-full"
                             />
-                        ) : mediaModal.name.toLowerCase().endsWith(".map") ? (
+                        ) : getMediaType(mediaModal.name) === "map" ? (
                             <MapPdfViewer
                                 cardId={mediaModal.cardId}
                                 filename={mediaModal.name}
+                                className="w-full"
+                            />
+                        ) : getMediaType(mediaModal.name) === "image" ? (
+                            <ImageRender
+                                cardId={mediaModal.cardId}
+                                fileName={mediaModal.name}
                                 className="w-full"
                             />
                         ) : (
