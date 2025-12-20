@@ -15,15 +15,6 @@ import { differenceInSeconds } from "date-fns";
 import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
 
-interface CardData {
-    id: string;
-    front: string;
-    back: string;
-    deck_title: string;
-    deck_id: string;
-    mediaList?: { name: string; id?: string }[];
-}
-
 interface CardStatsRow {
     card_id: string;
     review_count: number | null;
@@ -66,6 +57,26 @@ function easeFactorToColor(ease_factor: number | null | undefined): string {
 }
 
 type CardStatsMap = Record<string, CardStatsRow | undefined>;
+// 媒体列表 map：cardId -> media list
+type CardMediaMap = Record<string, { name: string; id?: string }[]>;
+type CardBaseData = {
+    id: string;
+    front: string;
+    back: string;
+    deck_title: string;
+    deck_id: string;
+};
+type CardViewData = {
+    mediaReady: boolean;
+    frontClean: string;
+    backClean: string;
+    frontSchema: ReturnType<typeof parseFront> | null;
+    backSchema: ReturnType<typeof parseBack> | null;
+    footerText: string;
+    frontMediaNames: string[];
+    backMediaNames: string[];
+    mediaNotes: Record<string, string>;
+};
 
 function getContentSizeClass(content: string): { sizeClass: string; alignClass: string } {
     const trimmed = content.trim();
@@ -103,6 +114,17 @@ function getMediaType(name: string): "dot" | "map" | "image" | null {
     return null;
 }
 
+function extractNotesFromContent(text?: string): string[] {
+    const notes: string[] = [];
+    if (!text) return notes;
+    const regex = /!\[([^\]]*)\]/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        notes.push(match[1]?.trim() ?? "");
+    }
+    return notes;
+}
+
 export function DeckPracticePage() {
     const navigate = useNavigate();
     const {deckName} = useParams();
@@ -115,8 +137,8 @@ export function DeckPracticePage() {
 
 // 是否处于暂停/休息状态
     const [isBreak, setIsBreak] = useState(false);
-    //const [deckTitle, setDeckTitle] = useState("");
-    const [cards, setCards] = useState<CardData[]>([]);
+    const [cardBaseMap, setCardBaseMap] = useState<Record<string, CardBaseData>>({});
+    const [cardIds, setCardIds] = useState<string[]>([]);
 
     // 一个统一的 loading 状态就够了
     const [loading, setLoading] = useState(true);
@@ -133,6 +155,10 @@ export function DeckPracticePage() {
 
     // 新增：当前用户这组卡片的 stats 映射
     const [cardStatsMap, setCardStatsMap] = useState<CardStatsMap>({});
+    // 媒体列表映射
+    const [cardMediaMap, setCardMediaMap] = useState<CardMediaMap>({});
+    // 视图派生数据
+    const [cardViewMap, setCardViewMap] = useState<Record<string, CardViewData>>({});
     const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
@@ -166,7 +192,10 @@ export function DeckPracticePage() {
 
                 if (error) {
                     console.error("select_practice_cards error", error);
-                    setCards([]);
+                    setCardIds([]);
+                    setCardBaseMap({});
+                    setCardMediaMap({});
+                    setCardViewMap({});
                     setLoading(false);
                     return;
                 }
@@ -181,40 +210,32 @@ export function DeckPracticePage() {
                     }[]) || [];
 
                 if (rows.length === 0) {
-                    setCards([]);
+                    setCardIds([]);
+                    setCardBaseMap({});
+                    setCardMediaMap({});
+                    setCardViewMap({});
                     setLoading(false);
                     return;
                 }
 
-                // 检查 storage 中是否有 back 媒体
-                const cardIds = rows.map((r) => r.card_id);
-                const mediaMap: Record<string, { name: string; id?: string }[]> = {};
-                for (const cid of cardIds) {
-                    try {
-                        const {data: list, error: listErr} = await supabase
-                            .storage
-                            .from("quizit_card_medias")
-                            .list(`${cid}`);
-                        if (!listErr && list && list.length > 0) {
-                            const typedList = list as { name: string; id?: string }[];
-                            mediaMap[cid] = typedList.map((f) => ({name: f.name, id: f.id}));
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
+                const ids: string[] = [];
+                const baseMap: Record<string, CardBaseData> = {};
 
-                // 用 RPC 返回的卡片填充 CardData[]
-                setCards(
-                    rows.map((r) => ({
+                for (const r of rows) {
+                    ids.push(r.card_id);
+                    baseMap[r.card_id] = {
                         id: r.card_id,
                         front: r.front,
                         back: r.back,
                         deck_title: r.deck_title,
                         deck_id: r.deck_id,
-                        mediaList: mediaMap[r.card_id] ?? [],
-                    }))
-                );
+                    };
+                }
+
+                setCardIds(ids);
+                setCardBaseMap(baseMap);
+                setCardMediaMap({});
+                setCardViewMap({});
                 // 每次重新抽卡，重置索引和正反面
                 setIndex(0);
                 setShowBack(false);
@@ -238,15 +259,15 @@ export function DeckPracticePage() {
             //const { data: userData } = await supabase.auth.getUser();
             //const user = userData.user;
             //if (!user) return;
-            if (cards.length === 0) return;
+            if (cardIds.length === 0) return;
 
-            const ids = cards.map((c) => c.id);
+            //const ids = cardIds;
 
             const {data, error} = await supabase
                 .from("card_stats")
                 .select("card_id, review_count, correct_count, wrong_count, ease_factor, last_reviewed_at")
                 .gt("review_count", 0)
-                .in("card_id", ids);
+                .in("card_id", cardIds);
 
             if (!error && data) {
                 let sum = 0
@@ -263,7 +284,115 @@ export function DeckPracticePage() {
 
         loadStats();
         cardStartTimeRef.current = new Date();
-    }, [cards]);
+    }, [cardIds]);
+    // 基础派生：front/back 文本与 schema
+    useEffect(() => {
+        const updates: Record<string, CardViewData> = {};
+        for (const cid of cardIds) {
+            const base = cardBaseMap[cid];
+            if (!base) continue;
+            const existing = cardViewMap[cid];
+            if (existing) continue;
+
+            const frontClean = trimEmptyLines(base.front);
+            const backClean = trimEmptyLines(base.back);
+            const parsedBack = parseBack(base.back, true);
+            updates[cid] = {
+                mediaReady: false,
+                frontClean,
+                backClean,
+                frontSchema: parseFront(base.front),
+                backSchema: parsedBack,
+                footerText: parsedBack?.footer ?? "",
+                frontMediaNames: [],
+                backMediaNames: [],
+                mediaNotes: {},
+            };
+            //console.log(`set base to ${cid}`)
+        }
+        if (Object.keys(updates).length === 0) return;
+        setCardViewMap((prev) => ({...prev, ...updates}));
+    }, [cardIds, cardBaseMap, cardViewMap]);
+    // 媒体派生：front/back 媒体列表
+    useEffect(() => {
+        const updates: Record<string, CardViewData> = {};
+        for (const cid of cardIds) {
+            const mediaList = cardMediaMap[cid] ?? [];
+            const existing = cardViewMap[cid];
+            if (!existing || existing.mediaReady) continue;
+
+            const frontMediaNames = mediaList.filter((m) => m.name.startsWith("front.")).map((m) => m.name);
+            const backMediaNames = mediaList.filter((m) => m.name.startsWith("back")).map((m) => m.name);
+            const backNotes = extractNotesFromContent(existing.footerText);
+            const mediaNotes: Record<string, string> = {};
+            backMediaNames.forEach((name, idx) => {
+                const lower = name.toLowerCase();
+                if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                    mediaNotes[name] = backNotes[idx] ?? "";
+                }
+            });
+
+            //const needUpdate = (frontMediaNames.length + backMediaNames.length > 0);
+            if (frontMediaNames.length + backMediaNames.length <= 0) continue;
+            //console.log(`set media to ${cid}`)
+            /* 计算mediaNotes */
+
+            updates[cid] = {
+                ...(existing),
+                frontMediaNames,
+                backMediaNames,
+                mediaNotes: Object.keys(mediaNotes).length ? mediaNotes : existing.mediaNotes ?? {},
+                mediaReady: true,
+            };
+        }
+        //console.log(updates);
+        if (Object.keys(updates).length === 0) return;
+        setCardViewMap((prev) => ({...prev, ...updates}));
+    }, [cardIds, cardMediaMap, cardViewMap]);
+    // 异步加载媒体列表（不阻塞抽卡）
+    useEffect(() => {
+        let cancelled = false;
+        async function loadMedias() {
+            if (cardIds.length === 0) {
+                if (Object.keys(cardMediaMap).length > 0) {
+                    setCardMediaMap({});
+                }
+                return;
+            }
+            const missing = cardIds.filter((cid) => !(cardMediaMap[cid]));
+            if (missing.length === 0) return;
+            //console.warn(missing);
+            const results: CardMediaMap = {};
+            await Promise.all(
+                missing.map(async (cid) => {
+                    try {
+                        const {data: list, error: listErr} = await supabase
+                            .storage
+                            .from("quizit_card_medias")
+                            .list(`${cid}`);
+                        if (!listErr && list && list.length > 0) {
+                            const typedList = list as { name: string; id?: string }[];
+                            results[cid] = typedList.map((f) => ({name: f.name, id: f.id}));
+                        } else {
+                            results[cid] = [];
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        results[cid] = [];
+                    }
+                })
+            );
+
+            if (cancelled) return;
+            if (Object.keys(results).length > 0) {
+                setCardMediaMap((prev) => ({...prev, ...results}));
+            }
+        }
+        loadMedias();
+        return () => {
+            cancelled = true;
+        };
+    }, [cardIds, cardMediaMap]);
     // 计时器：全局顶栏那个
     const {reset, start, pause} = useTimer();
     useEffect(() => {
@@ -286,11 +415,11 @@ export function DeckPracticePage() {
 
     // 3. 切题 / 翻面
     const nextCard = () => {
-        if (cards.length === 0) return;
+        if (cardIds.length === 0) return;
         if (showBack) flip();
         //setShowBack(false);
         //if (backRef.current) backRef.current.classList.add("hidden");
-        setIndex((i) => i+1<cards.length?i+1:i);
+        setIndex((i) => i+1<cardIds.length?i+1:i);
     };
 
     const flip = () => {
@@ -319,7 +448,8 @@ export function DeckPracticePage() {
     // 4. 记录掌握程度（写入 card_stats 和 card_reviews，并自动下一题）
     async function recordDifficulty(level: number) {
         // 拍下当前卡片（快照）
-        const currentCard = cards[index];
+        const currentCardId = cardIds[index];
+        const currentCard = currentCardId ? cardBaseMap[currentCardId] : null;
         if (!currentCard) return;
 
         // UI 立即跳到下一张卡并回到正面
@@ -422,7 +552,7 @@ export function DeckPracticePage() {
         setAnswersSinceBreak((prev) => {
             const next = prev + 1;
 
-            if (next >= CARD_THRESHOLD || next >= cards.length ) {
+            if (next >= CARD_THRESHOLD || next >= cardIds.length ) {
                 setIsBreak(true);   // 进入休息模式
             }
 
@@ -433,19 +563,23 @@ export function DeckPracticePage() {
     // 5. 状态渲染
     if (loading) return <div>正在抽取练习卡片…</div>;
     if (!deckName) return <div className="text-sm text-slate-500">未找到该题库或目录。</div>;
-    if (cards.length === 0) return <div className="text-sm text-slate-500">当前目录下暂无可练习的卡片。</div>;
+    if (cardIds.length === 0) return <div className="text-sm text-slate-500">当前目录下暂无可练习的卡片。</div>;
 
-    const current = cards[index];
-    const currentStats = cardStatsMap[current.id];
-    const frontSchema = parseFront(current.front);
+    const currentId = cardIds[Math.min(index, cardIds.length - 1)];
+    const current = cardBaseMap[currentId];
+    const currentView = cardViewMap[currentId];
+    const currentStats = cardStatsMap[currentId];
+    if (!current) return <div className="text-sm text-slate-500">未找到该卡片。</div>;
+    if (!currentView) return <div className="text-sm text-slate-500">正在准备卡片内容…</div>;
+
     //    const difficultyLevel = currentStats?.ease_factor;
     const reviewCount = currentStats?.review_count ?? 0;
     const completionRatio = (() => {
-        if (cards.length === 0) return 0;
+        if (cardIds.length === 0) return 0;
 
         let total = 0;
-        for (const c of cards) {
-            const stats = cardStatsMap[c.id];
+        for (const cid of cardIds) {
+            const stats = cardStatsMap[cid];
             const level = stats?.ease_factor ?? 0;
             total += level;
         }
@@ -454,20 +588,12 @@ export function DeckPracticePage() {
     })();
     const completionText = (completionRatio * 100).toFixed(0) + "%";
 
-    const frontClean = trimEmptyLines(current.front);
-    const backClean = trimEmptyLines(current.back);
-    const backSchema = parseBack(current.back, true);
-    const footerText = backSchema.footer ?? "";
-    //console.log(backSchema);
-    const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(frontClean);
-    const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(backClean);
+    const {sizeClass: frontSizeClass, alignClass: frontAlign} = getContentSizeClass(currentView.frontClean);
+    const {sizeClass: backSizeClass, alignClass: backAlign} = getContentSizeClass(currentView.backClean);
     const isDarkMode =
         typeof document !== "undefined" &&
         document.documentElement.classList.contains("dark");
     const ringBgColor = isDarkMode ? "#1f2937" : "#e2e8f0";
-
-    const frontMediaNames = current.mediaList?.filter((m) => m.name.startsWith("front."))?.map((m) => m.name) ?? [];
-    const backMediaNames = current.mediaList?.filter((m) => m.name.startsWith("back"))?.map((m) => m.name) ?? [];
 
     //const dotNames = (current.mediaList ?? []).filter((m) => m.name.endsWith(".dot")).map((m) => m.name);
     //const frontDotNames = dotNames.filter((n) => n.startsWith("front."));
@@ -492,15 +618,15 @@ export function DeckPracticePage() {
                 <div>
                     <h1 className="text-xl font-semibold">{deckName}</h1>
                     <div className="text-xs text-slate-500 mt-1">
-                        <span>第 {answersSinceBreak} / {cards.length} /{folderStats?.total_items} 张 </span>
+                        <span>第 {answersSinceBreak} / {cardIds.length} /{folderStats?.total_items} 张 </span>
 
                     </div>
                 </div>
                 {/* 中间：一排圆点，每个表示一张卡片 */}
                 <div className="w-[30rem] md:w-[34rem] mt-1 flex flex-wrap items-center justify-center gap-4">
                     <div className="w-4"></div>
-                    {cards.map((card, idx) => {
-                        const stats = cardStatsMap[card.id];
+                    {cardIds.map((cid, idx) => {
+                        const stats = cardStatsMap[cid];
                         const isCurrent = idx === index;              // 当前卡
 
                         const difficultyLevel = stats?.ease_factor ?? 0;   // 1~4 或 0 未练过
@@ -519,7 +645,7 @@ export function DeckPracticePage() {
                                 : "ring-neutral-300"; // 兜底发光颜色
 
                         return (
-                            <div className="w-[24px] flex justify-center">
+                            <div className="w-[24px] flex justify-center" key={cid}>
                                 <div
                                     className={clsx(
                                         "h-3 w-3 rounded-full transition-all",
@@ -602,7 +728,7 @@ export function DeckPracticePage() {
                                 )}
                                 ref={frontRef}
                             >
-                                {frontMediaNames
+                                {currentView.frontMediaNames
                                     .filter((n) => getMediaType(n))
                                     .map((name) => {
                                         const mediaType = getMediaType(name);
@@ -616,15 +742,15 @@ export function DeckPracticePage() {
                                         return (
                                             <button
                                                 key={name}
-                                                className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setMediaModal({ cardId: current.id, name });
-                                                }}
-                                                onMouseEnter={() => setHoverInfo(`查看媒体：${name}`)}
-                                                onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
-                                                title={`查看媒体 (${name})`}
-                                            >
+                                            className="w-full flex justify-center items-center gap-2 text-sm text-blue-600 dark:text-blue-300 underline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setMediaModal({ cardId: current.id, name });
+                                            }}
+                                            onMouseEnter={() => setHoverInfo(currentView.mediaNotes?.[name] || `查看媒体：${name}`)}
+                                            onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
+                                            title={currentView.mediaNotes?.[name] || `查看媒体 (${name})`}
+                                        >
                                                 <Icon className="h-8 w-8" aria-hidden />
                                                 <span className="sr-only">
                                                     {lower.endsWith(".dot") ? "查看图示" : "查看媒体"}
@@ -632,13 +758,13 @@ export function DeckPracticePage() {
                                             </button>
                                         );
                                     })}
-                                {frontSchema
-                                    ? renderPrompt(frontSchema, {
+                                {currentView.frontSchema
+                                    ? renderPrompt(currentView.frontSchema, {
                                         userAnswer: [] as UserAnswer,
                                         setUserAnswer: undefined,
                                         disabled: true,
                                     })
-                                    : frontClean}
+                                    : currentView.frontClean}
                             </div>
                             {/* 卡片背面（始终显示） */}
                             <div
@@ -653,9 +779,9 @@ export function DeckPracticePage() {
                                 )}
                                 ref={backRef}
                             >
-                                {backMediaNames.length > 0 && (
+                                {currentView.backMediaNames.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-2">
-                                        {backMediaNames
+                                        {currentView.backMediaNames
                                             .filter((n) => getMediaType(n))
                                             .map((name) => {
                                                 const mediaType = getMediaType(name);
@@ -673,7 +799,7 @@ export function DeckPracticePage() {
                                                             e.stopPropagation();
                                                             setMediaModal({ cardId: current.id, name });
                                                         }}
-                                                        title={`查看媒体 (${name})`}
+                                                        title={currentView.mediaNotes?.[name] || `查看媒体 (${name})`}
                                                     >
                                                         <Icon
                                                             className={clsx(
@@ -691,12 +817,12 @@ export function DeckPracticePage() {
                                             })}
                                     </div>
                                 )}
-                                {frontSchema && backSchema
-                                    ? renderAnswer(frontSchema, backSchema)
-                                    : backClean}
-                                {footerText && (
+                                {currentView.frontSchema && currentView.backSchema
+                                    ? renderAnswer(currentView.frontSchema, currentView.backSchema)
+                                    : currentView.backClean}
+                                {currentView.footerText && (
                                     <div className="mt-0 pt-1 border-t border-slate-200 dark:border-slate-700 text-base text-slate-700 dark:text-slate-200">
-                                        <MarkdownText content={footerText} />
+                                        <MarkdownText content={currentView.footerText} />
                                     </div>
                                 )}
                                 {/* JSON.stringify(frontSchema) */}
