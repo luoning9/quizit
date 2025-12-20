@@ -114,6 +114,10 @@ function getMediaType(name: string): "dot" | "map" | "image" | null {
     return null;
 }
 
+function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function extractNotesFromContent(text?: string): string[] {
     const notes: string[] = [];
     if (!text) return notes;
@@ -594,12 +598,16 @@ export function DeckPracticePage() {
         typeof document !== "undefined" &&
         document.documentElement.classList.contains("dark");
     const ringBgColor = isDarkMode ? "#1f2937" : "#e2e8f0";
-
-    //const dotNames = (current.mediaList ?? []).filter((m) => m.name.endsWith(".dot")).map((m) => m.name);
-    //const frontDotNames = dotNames.filter((n) => n.startsWith("front."));
-    //const backDotNames = dotNames.filter((n) => n.startsWith("back."));
-    //const sharedDotNames = dotNames.filter((n) => !n.startsWith("front.") && !n.startsWith("back."));
-    //const dotsForBack = [...backDotNames, ...sharedDotNames];
+    const footerForRender = (() => {
+        if (!currentView.footerText) return "";
+        let cleaned = currentView.footerText;
+        const notes = currentView.mediaNotes ? Object.values(currentView.mediaNotes).filter(Boolean) : [];
+        for (const note of notes) {
+            const pattern = new RegExp(`!\\[${escapeRegExp(note)}\\]`, "g");
+            cleaned = cleaned.replace(pattern, "");
+        }
+        return cleaned.trim();
+    })();
 
     if (isBreak) {
         return (
@@ -820,9 +828,9 @@ export function DeckPracticePage() {
                                 {currentView.frontSchema && currentView.backSchema
                                     ? renderAnswer(currentView.frontSchema, currentView.backSchema)
                                     : currentView.backClean}
-                                {currentView.footerText && (
+                                {footerForRender && (
                                     <div className="mt-0 pt-1 border-t border-slate-200 dark:border-slate-700 text-base text-slate-700 dark:text-slate-200">
-                                        <MarkdownText content={currentView.footerText} />
+                                        <MarkdownText content={footerForRender} />
                                     </div>
                                 )}
                                 {/* JSON.stringify(frontSchema) */}
