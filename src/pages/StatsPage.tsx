@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
 import { useNavigate } from "react-router-dom";
@@ -52,6 +52,7 @@ export default function StatsPage() {
     const [authChecked, setAuthChecked] = useState(false);
     const [deckNames, setDeckNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
     const [quizNames, setQuizNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
+    const missingPatchMonthsRef = useRef<Set<string>>(new Set());
 
     // 获取用户 ID
     useEffect(() => {
@@ -99,7 +100,9 @@ export default function StatsPage() {
                     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
                     const yesterdayStr = formatDateCN(yesterday);
                     const hasYesterday = Boolean(map[yesterdayStr]);
-                    if (!hasYesterday) {
+                    const monthKey = `${month.getUTCFullYear()}-${month.getUTCMonth() + 1}`;
+                    if (!hasYesterday && !missingPatchMonthsRef.current.has(monthKey)) {
+                        missingPatchMonthsRef.current.add(monthKey);
                         supabase
                             .rpc("compute_missing_daily_user_stats", { p_days: 1 })
                             .then(({ error: missErr }) => {
