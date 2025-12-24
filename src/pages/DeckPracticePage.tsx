@@ -121,7 +121,7 @@ function escapeRegExp(str: string): string {
 function extractNotesFromContent(text?: string): string[] {
     const notes: string[] = [];
     if (!text) return notes;
-    const regex = /!\[([^\]]*)\]/g;
+    const regex = /!\[([^\]]*)]/g;
     let match;
     while ((match = regex.exec(text)) !== null) {
         notes.push(match[1]?.trim() ?? "");
