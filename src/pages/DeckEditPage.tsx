@@ -936,7 +936,7 @@ front,back
                                     {/* 顶部：编号 + id（缩短一点防止太长） */}
                                     <div className="flex items-center justify-between mb-1 text-slate-500 dark:text-slate-400">
                                         <span>#{idx + 1}</span>
-                                        <span className="truncate max-w-[200px]">{c.id}</span>
+                                        <span className="text-right break-all">{c.id}</span>
                                     </div>
 
                                     {/* 主体：左右两栏 front / back */}
