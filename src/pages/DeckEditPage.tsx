@@ -90,6 +90,12 @@ function parseCardsText(raw: string): ImportedCardLite[] {
                 return normalizeJsonCards(obj.cards);
             }
         }
+        if (typeof parsed === "object" && parsed !== null) {
+            const obj = parsed as { id?: unknown; front?: unknown; back?: unknown };
+            if (typeof obj.front !== "undefined" || typeof obj.back !== "undefined") {
+                return normalizeJsonCards([obj]);
+            }
+        }
         // 不是我们想要的 JSON 结构 → 走 CSV
     } catch {
         // ignore, 去解析 CSV
