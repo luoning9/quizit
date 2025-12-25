@@ -68,22 +68,22 @@ export function DeckList({
             <div className="flex items-center gap-2">
               {actionStyle === "icon" ? (
                 <>
-                  <button
-                    className="p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
+                  <Button
+                    variant="iconLearn"
                     onClick={() => onLearn(deck)}
                     aria-label="学习"
                     title="学习"
                   >
                     <BookOpenCheck className="h-6 w-6" />
-                  </button>
-                  <button
-                    className="p-2 rounded-full text-slate-600 hover:text-white hover:bg-slate-600 dark:text-slate-300 dark:hover:text-slate-50 dark:hover:bg-slate-600"
+                  </Button>
+                  <Button
+                    variant="iconView"
                     onClick={() => onView(deck)}
                     aria-label="查看"
                     title="查看"
                   >
                     <Eye className="h-6 w-6" />
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>

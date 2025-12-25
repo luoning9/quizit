@@ -6,6 +6,9 @@ type Variant =
     | "secondary"
     | "ghost"
     | "ghostSecond"
+    | "iconLearn"
+    | "iconView"
+    | "iconStart"
     | "outline"
     | "link"
     | "none";
@@ -29,8 +32,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     }: ButtonProps,
     ref
 ) {
-    const base =
-        "inline-flex items-center justify-center rounded-xl font-medium transition-colors px-4 py-2 disabled:opacity-50 disabled:pointer-events-none";
+    const isIconVariant = variant.startsWith("icon");
+    const base = isIconVariant
+        ? "inline-flex items-center justify-center rounded-full transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        : "inline-flex items-center justify-center rounded-xl font-medium transition-colors px-4 py-2 disabled:opacity-50 disabled:pointer-events-none";
 
     const variants: Record<Variant, string> = {
         none:"",
@@ -74,6 +79,24 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
                 "bg-transparent text-teal-500 hover:bg-teal-50 hover:text-teal-600",
                 // 深色
                 "dark:text-teal-500 dark:hover:bg-teal-900/50 dark:hover:text-teal-200",
+            ].join(" "),
+        iconLearn:
+            [
+                "p-2 rounded-full",
+                "bg-transparent text-emerald-600 hover:text-white hover:bg-emerald-600",
+                "dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700",
+            ].join(" "),
+        iconView:
+            [
+                "p-2 rounded-full",
+                "bg-transparent text-slate-600 hover:text-white hover:bg-slate-600",
+                "dark:text-slate-300 dark:hover:text-slate-50 dark:hover:bg-slate-600",
+            ].join(" "),
+        iconStart:
+            [
+                "p-2 rounded-full",
+                "bg-transparent text-blue-600 hover:text-white hover:bg-blue-600",
+                "dark:text-blue-300 dark:hover:text-blue-50 dark:hover:bg-blue-700",
             ].join(" "),
     };
 

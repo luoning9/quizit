@@ -402,14 +402,15 @@ export function MainSelectPage() {
                                         </div>
                                     </button>
                                     {node.isDeck && (
-                                        <button
-                                            className="deck-row-action mr-3 p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
+                                        <Button
+                                            variant="iconLearn"
+                                            className="deck-row-action mr-3"
                                             onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
                                             aria-label="学习"
                                             title="学习"
                                         >
                                             <BookOpenCheck className="h-5 w-5" />
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             ))}
@@ -439,22 +440,22 @@ export function MainSelectPage() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <button
-                                    className="p-2 rounded-full text-slate-600 hover:text-white hover:bg-slate-600 dark:text-slate-300 dark:hover:text-slate-50 dark:hover:bg-slate-600"
+                                <Button
+                                    variant="iconView"
                                     onClick={() => navigate(`/quiz-runs/${quiz.id}`)}
                                     aria-label="查看"
                                     title="查看"
                                 >
                                     <Eye className="h-5 w-5" />
-                                </button>
-                                <button
-                                    className="p-2 rounded-full text-blue-600 hover:text-white hover:bg-blue-600 dark:text-blue-300 dark:hover:text-blue-50 dark:hover:bg-blue-700"
+                                </Button>
+                                <Button
+                                    variant="iconStart"
                                     onClick={() => navigate(`/quizzes/${quiz.id}/take`)}
                                     aria-label="开始"
                                     title="开始"
                                 >
                                     <PencilLine className="h-5 w-5" />
-                                </button>
+                                </Button>
                             </div>
                         </div>))}
                     </div>)}
