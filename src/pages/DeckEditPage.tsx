@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, List, RotateCcw } from "lucide-react";
+import { Trash2, Check, Layers, List, RotateCcw, Image } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -782,6 +782,16 @@ const DeckEditPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="p-2 text-slate-600 hover:text-white hover:bg-slate-600 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-700"
+                        onClick={() => navigate(`/decks/${deckId}/resources`)}
+                        aria-label="资源管理"
+                        title="资源管理"
+                    >
+                        <Image size={20} />
+                    </Button>
                     <Button
                         type="button"
                         variant="ghost"

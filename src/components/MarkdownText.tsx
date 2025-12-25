@@ -59,7 +59,7 @@ export function MarkdownText({ content, inline = false, className }: MarkdownTex
             className={clsx(
                 inline
                     ? "inline-block leading-snug whitespace-pre-wrap text-inherit"
-                    : "space-y-2 leading-relaxed whitespace-pre-wrap text-inherit",
+                    : "leading-relaxed whitespace-pre-wrap text-inherit",
                 "markdown-text",
                 className,
             )}

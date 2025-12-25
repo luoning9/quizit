@@ -42,3 +42,30 @@
 .dark .markdown-text th {
     background-color: #0f172a; /* slate-900 */
 }
+
+/* Markdown list styling */
+.markdown-text ul,
+.markdown-text ol {
+    padding-left: 1.25rem;
+    margin: 0;
+}
+
+.markdown-text ul {
+    list-style: disc;
+}
+
+.markdown-text ol {
+    list-style: decimal;
+}
+
+.markdown-text li + li {
+    margin-top: 0.125rem;
+}
+
+.markdown-text li > p {
+    margin: 0;
+}
+
+.markdown-text li {
+    margin: 0;
+}
