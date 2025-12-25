@@ -8,7 +8,6 @@
 主题范围：第六单元 中国人民的抗日战争
 题型偏好：single_choice / multiple_choice / fill_in_blank
 
-----------[OOP试卷2025（B卷）.doc](../../../../Library/Mobile%20Documents/com%7Eapple%7ECloudDocs/luoning/%E6%B5%B7%E5%8D%97/JAVA%E8%AF%BE%E7%A8%8B/2025%E8%80%83%E8%AF%95/OOP%E8%AF%95%E5%8D%B72025%EF%BC%88B%E5%8D%B7%EF%BC%89.doc)------------------
 二、JSON 输出结构（必须严格遵守）
 ----------------------------
 无论题型，每题结构必须为：
