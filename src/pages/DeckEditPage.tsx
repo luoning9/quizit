@@ -790,41 +790,40 @@ const DeckEditPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <Button
                         type="button"
-                        variant="ghost"
-                        className="p-2 text-slate-600 hover:text-white hover:bg-slate-600 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-700"
+                        variant="iconGhost"
                         onClick={() => navigate(`/decks/${deckId}/resources`)}
                         aria-label="资源管理"
                         title="资源管理"
                     >
-                        <Image size={20} />
+                        <Image size={24} />
                     </Button>
                     <Button
                         type="button"
-                        variant="ghost"
-                        className="p-2 text-red-600 hover:text-white hover:bg-red-600 dark:text-red-400 dark:hover:text-red-100 dark:hover:bg-red-700"
+                        variant="iconGhost"
+                        className="text-red-600 hover:bg-red-600 dark:text-red-400 dark:hover:bg-red-700"
                         onClick={() => setShowDeleteDeckConfirm(true)}
                         aria-label="删除这个 deck"
                     >
-                        <Trash2 size={20} />
+                        <Trash2 size={24} />
                     </Button>
                     <Button
                         type="button"
-                        variant="ghost"
-                        className="p-2 text-amber-600 hover:text-white hover:bg-amber-600 dark:text-amber-300 dark:hover:text-amber-100 dark:hover:bg-amber-700"
+                        variant="iconGhost"
+                        className="text-amber-600 hover:bg-amber-600 dark:text-amber-300 dark:hover:bg-amber-700"
                         onClick={() => setShowResetConfirm(true)}
                         aria-label="重置学习记录"
                         title="重置学习记录"
                     >
-                        <RotateCcw size={20} />
+                        <RotateCcw size={24} />
                     </Button>
                     <Button
                         type="button"
-                        variant="link"
-                        className="p-3 rounded-full text-sky-500 hover:text-white hover:bg-sky-500 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
+                        variant="iconGhost"
+                        className="text-sky-500 hover:bg-sky-500 dark:text-sky-300 dark:hover:bg-sky-700"
                         onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title ?? "")}`)}
                         title="返回列表页"
                     >
-                        <List className="w-6 h-6" />
+                        <List className="w-7 h-7" />
                     </Button>
                 </div>
             </div>
