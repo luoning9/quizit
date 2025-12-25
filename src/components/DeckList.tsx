@@ -1,3 +1,6 @@
+import { Eye, BookOpenCheck } from "lucide-react";
+import { Button } from "./ui/Button";
+
 export type DeckListItem = {
   deck_id: string;
   deck_name: string;
@@ -13,6 +16,7 @@ interface DeckListProps {
   onLearn: (deck: DeckListItem) => void;
   onView: (deck: DeckListItem) => void;
   emptyText?: string;
+  actionStyle?: "text" | "icon";
 }
 
 function formatDate(dt: string | null) {
@@ -27,6 +31,7 @@ export function DeckList({
   onLearn,
   onView,
   emptyText = "暂无数据",
+  actionStyle = "text",
 }: DeckListProps) {
   if (!decks.length) {
     return <div className="text-base text-slate-500 dark:text-slate-400">{emptyText}</div>;
@@ -61,18 +66,41 @@ export function DeckList({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-sm hover:bg-emerald-600"
-                onClick={() => onLearn(deck)}
-              >
-                学习
-              </button>
-              <button
-                className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                onClick={() => onView(deck)}
-              >
-                查看
-              </button>
+              {actionStyle === "icon" ? (
+                <>
+                  <button
+                    className="p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
+                    onClick={() => onLearn(deck)}
+                    aria-label="学习"
+                    title="学习"
+                  >
+                    <BookOpenCheck className="h-6 w-6" />
+                  </button>
+                  <button
+                    className="p-2 rounded-full text-slate-600 hover:text-white hover:bg-slate-600 dark:text-slate-300 dark:hover:text-slate-50 dark:hover:bg-slate-600"
+                    onClick={() => onView(deck)}
+                    aria-label="查看"
+                    title="查看"
+                  >
+                    <Eye className="h-6 w-6" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-sm hover:bg-emerald-600"
+                    onClick={() => onLearn(deck)}
+                  >
+                    学习
+                  </button>
+                  <button
+                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    onClick={() => onView(deck)}
+                  >
+                    查看
+                  </button>
+                </>
+              )}
             </div>
           </div>
         );

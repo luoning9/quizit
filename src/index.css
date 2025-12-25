@@ -69,3 +69,12 @@
 .markdown-text li {
     margin: 0;
 }
+
+/* MainSelect deck row hover */
+.deck-row:hover .deck-row-main {
+    background-color: #f1f5f9; /* slate-100 */
+}
+
+.dark .deck-row:hover .deck-row-main {
+    background-color: rgba(30, 41, 59, 0.7); /* slate-800/70 */
+}

@@ -70,6 +70,7 @@ export default function DueDecksPage() {
           onLearn={handleLearn}
           onView={handleView}
           emptyText="暂无数据"
+          actionStyle="icon"
         />
       )}
     </div>

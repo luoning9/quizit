@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import { Pencil } from "lucide-react";
+import { Eye } from "lucide-react";
 
 interface DeckStatusProps {
     deckId: string;
@@ -59,12 +59,12 @@ export function DeckStatus({ deckId }: DeckStatusProps) {
                 <button
                     type="button"
                     className="p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
-                    title="编辑"
+                    title="查看"
                     onClick={() => {
                         navigate(`/decks/${deckId}/edit`);
                     }}
                 >
-                    <Pencil className="w-5 h-5" />
+                    <Eye className="w-5 h-5" />
                 </button>
             </div>
         </section>

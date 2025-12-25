@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {Folder, Layers, PencilLine} from "lucide-react";
+import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
@@ -370,11 +370,11 @@ export function MainSelectPage() {
                             {childNodes.map((node) => (
                                 <div
                                     key={node.fullPath}
-                                    className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100"
+                                    className="deck-row flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100"
                                 >
                                     <button
                                         onClick={() => setSelectedPath(node.fullPath)}
-                                        className="flex items-center justify-start px-3 py-2 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-colors dark:hover:bg-slate-800/70"
+                                        className="deck-row-main flex flex-1 items-center justify-start px-3 py-2 rounded-xl transition-colors"
                                     >
                                         <div className="w-10">
                                             {node.isDeck ? (
@@ -401,7 +401,16 @@ export function MainSelectPage() {
                                             </div>
                                         </div>
                                     </button>
-
+                                    {node.isDeck && (
+                                        <button
+                                            className="deck-row-action mr-3 p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"
+                                            onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
+                                            aria-label="学习"
+                                            title="学习"
+                                        >
+                                            <BookOpenCheck className="h-5 w-5" />
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>)}
@@ -430,20 +439,22 @@ export function MainSelectPage() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <Button
-                                    variant="ghostSecond"
-                                    className="w-20 text-sm"
+                                <button
+                                    className="p-2 rounded-full text-slate-600 hover:text-white hover:bg-slate-600 dark:text-slate-300 dark:hover:text-slate-50 dark:hover:bg-slate-600"
                                     onClick={() => navigate(`/quiz-runs/${quiz.id}`)}
+                                    aria-label="查看"
+                                    title="查看"
                                 >
-                                    查看
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="w-20 text-sm"
+                                    <Eye className="h-5 w-5" />
+                                </button>
+                                <button
+                                    className="p-2 rounded-full text-blue-600 hover:text-white hover:bg-blue-600 dark:text-blue-300 dark:hover:text-blue-50 dark:hover:bg-blue-700"
                                     onClick={() => navigate(`/quizzes/${quiz.id}/take`)}
+                                    aria-label="开始"
+                                    title="开始"
                                 >
-                                    开始
-                                </Button>
+                                    <PencilLine className="h-5 w-5" />
+                                </button>
                             </div>
                         </div>))}
                     </div>)}
@@ -468,7 +479,7 @@ export function MainSelectPage() {
                             navigate(`/quizzes/new?${params.toString()}`);
                         }}
                     >
-                        <PencilLine size={16} />
+                        <PlusCircle size={16} />
                         <span>新增测验</span>
                     </Button>
                 </div>
