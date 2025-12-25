@@ -120,6 +120,7 @@ export interface FrontSchema {
     type: QuestionType;
     score: number;
     prompt: string;
+    material?: string;
     options?: string[];
     media?: {
         imageUrl?: string;
@@ -234,6 +235,9 @@ export function parseFront(raw: string): FrontSchema {
         const promptValue =
             typeof rec.prompt === "string" ? rec.prompt : "";
 
+        const materialValue =
+            typeof rec.material === "string" ? rec.material : undefined;
+
         const optionsValue =
             Array.isArray(rec.options) ? rec.options : undefined;
 
@@ -252,6 +256,7 @@ export function parseFront(raw: string): FrontSchema {
             type: rec.type as QuestionType,
             score: scoreValue,
             prompt: promptValue,
+            material: materialValue,
             options: optionsValue,
             media: mediaValue,
         };

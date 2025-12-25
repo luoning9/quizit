@@ -16,6 +16,7 @@ import { Button } from "../components/ui/Button";
 import { addCardToWrongBook } from "../../lib/WrongBook.ts";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { differenceInSeconds } from "date-fns";
+import MarkdownText from "../components/MarkdownText";
 
 interface QuizQuestion {
     cardId: string;
@@ -62,6 +63,7 @@ function QuizRunPage() {
     const [showFloatingAction, setShowFloatingAction] = useState(false);
     const [floatingPos, setFloatingPos] = useState<{ left: number; top: number } | null>(null);
     const questionStartRef = useRef<Date | null>(null);
+    const [showMaterial, setShowMaterial] = useState(true);
 
     // 当前题目的作答：统一 string[]，初始为空数组
     const [currentUserAnswer, setCurrentUserAnswer] = useState<UserAnswer>([]);
@@ -187,6 +189,10 @@ function QuizRunPage() {
                     } satisfies QuizQuestion;
                 })
                 .filter((q): q is QuizQuestion => q !== null);
+
+            questions.forEach((q) => {
+                console.debug("quiz front", q.cardId, q.front);
+            });
 
             setQuestions(questions);
             // 初始化测验结果
@@ -565,6 +571,25 @@ function QuizRunPage() {
                 </div>
             </header>
 
+            {currentQuestion?.front?.material?.trim() && (
+                <div className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm p-5 mb-4 dark:border-slate-700 dark:bg-slate-900/80">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-3 dark:border-slate-700">
+                        <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">题目材料</div>
+                        <button
+                            type="button"
+                            className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            onClick={() => setShowMaterial((prev) => !prev)}
+                        >
+                            {showMaterial ? "收起" : "展开"}
+                        </button>
+                    </div>
+                    {showMaterial && (
+                        <div className="text-base text-slate-800 dark:text-slate-100">
+                            <MarkdownText content={currentQuestion.front.material.trim()} />
+                        </div>
+                    )}
+                </div>
+            )}
             {/* 题卡 + 右侧按钮 */}
             <div className="w-full flex items-start gap-4 mb-6">
                 {/* 问题卡片 */}
