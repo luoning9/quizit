@@ -12,7 +12,7 @@ import {ImageRender} from "../components/ui/ImageRender";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
-import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon, Link } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
 
 interface CardStatsRow {
@@ -64,6 +64,7 @@ type CardBaseData = {
     front: string;
     back: string;
     deck_title: string;
+    deck_description: string | null;
     deck_id: string;
 };
 type CardViewData = {
@@ -111,6 +112,20 @@ function getMediaType(name: string): "dot" | "map" | "image" | null {
     if (lower.endsWith(".dot")) return "dot";
     if (lower.endsWith(".map")) return "map";
     if (/\.(png|jpe?g)$/.test(lower)) return "image";
+    return null;
+}
+
+function getHttpUrl(raw: string | null | undefined): string | null {
+    const trimmed = raw?.trim();
+    if (!trimmed) return null;
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol === "http:" || url.protocol === "https:") {
+            return url.toString();
+        }
+    } catch {
+        // ignore invalid URLs
+    }
     return null;
 }
 
@@ -209,6 +224,7 @@ export function DeckPracticePage() {
                         card_id: string;
                         deck_id: string;
                         deck_title: string;
+                        deck_description: string | null;
                         front: string;
                         back: string;
                     }[]) || [];
@@ -232,6 +248,7 @@ export function DeckPracticePage() {
                         front: r.front,
                         back: r.back,
                         deck_title: r.deck_title,
+                        deck_description: r.deck_description ?? null,
                         deck_id: r.deck_id,
                     };
                 }
@@ -575,6 +592,14 @@ export function DeckPracticePage() {
     const currentStats = cardStatsMap[currentId];
     if (!current) return <div className="text-sm text-slate-500">未找到该卡片。</div>;
     if (!currentView) return <div className="text-sm text-slate-500">正在准备卡片内容…</div>;
+    const descriptionUrl = getHttpUrl(current.deck_description);
+    const openDeckApp = () => {
+        if (!descriptionUrl) return;
+        const newWindow = window.open(descriptionUrl, "deck-app");
+        if (newWindow) {
+            newWindow.opener = null;
+        }
+    };
 
     //    const difficultyLevel = currentStats?.ease_factor;
     const reviewCount = currentStats?.review_count ?? 0;
@@ -707,8 +732,18 @@ export function DeckPracticePage() {
                     {/* ✅ 顶部状态栏：难度 + 练习次数 */}
                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-300 mb-0">
                         {/* 难度颜色条 */}
-                        <div className="flex-1 mr-3">
-                            {current.deck_title}
+                        <div className="flex-1 mr-3 flex items-center gap-2 min-w-0">
+                            <span className="truncate">{current.deck_title}</span>
+                            {descriptionUrl && (
+                                <button
+                                    type="button"
+                                    className="text-slate-500 hover:text-emerald-600 dark:text-slate-300 dark:hover:text-sky-300"
+                                    title="访问相关app"
+                                    onClick={openDeckApp}
+                                >
+                                    <Link className="w-3.5 h-3.5 flex-shrink-0" />
+                                </button>
+                            )}
                         </div>
 
                         {/* 练习次数 */}

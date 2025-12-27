@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, List, RotateCcw, Image } from "lucide-react";
+import { Trash2, Check, Layers, List, RotateCcw, Image, Link } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -136,6 +136,20 @@ function parseCardsText(raw: string): ImportedCardLite[] {
             return {front, back};
         })
         .filter((c) => c.front.length > 0 || c.back.length > 0);
+}
+
+function getHttpUrl(raw: string | null | undefined): string | null {
+    const trimmed = raw?.trim();
+    if (!trimmed) return null;
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol === "http:" || url.protocol === "https:") {
+            return url.toString();
+        }
+    } catch {
+        // ignore invalid URLs
+    }
+    return null;
 }
 
 const DeckEditPage: React.FC = () => {
@@ -667,6 +681,14 @@ const DeckEditPage: React.FC = () => {
     }
     const isAllSelected =
         cards.length > 0 && selectedIds.size === cards.length;
+    const descriptionUrl = getHttpUrl(deck?.description);
+    const openDeckApp = () => {
+        if (!descriptionUrl) return;
+        const newWindow = window.open(descriptionUrl, "deck-app");
+        if (newWindow) {
+            newWindow.opener = null;
+        }
+    };
 
     return (
         <div className="space-y-6 text-slate-900 dark:text-slate-100 px-4 py-6 w-fit mx-auto">
@@ -676,15 +698,27 @@ const DeckEditPage: React.FC = () => {
                     <Layers className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
                     <div className="flex-1 min-w-0 space-y-1">
                         {!editingTitle && (
-                            <div
-                                className="text-2xl font-semibold truncate cursor-text"
-                                onDoubleClick={() => {
-                                    setTitleInput(deck?.title ?? "");
-                                    setEditingTitle(true);
-                                }}
-                                title="双击编辑标题"
-                            >
-                                {deck?.title ?? "[未命名]"}
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div
+                                    className="text-2xl font-semibold truncate cursor-text min-w-0"
+                                    onDoubleClick={() => {
+                                        setTitleInput(deck?.title ?? "");
+                                        setEditingTitle(true);
+                                    }}
+                                    title="双击编辑标题"
+                                >
+                                    {deck?.title ?? "[未命名]"}
+                                </div>
+                                {descriptionUrl && (
+                                    <button
+                                        type="button"
+                                        title="访问相关app"
+                                        onClick={openDeckApp}
+                                        className="text-slate-500 hover:text-emerald-600 dark:text-slate-300 dark:hover:text-sky-300"
+                                    >
+                                        <Link className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+                                    </button>
+                                )}
                             </div>
                         )}
                         {editingTitle && (

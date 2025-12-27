@@ -363,7 +363,7 @@ CREATE OR REPLACE FUNCTION public.select_practice_cards_leitner(
     _limit integer DEFAULT 20,
     _mode text DEFAULT 'random'
 )
-RETURNS TABLE(card_id uuid, deck_id uuid, deck_title text, front text, back text)
+RETURNS TABLE(card_id uuid, deck_id uuid, deck_title text, deck_description text, front text, back text)
 LANGUAGE sql
 SECURITY DEFINER
 AS $function$
@@ -381,7 +381,8 @@ due_cards AS (
         row_number() OVER (ORDER BY COALESCE(next_due_at, now()) ASC) AS seq,
         card_id,
         deck_id,
-        deck_name AS deck_title
+        deck_name AS deck_title,
+        deck_description
     FROM base
     WHERE learned
       AND (next_due_at IS NULL OR next_due_at <= now() + interval '2 days')
@@ -393,21 +394,23 @@ new_cards AS (
         row_number() OVER (ORDER BY deck_created_at ASC) AS seq,
         card_id,
         deck_id,
-        deck_name AS deck_title
+        deck_name AS deck_title,
+        deck_description
     FROM base
     WHERE learned = FALSE
     ORDER BY deck_created_at ASC
     LIMIT _limit * 2
 ),
 pooled AS (
-    SELECT card_id, deck_id, deck_title, seq FROM due_cards
+    SELECT card_id, deck_id, deck_title, deck_description, seq FROM due_cards
     UNION ALL
-    SELECT card_id, deck_id, deck_title, seq FROM new_cards
+    SELECT card_id, deck_id, deck_title, deck_description, seq FROM new_cards
     UNION ALL
     SELECT
         card_id,
         deck_id,
         deck_name AS deck_title,
+        deck_description,
         row_number() OVER (
             ORDER BY coalesce(ease_factor, 0) ASC, deck_created_at DESC
         ) + (_limit * 4) AS seq
@@ -419,6 +422,7 @@ dedup AS (
         card_id,
         deck_id,
         deck_title,
+        deck_description,
         seq
     FROM pooled
     ORDER BY card_id, seq
@@ -427,6 +431,7 @@ SELECT
     c.id AS card_id,
     d.deck_id,
     d.deck_title,
+    d.deck_description,
     c.front,
     c.back
 FROM dedup d
@@ -443,6 +448,7 @@ with deck_cards as (
     select
         d.id as deck_id,
         d.title as deck_name,
+        d.description as deck_description,
         d.created_at as deck_created_at,
         (elem->>'card_id')::uuid as card_id
     from public.user_active_decks d
@@ -457,7 +463,8 @@ select
   cs.id is not null as learned,
   cs.last_reviewed_at as reviewed_at,
   cs.next_due_at,
-  cs.ease_factor
+  cs.ease_factor,
+  dc.deck_description
 from deck_cards dc
 left join public.cards c on c.id = dc.card_id
 left join public.card_stats cs
