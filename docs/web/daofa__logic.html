@@ -552,14 +552,40 @@
     // State
     let currentViewIndex = null; // null for Home, 0-3 for Unit
 
+    function applyHashRoute() {
+        const match = window.location.hash.match(/#u(\d+)/);
+        const idx = match ? Number(match[1]) : null;
+
+        if (idx !== null && Number.isFinite(idx) && idx >= 0 && idx < courseData.length) {
+            if (currentViewIndex !== idx) {
+                currentViewIndex = idx;
+                renderUnitView(idx);
+            }
+            return;
+        }
+
+        if (currentViewIndex !== null) {
+            currentViewIndex = null;
+            renderHomeView();
+        } else {
+            renderHomeView();
+        }
+    }
+
     window.navigateToUnit = function(idx) {
-        currentViewIndex = idx;
-        renderUnitView(idx);
+        const nextHash = `#u${idx}`;
+        if (window.location.hash !== nextHash) {
+            window.location.hash = nextHash;
+        } else {
+            applyHashRoute();
+        }
     };
 
     window.navigateHome = function() {
-        currentViewIndex = null;
-        renderHomeView();
+        if (window.location.hash) {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        applyHashRoute();
     };
 
     // Elements
@@ -729,6 +755,9 @@
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         window.toggleTheme();
     }
+
+    window.addEventListener('hashchange', applyHashRoute);
+    applyHashRoute();
 </script>
 </body>
 </html>
