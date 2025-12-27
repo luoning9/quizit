@@ -75,7 +75,7 @@
         #macro-map-view {
             flex: 1;
             padding: 2rem 1rem;
-            display: flex;
+            display: flex; /* Flex 布局由 CSS 控制，JS 只负责清除 inline style */
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -114,7 +114,7 @@
         .node-u3 { grid-row: 2; grid-column: 5 / span 5; border-top: 8px solid var(--level-3); }
         .node-u4 { grid-row: 1; grid-column: 7 / span 5; border-top: 8px solid var(--level-4); }
 
-        /* 首页背景图标 */
+        /* 首页背景图标 (大小已优化) */
         .node-bg-icon {
             position: absolute; right: -10px; bottom: -20px; width: 100px; height: 100px;
             opacity: 0.08; transform: rotate(-10deg); transition: all 0.5s; z-index: 0; pointer-events: none;
@@ -388,7 +388,6 @@
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', newTheme);
         document.getElementById('theme-icon').innerText = newTheme === 'dark' ? '🌙' : '☀️';
-        // 如果当前在详情页，重新渲染以适配颜色
         const hash = window.location.hash;
         if(hash.startsWith('#unit=')) {
             const unit = parseInt(hash.split('=')[1]);
@@ -555,14 +554,11 @@
     const headerIconEl = document.getElementById('detail-header-icon');
     const watermarkEl = document.getElementById('detail-watermark');
 
-    // --- Router Logic (Hash based) ---
     function navigateToUnit(idx) {
         window.location.hash = 'unit=' + idx;
     }
 
     function navigateHome() {
-        // Clearing hash moves history, effectively going "back" to state without hash
-        // or we can push a new state. Let's just empty the hash.
         window.location.hash = '';
     }
 
@@ -572,28 +568,28 @@
             const unitIdx = parseInt(hash.split('=')[1]);
             if (!isNaN(unitIdx) && courseData[unitIdx]) {
                 renderUnitView(unitIdx);
+                return;
             }
-        } else {
-            renderHomeView();
         }
+        renderHomeView();
     }
 
     window.addEventListener('hashchange', router);
-    window.addEventListener('load', router);
+    // Use DOMContentLoaded to ensure initial render
+    document.addEventListener('DOMContentLoaded', router);
 
     function renderHomeView() {
+        // Clear inline display style to let CSS media queries take over
+        mapEl.style.display = '';
         unitEl.style.display = 'none';
-        mapEl.style.display = 'flex';
-        // Reset scroll
         window.scrollTo(0, 0);
     }
 
     function renderUnitView(idx) {
         const d = courseData[idx];
-        // Set CSS variable for theme color
         document.documentElement.style.setProperty('--accent-color', d.color);
-
         detailTitle.innerText = d.title;
+
         headerIconEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="${d.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d.icon}</svg>`;
         watermarkEl.innerHTML = `<svg viewBox="0 0 24 24" fill="${d.color}">${d.icon}</svg>`;
 
@@ -622,10 +618,8 @@
         steps.forEach((step, i) => {
             const centerX = stagePadding + i * stepWidth + stepWidth / 2;
 
-            // Core Node
             createNode(graphStage, step.t, 'core', centerX, spineY, null, color);
 
-            // Connector Label
             if (i < steps.length - 1) {
                 const nextX = stagePadding + (i + 1) * stepWidth + stepWidth / 2;
                 const midX = (centerX + nextX) / 2;
@@ -641,11 +635,9 @@
                 }
             }
 
-            // Know Nodes
             const knowPoints = step.p.filter(p => p.type === 'know');
             distributeNodes(knowPoints, 'know', centerX, spineY, -1, graphStage, svg, color);
 
-            // Act Nodes
             const actPoints = step.p.filter(p => p.type === 'act');
             distributeNodes(actPoints, 'act', centerX, spineY, 1, graphStage, svg, color);
         });
