@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道法八上：逻辑与脉络深度学习</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --surface-color: #ffffff;
+            --primary-color: #334155;
+
+            /* 逻辑层级颜色 */
+            --level-1: #0ea5e9; /* 蓝 */
+            --level-2: #22c55e; /* 绿 */
+            --level-3: #f97316; /* 橙 */
+            --level-4: #ef4444; /* 红 */
+
+            --pipe-width: 6px; /* 管道加粗 */
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            background-image:
+                    radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+            color: var(--primary-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ============================
+           首页：极简宏观地图
+           ============================ */
+        #macro-map-view {
+            flex: 1;
+            padding: 3rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map-header {
+            text-align: center; margin-bottom: 3rem; position: relative; z-index: 20;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+            padding: 1.5rem 3rem; border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08); border: 1px solid #fff;
+        }
+
+        .map-title { font-size: 2.2rem; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 12px; }
+        .map-subtitle { margin-top: 0.5rem; color: #64748b; font-size: 1rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+        /* Grid 布局 */
+        .logic-grid {
+            display: grid; grid-template-columns: repeat(12, 1fr);
+            column-gap: 1.5rem; row-gap: 6rem; /* 间距拉大，展示管道和标签 */
+            max-width: 1100px; width: 100%; padding: 1rem; position: relative;
+        }
+
+        /* 节点卡片 - 极简版 */
+        .map-node {
+            background: var(--surface-color); padding: 2rem 1.5rem; border-radius: 24px;
+            position: relative; cursor: pointer; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -2px rgba(0,0,0,0.02);
+            border: 4px solid #fff; z-index: 10;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            min-height: 180px; text-align: center;
+        }
+        .map-node:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); z-index: 100; border-color: rgba(255,255,255,0.9); }
+
+        /* 阶梯定位 */
+        .node-u1 { grid-row: 4; grid-column: 1 / span 5; border-top: 8px solid var(--level-1); }
+        .node-u2 { grid-row: 3; grid-column: 3 / span 5; border-top: 8px solid var(--level-2); }
+        .node-u3 { grid-row: 2; grid-column: 5 / span 5; border-top: 8px solid var(--level-3); }
+        .node-u4 { grid-row: 1; grid-column: 7 / span 5; border-top: 8px solid var(--level-4); }
+
+        /* 背景大图标 */
+        .node-bg-icon {
+            position: absolute; right: -15px; bottom: -25px; width: 150px; height: 150px;
+            opacity: 0.08; transform: rotate(-10deg); transition: all 0.5s; z-index: 0; pointer-events: none;
+        }
+        .node-u1 .node-bg-icon { fill: var(--level-1); }
+        .node-u2 .node-bg-icon { fill: var(--level-2); }
+        .node-u3 .node-bg-icon { fill: var(--level-3); }
+        .node-u4 .node-bg-icon { fill: var(--level-4); }
+        .map-node:hover .node-bg-icon { opacity: 0.15; transform: rotate(0) scale(1.1); }
+
+        /* 标题区域 */
+        .node-badge { font-size: 4.5rem; font-weight: 900; opacity: 0.15; line-height: 0.8; position: absolute; top: 1rem; left: 1.5rem; }
+        .node-u1 .node-badge { color: var(--level-1); }
+        .node-u2 .node-badge { color: var(--level-2); }
+        .node-u3 .node-badge { color: var(--level-3); }
+        .node-u4 .node-badge { color: var(--level-4); }
+
+        .node-title { font-size: 1.8rem; font-weight: 800; color: #1e293b; position: relative; z-index: 2; margin-top: 1rem;}
+        .node-desc { font-size: 1rem; color: #64748b; margin-top: 0.5rem; font-weight: 600; position: relative; z-index: 2; }
+
+        /* --- 连接管道系统 (Pipes) --- */
+        .map-node::after { /* 上升段 */
+            content: ''; position: absolute; z-index: 1; bottom: 100%; left: 50%;
+            width: 40%; height: 3rem;
+            border-left: var(--pipe-width) solid; border-top: var(--pipe-width) solid;
+            border-top-left-radius: 24px; display: none;
+        }
+        .map-node::before { /* 下降段 */
+            content: ''; position: absolute; z-index: 1; bottom: -3.1rem; left: 50%;
+            width: var(--pipe-width); height: 3.1rem; background: currentColor; display: none;
+        }
+
+        .node-u1::after { display: block; border-color: var(--level-1); animation: pulsePipe 3s infinite; }
+        .node-u2::before { display: block; background: var(--level-1); top: auto; bottom: -3.1rem; height: 3.5rem; }
+        .node-u2::after { display: block; border-color: var(--level-2); animation: pulsePipe 3s infinite 0.5s; }
+        .node-u3::before { display: block; background: var(--level-2); top: auto; bottom: -3.1rem; height: 3.5rem; }
+        .node-u3::after { display: block; border-color: var(--level-3); animation: pulsePipe 3s infinite 1s; }
+        .node-u4::before { display: block; background: var(--level-3); top: auto; bottom: -3.1rem; height: 3.5rem; }
+
+        /* 接口装饰点 */
+        .pipe-joint-start, .pipe-joint-end {
+            position: absolute; left: calc(50% - 9px); width: 18px; height: 18px;
+            border-radius: 50%; background: #fff; border: 5px solid; z-index: 5;
+        }
+        .pipe-joint-start { top: -9px; }
+        .pipe-joint-end { bottom: -9px; }
+
+        .node-u1 .pipe-joint-start { border-color: var(--level-1); }
+        .node-u2 .pipe-joint-start { border-color: var(--level-2); }
+        .node-u3 .pipe-joint-start { border-color: var(--level-3); }
+        .node-u2 .pipe-joint-end { border-color: var(--level-1); }
+        .node-u3 .pipe-joint-end { border-color: var(--level-2); }
+        .node-u4 .pipe-joint-end { border-color: var(--level-3); }
+
+        /* 管道说明路标 */
+        .path-label {
+            position: absolute; z-index: 15; background: #fff; padding: 0.5rem 1.2rem;
+            border-radius: 30px; font-size: 0.85rem; font-weight: 800; color: #475569;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 2px solid; white-space: nowrap;
+            /* 定位在管道的水平部分 */
+            top: -3rem; left: 70%; transform: translate(-50%, -50%);
+        }
+        .label-1 { border-color: var(--level-1); color: var(--level-1); }
+        .label-2 { border-color: var(--level-2); color: var(--level-2); }
+        .label-3 { border-color: var(--level-3); color: var(--level-3); }
+
+        @keyframes pulsePipe { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+
+        /* ============================
+           详情页：横向一体化知识图谱
+           ============================ */
+        #unit-detail-view { display: none; min-height: 100vh; background: #f8fafc; overflow-x: hidden; }
+
+        .unit-header {
+            position: sticky; top: 0; z-index: 999; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+            padding: 0.8rem 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+        .back-btn {
+            padding: 0.6rem 1.2rem; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; color: #475569; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .back-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+
+        .unit-title-group { display: flex; align-items: center; gap: 10px; }
+        .unit-title-text { font-size: 1.2rem; font-weight: 800; color: #1e293b; }
+        .unit-title-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+
+        /* 全景图容器 - 横向滚动 */
+        .full-graph-container {
+            width: 100%; padding: 2rem 1rem 1rem 1rem;
+            overflow-x: auto; /* 开启横向滚动 */
+            scrollbar-width: thin;
+            -ms-overflow-style: -ms-autohiding-scrollbar;
+        }
+
+        .graph-board {
+            background: #fff; border-radius: 30px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
+            border: 1px solid #f1f5f9; position: relative;
+            animation: fadeIn 0.5s ease-out;
+            min-height: 460px; /* 紧凑高度 */
+            display: inline-block;
+            min-width: 100%;
+            overflow: hidden; /* 确保背景图不溢出圆角 */
+        }
+
+        /* 知识图谱背景大图标 */
+        .graph-watermark {
+            position: absolute; right: -20px; bottom: -30px; width: 300px; height: 300px;
+            opacity: 0.04; transform: rotate(-15deg); pointer-events: none; z-index: 0;
+        }
+        .graph-watermark svg { width: 100%; height: 100%; fill: currentColor; }
+
+        .graph-stage { position: relative; background: radial-gradient(ellipse at center, rgba(255,255,255,0.8) 40%, rgba(248,250,252,0.8) 100%); height: 100%; min-height: 460px; z-index: 1; }
+        .graph-svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+
+        /* 节点样式 */
+        .g-node {
+            position: absolute; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; z-index: 5; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .g-node:hover { z-index: 20; transform: translate(-50%, -50%) scale(1.1); }
+
+        .g-node-core {
+            width: 150px; height: 50px; border-radius: 25px;
+            background: #fff; border: 3px solid;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            font-weight: 900; font-size: 1rem; color: #334155;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .g-node-know {
+            width: 130px; padding: 8px; border-radius: 10px;
+            background: #f0f9ff; border: 2px solid #bae6fd;
+            color: #0369a1; font-weight: 700; font-size: 0.85rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .g-node-act {
+            width: 130px; padding: 8px; border-radius: 10px;
+            background: #fff; border: 2px solid;
+            color: #fff; font-weight: 700; font-size: 0.85rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* 脊柱上的连接说明标签 */
+        .g-spine-label {
+            position: absolute; transform: translate(-50%, -50%);
+            background: #fff; padding: 3px 10px; border-radius: 10px;
+            font-size: 0.7rem; font-weight: 700; border: 1px solid;
+            z-index: 4; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            white-space: nowrap;
+        }
+
+        /* 详情气泡 */
+        .g-popup {
+            position: absolute; top: 105%; width: 240px; background: #1e293b;
+            padding: 10px; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            color: #fff; opacity: 0; transform: translateY(-5px); transition: all 0.2s;
+            text-align: left; font-size: 0.8rem; line-height: 1.5; z-index: 30; pointer-events: none;
+        }
+        .g-node.active .g-popup, .g-node:hover .g-popup { opacity: 1; transform: translateY(0); }
+        .g-popup::before {
+            content: ''; position: absolute; top: -6px; left: 50%; margin-left: -6px;
+            border-width: 6px; border-style: solid; border-color: transparent transparent #1e293b transparent;
+        }
+
+        .g-path-core { fill: none; stroke: #cbd5e1; stroke-width: 4; stroke-linecap: round; }
+        .g-path-sub { fill: none; stroke-width: 2; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            #macro-map-view { display: block; }
+            .logic-grid { display: flex; flex-direction: column; gap: 3rem; }
+            .map-node { margin: 0 !important; width: 100%; min-height: 160px; }
+            .map-node::after { width: 0; height: 3rem; border-top: none; border-left: 4px dashed #cbd5e1; left: 50%; bottom: 100%; border-radius: 0; }
+            .map-node::before { display: none; }
+            .path-label { display: none; }
+            .pipe-joint-start, .pipe-joint-end { display: none; }
+
+            .graph-stage { height: auto !important; padding: 2rem 1rem; }
+            .graph-svg { display: none; }
+            .g-node { position: relative; transform: none; width: 100%; height: auto; margin-bottom: 1rem; left: auto !important; top: auto !important; }
+            .g-node:hover { transform: none; }
+            .g-node-core { margin-top: 2rem; margin-bottom: 1rem; width: 100%; background: #f8fafc; border-color: #cbd5e1; color: #333; }
+            .g-popup { position: static; width: 100%; opacity: 1; transform: none; background: #f8fafc; color: #334155; border: 1px dashed #cbd5e1; box-shadow: none; margin-top: 8px; }
+            .g-popup::before { display: none; }
+            .g-spine-label { display: none; }
+            .graph-watermark { opacity: 0.03; width: 200px; height: 200px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 首页：极简宏观地图 -->
+<div id="macro-map-view">
+    <header class="map-header">
+        <h1 class="map-title">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            八年级上册知识全景图
+        </h1>
+        <div class="map-subtitle">STEP BY STEP · 宏观脉络与微观逻辑</div>
+    </header>
+
+    <div class="logic-grid">
+        <!-- 单元 4 (右上) -->
+        <div class="map-node node-u4" onclick="openUnit(3)">
+            <div class="node-badge">04</div>
+            <div class="pipe-joint-end"></div>
+
+            <div class="node-title">维护国家利益</div>
+            <div class="node-desc">终点：国家安全与公民义务</div>
+
+            <svg class="node-bg-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+
+        <!-- 单元 3 -->
+        <div class="map-node node-u3" onclick="openUnit(2)">
+            <div class="node-badge">03</div>
+            <div class="pipe-joint-end"></div><div class="pipe-joint-start"></div>
+
+            <div class="node-title">勇担社会责任</div>
+            <div class="node-desc">升华：公平正义与责任担当</div>
+
+            <!-- 连接说明 -->
+            <div class="path-label label-3">责任扩大 → 上升为国家利益</div>
+
+            <svg class="node-bg-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+
+        <!-- 单元 2 -->
+        <div class="map-node node-u2" onclick="openUnit(1)">
+            <div class="node-badge">02</div>
+            <div class="pipe-joint-end"></div><div class="pipe-joint-start"></div>
+
+            <div class="node-title">遵守社会规则</div>
+            <div class="node-desc">保障：自由与规则的对立统一</div>
+
+            <!-- 连接说明 -->
+            <div class="path-label label-2">不仅守底线 → 更要认同价值</div>
+
+            <svg class="node-bg-icon" viewBox="0 0 24 24"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>
+        </div>
+
+        <!-- 单元 1 (左下) -->
+        <div class="map-node node-u1" onclick="openUnit(0)">
+            <div class="node-badge">01</div>
+            <div class="pipe-joint-start"></div>
+
+            <div class="node-title">走进社会生活</div>
+            <div class="node-desc">起点：我是社会的有机组成部分</div>
+
+            <!-- 连接说明 -->
+            <div class="path-label label-1">人无法脱离社会 → 共处需要规则</div>
+
+            <svg class="node-bg-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+    </div>
+</div>
+
+<!-- 详情页：一体化知识图谱 -->
+<div id="unit-detail-view">
+    <header class="unit-header">
+        <div class="header-left">
+            <button class="back-btn" onclick="goBack()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                <span>返回</span>
+            </button>
+
+            <div class="unit-title-group">
+                <div class="unit-title-icon" id="detail-header-icon"></div>
+                <div class="unit-title-text" id="detail-title">单元标题</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="full-graph-container">
+        <div class="graph-board">
+            <!-- 巨型背景水印 -->
+            <div class="graph-watermark" id="detail-watermark"></div>
+
+            <div class="graph-stage" id="full-graph-stage">
+                <svg class="graph-svg" id="full-graph-svg"></svg>
+                <!-- Nodes injected here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ICONS = {
+        u1: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        u2: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+        u3: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+        u4: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
+    };
+
+    const courseData = [
+        {
+            title: "第一单元：走进社会生活",
+            color: "#0ea5e9",
+            icon: ICONS.u1,
+            steps: [
+                {
+                    t: "认识社会",
+                    connText: "成长的必经之路",
+                    p: [
+                        {type: 'know', tag: "是什么", l:"社会生活绚丽多彩", c:"商场购物、剧院看戏、公园游玩...随着成长，我们对社会的感受越来越丰富。"},
+                        {type: 'know', tag: "关系", l:"个人是社会的有机组成部分", c:"个人是点，关系是线，社会是网。每个人都是社会大网上的一结。"},
+                        {type: 'know', tag: "分类", l:"主要社会关系", c:"血缘关系（家庭）、地缘关系（邻居）、业缘关系（同学同事）。"}
+                    ]
+                },
+                {
+                    t: "融入社会",
+                    connText: "适应复杂环境",
+                    p: [
+                        {type: 'know', tag: "定义", l:"社会化过程", c:"从自然人向社会人转变：知识丰富、能力提高、规则意识增强。"},
+                        {type: 'know', tag: "重要性", l:"人的生存发展离不开社会", c:"社会提供物质支持和精神滋养，是个人成长的土壤。"},
+                        {type: 'know', tag: "价值", l:"亲社会行为的重要性", c:"个人：养成良好行为习惯，获得他人认可。社会：营造良好社会风气。"},
+                        {type: 'act', tag: "落实", l:"养成亲社会行为", c:"表现：谦让、分享、帮助、合作。途径：主动了解社会，积极投身实践。"}
+                    ]
+                },
+                {
+                    t: "规范参与",
+                    connText: null,
+                    p: [
+                        {type: 'know', tag: "辨析", l:"网络是把双刃剑", c:"利：拓展空间、便利生活、推动进步。弊：信息良莠不齐、沉迷影响生活。"},
+                        {type: 'act', tag: "行动", l:"理性参与网络", c:"提高媒介素养，学会'信息节食'，利用网络获取新知，不被信息支配。"},
+                        {type: 'act', tag: "行动", l:"传播正能量", c:"践行核心价值观，培育积极健康的网络文化，共同营造清朗空间。"}
+                    ]
+                }
+            ]
+        },
+        {
+            title: "第二单元：遵守社会规则",
+            color: "#22c55e",
+            icon: ICONS.u2,
+            steps: [
+                {
+                    t: "社会需要秩序",
+                    connText: "保障的基础",
+                    p: [
+                        {type: 'know', tag: "定义", l:"社会秩序的内涵", c:"管理秩序、生产秩序、交通秩序、公共场所秩序等有序化状态。"},
+                        {type: 'know', tag: "价值", l:"社会正常运行的保障", c:"避免混乱，保证社会生活有序进行。"},
+                        {type: 'know', tag: "价值", l:"人民安居乐业的保障", c:"保障个人生存与发展，让我们感受到安全与尊重。"}
+                    ]
+                },
+                {
+                    t: "秩序依靠规则",
+                    connText: "内化与外化",
+                    p: [
+                        {type: 'know', tag: "定义", l:"社会规则的内涵", c:"人们在共识基础上形成的、维护秩序的行为规范。"},
+                        {type: 'know', tag: "关系", l:"规则与秩序的关系", c:"规则划定自由边界，保障秩序；秩序是规则的目的。"},
+                        {type: 'know', tag: "分类", l:"规则的种类", c:"道德（自律）、纪律（集体）、法律（他律/强制）。"}
+                    ]
+                },
+                {
+                    t: "自觉遵守规则",
+                    connText: null,
+                    p: [
+                        {type: 'know', tag: "难点", l:"自由与规则", c:"自由不是随心所欲，受规则约束；遵守规则才能享有真正的自由。"},
+                        {type: 'act', tag: "自律", l:"自觉遵守社会规则", c:"发自内心敬畏规则，内化于心，外化于行。"},
+                        {type: 'act', tag: "他律", l:"维护与改进规则", c:"敢于劝阻违规行为；积极建言献策，推动规则完善。"}
+                    ]
+                }
+            ]
+        },
+        {
+            title: "第三单元：勇担社会责任",
+            color: "#f97316",
+            icon: ICONS.u3,
+            steps: [
+                {
+                    t: "认同价值",
+                    connText: "价值的体现",
+                    p: [
+                        {type: 'know', tag: "核心", l:"法律面前人人平等", c:"同等对待（机会、权利），同等保护（适用法律）。"},
+                        {type: 'act', tag: "行动", l:"珍视自由", c:"依法行使权利，自觉履行义务。"},
+                        {type: 'act', tag: "行动", l:"践行平等", c:"反对特权，平等对待他人，抵制不平等行为。"}
+                    ]
+                },
+                {
+                    t: "坚守公平正义",
+                    connText: "从理念到行动",
+                    p: [
+                        {type: 'know', tag: "内涵", l:"公平与正义", c:"公平：权利/规则/机会公平。正义：社会文明尺度，维护公共利益。"},
+                        {type: 'act', tag: "个人", l:"坚守公平", c:"个人维护公平。面对利益冲突，我们要站在公平的立场上，学会担当，以公平之心为人处世。"},
+                        {type: 'act', tag: "个人", l:"守护正义", c:"敢于斗争，见义勇为，更要见义'智'为。"},
+                        {type: 'act', tag: "司法", l:"维护正义", c:"公正司法，捍卫法律尊严，保障公民权益。"}
+                    ]
+                },
+                {
+                    t: "主动担当责任",
+                    connText: null,
+                    p: [
+                        {type: 'know', tag: "定义", l:"社会责任", c:"对家庭/社会/国家应承担的义务与担当。"},
+                        {type: 'know', tag: "辩证", l:"代价与回报", c:"代价：时间精力金钱；回报：精神满足、能力提升、社会认可。"},
+                        {type: 'act', tag: "行动", l:"做负责任的人", c:"不言代价与回报。提升自身素质，从身边小事做起。"}
+                    ]
+                }
+            ]
+        },
+        {
+            title: "第四单元：维护国家利益",
+            color: "#ef4444",
+            icon: ICONS.u4,
+            steps: [
+                {
+                    t: "国家利益至上",
+                    connText: "利益的底线",
+                    p: [
+                        {type: 'know', tag: "定义", l:"国家利益的内涵", c:"主权国家生存与发展的需求总和（主权、安全、发展利益）。"},
+                        {type: 'know', tag: "关系", l:"利益一致性", c:"国家利益与个人利益根本一致。国家好，大家才好。"},
+                        {type: 'act', tag: "冲突", l:"坚持国家利益至上", c:"当发生冲突时，个人利益必须服从国家利益。"}
+                    ]
+                },
+                {
+                    t: "国家安全保障",
+                    connText: "公民的义务",
+                    p: [
+                        {type: 'know', tag: "体系", l:"总体国家安全观", c:"以人民安全为宗旨，政治安全为根本，经济安全为基础。"},
+                        {type: 'know', tag: "价值", l:"国家安全的重要性", c:"国家生存与发展的重要保障，人民幸福安康的前提。"},
+                        {type: 'act', tag: "强军", l:"国防与军队现代化", c:"建设听党指挥、能打胜仗、作风优良的人民军队。"}
+                    ]
+                },
+                {
+                    t: "履行公民责任",
+                    connText: null,
+                    p: [
+                        {type: 'act', tag: "意识", l:"增强安全意识", c:"树立危机意识，不信谣不传谣，遵守保密规定。"},
+                        {type: 'act', tag: "行动", l:"捍卫国家利益", c:"配合安全机关工作，同损害国家利益的行为作斗争。"}
+                    ]
+                }
+            ]
+        }
+    ];
+
+    const mapEl = document.getElementById('macro-map-view');
+    const unitEl = document.getElementById('unit-detail-view');
+    const detailTitle = document.getElementById('detail-title');
+    const graphStage = document.getElementById('full-graph-stage');
+    const graphSvg = document.getElementById('full-graph-svg');
+    const headerIconEl = document.getElementById('detail-header-icon');
+    const watermarkEl = document.getElementById('detail-watermark');
+
+    function openUnit(idx) {
+        const d = courseData[idx];
+        document.documentElement.style.setProperty('--accent-color', d.color);
+        detailTitle.innerText = d.title;
+
+        // 设置头部小图标和水印大图标
+        headerIconEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="${d.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d.icon}</svg>`;
+        watermarkEl.innerHTML = `<svg viewBox="0 0 24 24" fill="${d.color}">${d.icon}</svg>`;
+
+        // 渲染横向一体化图谱
+        renderHorizontalGraph(d.steps, d.color);
+
+        mapEl.style.display = 'none';
+        unitEl.style.display = 'block';
+        window.scrollTo(0,0);
+    }
+
+    function renderHorizontalGraph(steps, color) {
+        graphStage.innerHTML = '';
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute('class', 'graph-svg');
+        graphStage.appendChild(svg);
+
+        // --- 核心优化：紧凑布局参数 ---
+        const stepWidth = 380;
+        const stagePadding = 100;
+        const totalWidth = steps.length * stepWidth + stagePadding * 2;
+        graphStage.style.width = totalWidth + 'px';
+        graphStage.style.height = '480px';
+
+        // 绘制水平主脊柱 (Spine)
+        const spineY = 240; // 垂直居中
+        drawHorizontalSpine(svg, stagePadding, totalWidth - stagePadding, spineY, '#cbd5e1');
+
+        steps.forEach((step, i) => {
+            const centerX = stagePadding + i * stepWidth + stepWidth / 2;
+
+            // 1. 核心主线节点 (Core)
+            createNode(graphStage, step.t, 'core', centerX, spineY, null, color);
+
+            // 绘制连接说明 (ConnText)
+            if (i < steps.length - 1) {
+                const nextX = stagePadding + (i + 1) * stepWidth + stepWidth / 2;
+                const midX = (centerX + nextX) / 2;
+                if (step.connText) {
+                    const label = document.createElement('div');
+                    label.className = 'g-spine-label';
+                    label.innerText = step.connText;
+                    label.style.left = midX + 'px';
+                    label.style.top = spineY + 'px';
+                    label.style.borderColor = color;
+                    label.style.color = color;
+                    graphStage.appendChild(label);
+                }
+            }
+
+            // 2. 认知节点 (Know) - 分布在上方
+            const knowPoints = step.p.filter(p => p.type === 'know');
+            distributeNodes(knowPoints, 'know', centerX, spineY, -1, graphStage, svg, color);
+
+            // 3. 行动节点 (Act) - 分布在下方
+            const actPoints = step.p.filter(p => p.type === 'act');
+            distributeNodes(actPoints, 'act', centerX, spineY, 1, graphStage, svg, color);
+        });
+    }
+
+    function distributeNodes(points, type, centerX, centerY, direction, stage, svg, color) {
+        // --- 核心优化：收紧间距 ---
+        const verticalBase = 70;
+        const horizontalStep = 110;
+
+        points.forEach((p, idx) => {
+            const totalWidth = (points.length - 1) * horizontalStep;
+            const startX = centerX - totalWidth / 2;
+
+            const nodeX = startX + idx * horizontalStep;
+
+            // 垂直交错排列幅度减小
+            const nodeY = centerY + direction * (verticalBase + (idx % 2) * 30);
+
+            createNode(stage, p.l, type, nodeX, nodeY, p, color);
+
+            const lineColor = type === 'know' ? '#94a3b8' : color;
+            const lineStyle = type === 'know' ? 'dashed' : 'solid';
+
+            drawCurve(svg, centerX, centerY, nodeX, nodeY, lineColor, lineStyle, direction);
+        });
+    }
+
+    function createNode(parent, text, type, x, y, data, color) {
+        const div = document.createElement('div');
+        div.className = `g-node g-node-${type}`;
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        div.innerHTML = text;
+
+        if(type === 'core') {
+            div.style.borderColor = color;
+            div.style.color = color;
+        } else if (type === 'act') {
+            div.style.borderColor = color;
+            div.style.backgroundColor = color;
+        }
+
+        if (data) {
+            const popup = document.createElement('div');
+            popup.className = 'g-popup';
+            popup.innerHTML = `<strong>【${data.tag}】</strong><br>${data.c}`;
+            // 修正气泡位置，上方节点的气泡在上方
+            if(type === 'know') {
+                popup.style.bottom = '110%';
+                popup.style.top = 'auto';
+                popup.style.transform = 'translateY(10px)';
+            }
+            div.appendChild(popup);
+        }
+        parent.appendChild(div);
+    }
+
+    function drawHorizontalSpine(svg, x1, x2, y, color) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y);
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", "4");
+        line.setAttribute("stroke-linecap", "round");
+        svg.appendChild(line);
+    }
+
+    function drawCurve(svg, x1, y1, x2, y2, color, style, direction) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+        // 控制点优化
+        const c1x = x1, c1y = y1 + direction * 40;
+        const c2x = x2, c2y = y2 - direction * 40;
+
+        const d = `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
+
+        path.setAttribute("d", d);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", "2");
+        if(style === 'dashed') path.setAttribute("stroke-dasharray", "4,4");
+        svg.appendChild(path);
+    }
+
+    function goBack() {
+        unitEl.style.display = 'none';
+        mapEl.style.display = 'flex';
+    }
+</script>
+</body>
+</html>
