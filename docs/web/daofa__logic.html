@@ -530,7 +530,36 @@
     const headerIconEl = document.getElementById('detail-header-icon');
     const watermarkEl = document.getElementById('detail-watermark');
 
-    function openUnit(idx) {
+    // URL Router
+    function updateUrl(unitIndex) {
+        if (unitIndex !== null) {
+            const url = new URL(window.location);
+            url.searchParams.set('unit', unitIndex);
+            window.history.pushState({ unit: unitIndex }, '', url);
+        } else {
+            const url = new URL(window.location);
+            url.searchParams.delete('unit');
+            window.history.pushState({ unit: null }, '', url);
+        }
+    }
+
+    function checkUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const unit = params.get('unit');
+        if (unit !== null && !isNaN(unit) && courseData[unit]) {
+            openUnit(parseInt(unit), false);
+        }
+    }
+
+    window.addEventListener('popstate', (event) => {
+        if (event.state && event.state.unit !== null) {
+            openUnit(event.state.unit, false);
+        } else {
+            goBack(false);
+        }
+    });
+
+    function openUnit(idx, pushState = true) {
         const d = courseData[idx];
         document.documentElement.style.setProperty('--accent-color', d.color);
         detailTitle.innerText = d.title;
@@ -545,6 +574,8 @@
         mapEl.style.display = 'none';
         unitEl.style.display = 'block';
         window.scrollTo(0,0);
+
+        if (pushState) updateUrl(idx);
     }
 
     function renderHorizontalGraph(steps, color) {
@@ -678,10 +709,14 @@
         svg.appendChild(path);
     }
 
-    function goBack() {
+    function goBack(pushState = true) {
         unitEl.style.display = 'none';
         mapEl.style.display = 'flex';
+        if (pushState) updateUrl(null);
     }
+
+    // Init check
+    checkUrl();
 </script>
 </body>
 </html>
