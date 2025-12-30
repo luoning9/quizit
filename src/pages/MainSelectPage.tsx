@@ -425,28 +425,41 @@ export function MainSelectPage() {
                                             </div>
                                         </div>
                                     </button>
-                                    {node.isDeck && (
-                                        <Button
-                                            variant="iconLearn"
-                                            className="deck-row-action mr-3"
-                                            onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
-                                            aria-label="学习"
-                                            title="学习"
-                                        >
-                                            <BookOpenCheck className="h-5 w-5" />
-                                        </Button>
-                                    )}
-                                    {!node.isDeck && (
-                                        <Button
-                                            variant="iconLearn"
-                                            className="deck-row-action mr-3 border border-dashed border-emerald-400/70 dark:border-emerald-400/50"
-                                            onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
-                                            aria-label="学习目录"
-                                            title="学习目录"
-                                        >
-                                            <BookOpenCheck className="h-5 w-5" />
-                                        </Button>
-                                    )}
+                                    <div className="flex items-center gap-1 mr-3">
+                                        {isEditMode && node.isDeck && (
+                                            <Button
+                                                variant="iconView"
+                                                className="deck-row-action"
+                                                onClick={() => navigate(`/decks/${node.deckId}/edit`)}
+                                                aria-label="查看"
+                                                title="查看"
+                                            >
+                                                <Eye className="h-5 w-5" />
+                                            </Button>
+                                        )}
+                                        {node.isDeck && (
+                                            <Button
+                                                variant="iconLearn"
+                                                className="deck-row-action"
+                                                onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
+                                                aria-label="学习"
+                                                title="学习"
+                                            >
+                                                <BookOpenCheck className="h-5 w-5" />
+                                            </Button>
+                                        )}
+                                        {!node.isDeck && (
+                                            <Button
+                                                variant="iconLearn"
+                                                className="deck-row-action border border-dashed border-emerald-400/70 dark:border-emerald-400/50"
+                                                onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
+                                                aria-label="学习目录"
+                                                title="学习目录"
+                                            >
+                                                <BookOpenCheck className="h-5 w-5" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>)}
