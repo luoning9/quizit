@@ -12,7 +12,7 @@ import {ImageRender} from "../components/ui/ImageRender";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
-import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon, Link } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon, Link, CornerUpLeft } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
 
 interface CardStatsRow {
@@ -711,12 +711,12 @@ export function DeckPracticePage() {
                     </div>
                 </div>
                 <Button
-                    variant="ghost"
-                    className="w-20 ml-4 px-3 py-2"
+                    variant="iconRound"
+                    className="ml-4"
                     onClick={() => navigate(`/?path=${deckName}`)}
                     title="退出到目录"
                 >
-                    <LogOut className="w-8 h-8" aria-hidden />
+                    <CornerUpLeft className="w-8 h-8" aria-hidden />
 
                 </Button>
             </div>

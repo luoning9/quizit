@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
-import { Image as ImageIcon, List, Upload, Download, Trash2 } from "lucide-react";
+import { Image as ImageIcon, List, Upload, Download, Trash2, CornerUpLeft } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -591,12 +591,12 @@ export default function DeckResourcesPage() {
                 <div className="flex items-center gap-2">
                     <Button
                         type="button"
-                        variant="link"
-                        className="p-3 rounded-full text-sky-500 hover:text-white hover:bg-sky-500 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
+                        variant="iconRound"
+                        className="text-sky-500 hover:text-white hover:bg-sky-500 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
                         onClick={() => navigate(`/decks/${deckId}/edit`)}
                         title="返回编辑页"
                     >
-                        <List className="w-6 h-6" />
+                        <CornerUpLeft className="w-6 h-6" />
                     </Button>
                 </div>
             </div>

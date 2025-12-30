@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, List, RotateCcw, Image, Link } from "lucide-react";
+import { Trash2, Check, Layers, List, RotateCcw, Image, Link, CornerUpLeft } from "lucide-react";
 
 interface DeckRow {
     id: string;
@@ -852,12 +852,12 @@ const DeckEditPage: React.FC = () => {
                     </Button>
                     <Button
                         type="button"
-                        variant="iconGhost"
+                        variant="iconRound"
                         className="text-sky-500 hover:bg-sky-500 dark:text-sky-300 dark:hover:bg-sky-700"
                         onClick={() => navigate(`/?path=${encodeURIComponent(deck?.title ?? "")}`)}
                         title="返回列表页"
                     >
-                        <List className="w-7 h-7" />
+                        <CornerUpLeft className="w-7 h-7" />
                     </Button>
                 </div>
             </div>

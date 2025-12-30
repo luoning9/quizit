@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
-import { List, Layers } from "lucide-react";
+import { List, Layers, CornerUpLeft } from "lucide-react";
 
 const CreateDeckPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -86,12 +86,12 @@ const CreateDeckPage: React.FC = () => {
 
                 <Button
                     type="button"
-                    variant="link"
-                    className="p-3 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
+                    variant="iconRound"
+                    className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-700"
                     onClick={() => navigate(-1)}
                     title="返回"
                 >
-                    <List className="w-6 h-6" />
+                    <CornerUpLeft className="w-6 h-6" />
                 </Button>
             </div>
 

@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
-import {BookOpen, Loader2, CheckCircle, XCircle, LogOut} from "lucide-react";
+import {BookOpen, Loader2, CheckCircle, XCircle, CornerUpLeft} from "lucide-react";
 import {type QuizTemplate, renderPrompt, renderAnswer, type QuizRunResult} from "./quizRenderer";
 import {
     type BackSchema,
@@ -561,12 +561,12 @@ function QuizRunPage() {
                     <span>题目 {currentIndex + 1} / {totalQuestions}</span>
                     <Button
                         type="button"
-                        variant="ghost"
-                        className="p-2 text-rose-500 hover:text-white hover:bg-rose-500 dark:text-rose-300 dark:hover:text-rose-100 dark:hover:bg-rose-700"
+                        variant="iconRound"
+                        className="text-rose-500 hover:text-white hover:bg-rose-500 dark:text-rose-300 dark:hover:text-rose-100 dark:hover:bg-rose-700"
                         onClick={() => setShowExitConfirm(true)}
                         title="退出测验"
                     >
-                        <LogOut className="w-5 h-5" />
+                        <CornerUpLeft className="w-8 h-8" />
                     </Button>
                 </div>
             </header>

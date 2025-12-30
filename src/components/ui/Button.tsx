@@ -10,6 +10,7 @@ type Variant =
     | "iconView"
     | "iconStart"
     | "iconGhost"
+    | "iconRound"
     | "outline"
     | "link"
     | "none";
@@ -104,6 +105,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
                 "p-3 rounded-full",
                 "bg-transparent text-slate-600 hover:text-white hover:bg-slate-600",
                 "dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-700",
+            ].join(" "),
+        iconRound:
+            [
+                "w-12 h-12 rounded-full",
+                "bg-transparent text-slate-600 hover:text-white hover:bg-slate-500",
+                "dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-600",
             ].join(" "),
     };
 
