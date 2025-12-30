@@ -196,6 +196,7 @@ export function MainSelectPage() {
     const [loading, setLoading] = useState(true);
     const [selectedPath, setSelectedPath] = useState(initialPath);
     const [quizTemplates, setQuizTemplates] = useState<QuizTemplate[]>([]);
+    const [hoveredQuizId, setHoveredQuizId] = useState<string | null>(null);
 
     // 2️⃣ 当 selectedPath 改变时，把它写回 URL
     useEffect(() => {
@@ -477,11 +478,18 @@ export function MainSelectPage() {
                         {quizzesInCurrentDir.map((quiz) => (<div
                             key={quiz.id}
                             className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm hover:border-slate-300 hover:bg-slate-50 transition-colors dark:border-slate-700 dark:bg-slate-900/80 dark:hover:bg-slate-800/70"
+                            onMouseEnter={() => setHoveredQuizId(quiz.id)}
+                            onMouseLeave={() => setHoveredQuizId(null)}
                         >
                             <div>
                                 <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                     {quiz.title}
                                 </div>
+                                {hoveredQuizId === quiz.id && quiz.description && (
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                                        {quiz.description}
+                                    </div>
+                                )}
                                 <div className="text-[10px] text-slate-500 dark:text-slate-400">
                                     {quiz.itemCount} 道题, 已练习{quiz.attemptCount}次，最后得分{quiz.lastScore}
                                 </div>
