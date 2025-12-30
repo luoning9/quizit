@@ -477,7 +477,8 @@ with deck_base as (
     select
         d.id as deck_id,
         d.title as deck_name,
-        d.created_at as deck_created_at
+        d.created_at as deck_created_at,
+        d.description as deck_description
     from public.user_active_decks d
 ), card_stats as (
     select
@@ -493,6 +494,7 @@ with deck_base as (
 select
     b.deck_id,
     b.deck_name,
+    b.deck_description,
     b.deck_created_at,
     coalesce(s.item_count, 0) as item_count,
     coalesce(s.learned_count, 0) as learned_count,

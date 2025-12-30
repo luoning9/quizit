@@ -177,6 +177,11 @@ function parseLeadingNumber(name: string): number | null {
     return null;
 }
 
+function truncateDeckName(name: string, maxChars: number): string {
+    if (name.length <= maxChars) return name;
+    return `${name.slice(0, maxChars)}…`;
+}
+
 export function MainSelectPage() {
     const isEditMode =
         typeof window !== "undefined" &&
@@ -335,18 +340,46 @@ export function MainSelectPage() {
                         );
                     })}
                 </div>
-
-                {/* 右边：查看 / 学习（与目录节点对齐） */}
-                <div className="flex items-center gap-4 shrink-0 ml-6" />
+                {/* 右边：当前目录状态 */}
+                <div className="flex items-stretch gap-3 shrink-0 ml-6">
+                    {currentNode?.isDeck && currentNode.deckId && (
+                        <DeckStatus deckId={currentNode.deckId} className="h-full" />
+                    )}
+                    {currentNode && (
+                        <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60 h-full">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-[13px] font-medium text-slate-900 dark:text-slate-100">
+                                        进度 {calcProgress(currentNode)}%
+                                    </div>
+                                    <div className="mt-0 text-[11px] text-slate-500 dark:text-slate-400">
+                                        {currentNode.totalItems ?? 0} cards
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="iconLearn"
+                                    className="deck-row-action"
+                                    disabled={!selectedPath}
+                                    onClick={() => {
+                                        if (!selectedPath) return;
+                                        navigate(`/decks/${encodeURIComponent(selectedPath)}/practice`);
+                                    }}
+                                    aria-label="学习当前目录"
+                                    title="学习"
+                                >
+                                    <BookOpenCheck size={24} />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
         {/* 下方两列 */}
         <div className="grid grid-cols-1 md:grid-cols-[4fr_3fr] gap-6 items-start">
             <div className="flex flex-col gap-3">
-                {currentNode?.isDeck && currentNode.deckId && (
-                    <DeckStatus deckId={currentNode.deckId}/>
-                )}
+
 
                 {/* 左侧：子目录 */}
                 <section
@@ -376,7 +409,9 @@ export function MainSelectPage() {
                                             <div className="grid grid-cols-[2fr_2fr_1fr] items-center gap-2 w-full">
 
                                                 {/* 名称 + 统计信息 同一行 */}
-                                                <span className="text-sm  text-left">{node.name}</span>
+                                                <span className="text-sm text-left">
+                                                    {truncateDeckName(node.name, 10)}
+                                                </span>
                                                 <span
                                                     className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
                                                 <span>{calcProgress(node)}%</span>
