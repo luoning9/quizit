@@ -14,7 +14,7 @@ export type DeckListItem = {
 interface DeckListProps {
   decks: DeckListItem[];
   onLearn: (deck: DeckListItem) => void;
-  onView: (deck: DeckListItem) => void;
+  onView?: (deck: DeckListItem) => void;
   emptyText?: string;
   actionStyle?: "text" | "icon";
 }
@@ -76,14 +76,16 @@ export function DeckList({
                   >
                     <BookOpenCheck className="h-6 w-6" />
                   </Button>
-                  <Button
-                    variant="iconView"
-                    onClick={() => onView(deck)}
-                    aria-label="查看"
-                    title="查看"
-                  >
-                    <Eye className="h-6 w-6" />
-                  </Button>
+                  {onView && (
+                    <Button
+                      variant="iconView"
+                      onClick={() => onView(deck)}
+                      aria-label="查看"
+                      title="查看"
+                    >
+                      <Eye className="h-6 w-6" />
+                    </Button>
+                  )}
                 </>
               ) : (
                 <>
@@ -93,12 +95,14 @@ export function DeckList({
                   >
                     学习
                   </button>
-                  <button
-                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                    onClick={() => onView(deck)}
-                  >
-                    查看
-                  </button>
+                  {onView && (
+                    <button
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      onClick={() => onView(deck)}
+                    >
+                      查看
+                    </button>
+                  )}
                 </>
               )}
             </div>

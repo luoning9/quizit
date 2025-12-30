@@ -8,6 +8,9 @@ export default function DueDecksPage() {
   const [decks, setDecks] = useState<DeckListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isEditMode =
+    typeof window !== "undefined" &&
+    localStorage.getItem("mode") === "edit";
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function DueDecksPage() {
         <DeckList
           decks={decks}
           onLearn={handleLearn}
-          onView={handleView}
+          onView={isEditMode ? handleView : undefined}
           emptyText="暂无数据"
           actionStyle="icon"
         />

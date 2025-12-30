@@ -178,6 +178,9 @@ function parseLeadingNumber(name: string): number | null {
 }
 
 export function MainSelectPage() {
+    const isEditMode =
+        typeof window !== "undefined" &&
+        localStorage.getItem("mode") === "edit";
     const [searchParams, setSearchParams] = useSearchParams();
     // 用 URL 里的 ?path=... 作为初始值，没有就用 "/"
     const initialPath = searchParams.get("path") || "";
@@ -334,21 +337,7 @@ export function MainSelectPage() {
                 </div>
 
                 {/* 右边：查看 / 学习（与目录节点对齐） */}
-                <div className="flex items-center gap-4 shrink-0 ml-6">
-
-                    {/* 学习：同字号，与目录节点对齐 */}
-                    <Button
-                        variant="primary"
-                        disabled={!selectedPath}
-                        className="w-40 px-5 py-3 text-xl font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                        onClick={() => {
-                            navigate(`/decks/${encodeURIComponent(selectedPath)}/practice`);
-                        }
-                        }
-                    >
-                        学习
-                    </Button>
-                </div>
+                <div className="flex items-center gap-4 shrink-0 ml-6" />
             </div>
         </div>
 
@@ -361,7 +350,7 @@ export function MainSelectPage() {
 
                 {/* 左侧：子目录 */}
                 <section
-                    className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60">
+                    className="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-4 shadow-sm dark:border-slate-600/80 dark:bg-slate-900/60">
 
                     {loading ? (
                         <div className="text-xs text-muted">正在载入目录统计…</div>) : childNodes.length === 0 ? (
@@ -408,6 +397,17 @@ export function MainSelectPage() {
                                             onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
                                             aria-label="学习"
                                             title="学习"
+                                        >
+                                            <BookOpenCheck className="h-5 w-5" />
+                                        </Button>
+                                    )}
+                                    {!node.isDeck && (
+                                        <Button
+                                            variant="iconLearn"
+                                            className="deck-row-action mr-3 border border-dashed border-emerald-400/70 dark:border-emerald-400/50"
+                                            onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
+                                            aria-label="学习目录"
+                                            title="学习目录"
                                         >
                                             <BookOpenCheck className="h-5 w-5" />
                                         </Button>
@@ -460,30 +460,32 @@ export function MainSelectPage() {
                         </div>))}
                     </div>)}
                 </section>
-                <div className="flex justify-between gap-2">
-                    <Button
-                        variant="ghost"
-                        className="text-sm flex items-center gap-1"
-                        onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
-                        title="新建知识卡片组"
-                    >
-                        <Layers size={16} />
-                        <span>新建卡组</span>
-                    </Button>
-                    <Button
-                        variant="none"
-                        className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg px-3 py-2 flex items-center gap-1 dark:border-blue-600 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-800/60"
-                        onClick={() => {
-                            const params = new URLSearchParams();
-                            params.set("path", selectedPath);
-                            if (currentNode?.isDeck) params.set("is_deck", "1");
-                            navigate(`/quizzes/new?${params.toString()}`);
-                        }}
-                    >
-                        <PlusCircle size={16} />
-                        <span>新增测验</span>
-                    </Button>
-                </div>
+                {isEditMode && (
+                    <div className="flex justify-between gap-2">
+                        <Button
+                            variant="ghost"
+                            className="text-sm flex items-center gap-1"
+                            onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
+                            title="新建知识卡片组"
+                        >
+                            <Layers size={16} />
+                            <span>新建卡组</span>
+                        </Button>
+                        <Button
+                            variant="none"
+                            className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg px-3 py-2 flex items-center gap-1 dark:border-blue-600 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-800/60"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                params.set("path", selectedPath);
+                                if (currentNode?.isDeck) params.set("is_deck", "1");
+                                navigate(`/quizzes/new?${params.toString()}`);
+                            }}
+                        >
+                            <PlusCircle size={16} />
+                            <span>新增测验</span>
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     </div>);

@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useTimer } from "../components/TimerContext";
 import { Button } from "../components/ui/Button";
-import { Moon, Sun, Sparkles, Bell, BarChart3 } from "lucide-react";
+import { Moon, Sun, Sparkles, Bell, BarChart3, BookOpenCheck, Settings, LogIn, LogOut, Menu } from "lucide-react";
 
 function TimerBar() {
     const { seconds } = useTimer();
@@ -35,6 +35,13 @@ export function AppLayout() {
             ? "dark"
             : "light";
     });
+    const [studyMode, setStudyMode] = useState<"study" | "edit">(() => {
+        if (typeof window === "undefined") return "study";
+        const saved = localStorage.getItem("mode");
+        return saved === "edit" ? "edit" : "study";
+    });
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement | null>(null);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -89,6 +96,26 @@ export function AppLayout() {
         setTheme((prev) => (prev === "dark" ? "light" : "dark"));
     }
 
+    function toggleStudyMode() {
+        setStudyMode((prev) => {
+            const next = prev === "study" ? "edit" : "study";
+            localStorage.setItem("mode", next);
+            return next;
+        });
+    }
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (!menuRef.current || !(event.target instanceof Node)) return;
+            if (!menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     return (
         <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-50">
             {/* 顶部导航 */}
@@ -133,56 +160,92 @@ export function AppLayout() {
                                 <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
                                     {navDueCount >= 100 ? "99+" : navDueCount}
                                 </span>
-                            )}
+                                )}
                         </Button>
-                        {/* 登录 / 用户信息 */}
-                        {user ? (
-                            <div className="flex items-center gap-2 text-[11px] text-white dark:text-slate-300">
-                                <span className="max-w-[150px] truncate">
-                                    {user.email ?? ""}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    className="text-base text-white dark:text-slate-200"
-                                    onClick={() => navigate("/stats")}
-                                    title="学习统计"
-                                >
-                                    <BarChart3 size={18} />
-                                </Button>
+                        <div className="flex items-center gap-1.5 text-[11px] text-white dark:text-slate-300">
+                            <span className="max-w-[150px] truncate">
+                                {user?.email ?? ""}
+                            </span>
+                            <div className="relative" ref={menuRef}>
                                 <Button
                                     type="button"
-                                    variant="none"
-                                    className="px-3 py-1.5 text-[11px] rounded-lg text-white border border-white/30 hover:bg-white/20"
-                                    onClick={handleLogout}
+                                    variant="ghost"
+                                    className="text-base text-white dark:text-slate-200"
+                                    onClick={() => setIsMenuOpen((prev) => !prev)}
+                                    aria-label="打开菜单"
+                                    aria-expanded={isMenuOpen}
+                                    title="菜单"
                                 >
-                                    退出
+                                    <Menu size={18} />
                                 </Button>
+                                {isMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-44 rounded-xl border border-slate-200 bg-white text-slate-800 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                                    {user && (
+                                        <button
+                                            type="button"
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            onClick={() => {
+                                                navigate("/stats");
+                                                setIsMenuOpen(false);
+                                            }}
+                                        >
+                                            <BarChart3 size={16} />
+                                            学习统计
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                                        onClick={() => {
+                                            toggleTheme();
+                                            setIsMenuOpen(false);
+                                        }}
+                                    >
+                                        {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                                        切换主题
+                                    </button>
+                                    {user && (
+                                        <button
+                                            type="button"
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            onClick={() => {
+                                                toggleStudyMode();
+                                                setIsMenuOpen(false);
+                                            }}
+                                        >
+                                            {studyMode === "study" ? <BookOpenCheck size={16} /> : <Settings size={16} />}
+                                            {studyMode === "study" ? "切换为编辑模式" : "切换为学习模式"}
+                                        </button>
+                                    )}
+                                    {user ? (
+                                        <button
+                                            type="button"
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            onClick={() => {
+                                                handleLogout();
+                                                setIsMenuOpen(false);
+                                            }}
+                                        >
+                                            <LogOut size={16} />
+                                            退出登录
+                                        </button>
+                                    ) : location.pathname !== "/login" ? (
+                                        <button
+                                            type="button"
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            onClick={() => {
+                                                handleLoginClick();
+                                                setIsMenuOpen(false);
+                                            }}
+                                        >
+                                            <LogIn size={16} />
+                                            登录
+                                        </button>
+                                    ) : null}
+                                    </div>
+                                )}
                             </div>
-                        ) : location.pathname !== "/login" ? (
-                            <Button
-                                type="button"
-                                variant="none"
-                                className="text-[11px] px-3 py-1.5 rounded-xl text-white border border-white/30 hover:bg-white/20"
-                                onClick={handleLoginClick}
-                            >
-                                登录
-                            </Button>
-                        ) : null}
-
-                        <Button
-                            type="button"
-                            variant="none"
-                            className="text-[11px] px-3 py-1.5 rounded-xl text-white border-white/30 hover:bg-white/20"
-                            onClick={toggleTheme}
-                            aria-label="切换主题"
-                            title={`切换为${theme === "dark" ? "浅色" : "深色"}主题`}
-                        >
-                            {theme === "dark" ? (
-                                <Sun size={16} className="text-white drop-shadow-sm" />
-                            ) : (
-                                <Moon size={16} className="text-white drop-shadow-sm" />
-                            )}
-                        </Button>
+                        </div>
                     </nav>
                 </div>
             </header>
