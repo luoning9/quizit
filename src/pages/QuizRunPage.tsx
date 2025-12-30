@@ -6,6 +6,7 @@ import {type QuizTemplate, renderPrompt, renderAnswer, type QuizRunResult} from 
 import {
     type BackSchema,
     checkAnswer,
+    countBlanks,
     type FrontSchema,
     parseBack,
     parseFront,
@@ -320,6 +321,7 @@ function QuizRunPage() {
         let isCorrect = false;
 
         if (front.type === "basic") {
+            // Basic: 优先使用 edge function 做语义判题，失败再回落本地规则
             // 优先调用 edge function 进行判题
             const standardAnswer = back.answers?.[0]?.[0] ?? "";
             const userText = currentUserAnswer ? currentUserAnswer[0] : "";
@@ -353,6 +355,63 @@ function QuizRunPage() {
                 }
             } else {
                 isCorrect = false;
+                setWrongReason("");
+            }
+        } else if (front.type === "fill_in_blank") {
+            // Fill-in-blank: 先本地严格判题，失败后再用 edge function 做语义判题
+            isCorrect = checkAnswer(front, back, currentUserAnswer);
+            if (!isCorrect) {
+                const prompt = front.prompt ?? "";
+                const slots = back.answers ?? [];
+                const blankCount = prompt ? countBlanks(prompt) : 0;
+                let standardAnswers: string[] = [];
+
+                // 特殊情况：多空但答案只有一组时，拆为每空一个标准答案
+                if (blankCount > 1 && slots.length === 1) {
+                    const flat = slots[0] ?? [];
+                    standardAnswers = flat.slice(0, blankCount);
+                } else {
+                    standardAnswers = slots.map((slot) => slot?.[0] ?? "");
+                }
+
+                // 去掉空字符串，若数量不足则直接判错且不调用 edge
+                const userAnswers = Array.isArray(currentUserAnswer)
+                    ? currentUserAnswer.map((ans) => ans?.trim()).filter((ans) => ans)
+                    : [];
+                if (blankCount && userAnswers.length < blankCount) {
+                    setWrongReason("答案数量不足");
+                } else if (prompt && standardAnswers.length > 0 && userAnswers.length > 0) {
+                    // 仅在具备完整输入时才调用 edge function
+                    setCheckingAnswer(true);
+                    try {
+                        const { data, error } = await supabase.functions.invoke("check-fill-blank", {
+                            body: {
+                                prompt,
+                                standardAnswers,
+                                userAnswers,
+                            },
+                        });
+                        if (!error && data && typeof data.correct === "boolean") {
+                            isCorrect = data.correct;
+                            if (!isCorrect && typeof data.reason === "string") {
+                                setWrongReason(data.reason);
+                            } else if (isCorrect) {
+                                setWrongReason("");
+                            }
+                        } else {
+                            console.warn("check-fill-blank invoke failed, keep local result", error);
+                            setWrongReason("");
+                        }
+                    } catch (err) {
+                        console.error("check-fill-blank invoke error", err);
+                        setWrongReason("");
+                    } finally {
+                        setCheckingAnswer(false);
+                    }
+                } else {
+                    setWrongReason("");
+                }
+            } else {
                 setWrongReason("");
             }
         } else {

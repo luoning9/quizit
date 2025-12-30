@@ -1,6 +1,6 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Trash2, Check, List} from "lucide-react";
+import {BookOpen, Trophy, Trash2, Check, List, CornerUpLeft} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";
@@ -428,6 +428,16 @@ export default function QuizResultPage() {
                     </div>
                 </div>
                 <div className="flex-1 flex items-center justify-end gap-3">
+                    {templateStats && (
+                        <Button
+                            variant="iconWarning"
+                            disabled={deleting}
+                            onClick={() => setShowDeleteConfirm(true)}
+                            title="删除测验"
+                        >
+                            {deleting ? "删除中…" : <Trash2 className="w-5 h-5" />}
+                        </Button>
+                    )}
                     {editingDeckName ? (
                         <div ref={deckNameEditRef} className="flex items-center gap-2">
                             <input
@@ -458,12 +468,12 @@ export default function QuizResultPage() {
                         </button>
                     )}
                     <Button
-                        variant="link"
-                        className="flex items-center gap-1 text-sm"
+                        variant="iconRound"
+                        className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
                         onClick={() => navigate(`/quizzes?path=${deckPath}`)}
                         title="返回测验列表"
                     >
-                        <List className="w-6 h-6" />
+                        <CornerUpLeft className="w-6 h-6" />
                         <span className="sr-only">返回测验列表</span>
                     </Button>
                 </div>
@@ -538,15 +548,6 @@ export default function QuizResultPage() {
                                 <span>平均成绩：{Math.round(avgScore * 100)}%</span>
                             )}
                             </div>
-                            <Button
-                                variant="ghost"
-                                disabled={deleting}
-                                onClick={() => setShowDeleteConfirm(true)}
-                                className="text-sm px-2 py-2"
-                                title="删除测验"
-                            >
-                                {deleting ? "删除中…" : <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />}
-                            </Button>
                         </div>
                     </div>
                 ) : (
