@@ -71,7 +71,7 @@ function buildPromptFull(frontRaw: string): string {
     const options = Array.isArray(parsed.options) ? parsed.options : [];
     if (!options.length) return prompt;
     const formatted = options
-        .map((opt, idx) => ` ${opt}`)
+        .map((opt) => ` ${opt}`)
         .join(" ");
     return `${prompt} 选项: ${formatted}`;
 }
