@@ -1,10 +1,11 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Trash2, Check, CornerUpLeft} from "lucide-react";
+import {BookOpen, Trophy, Trash2, Check, CornerUpLeft, PencilLine} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { parseFront } from "../../lib/quizFormat";
 
 type QuizRunRecord = {
     id: string;
@@ -39,6 +40,54 @@ type UserRunSummary = {
     config: Record<string, unknown> | null;
 };
 
+type RecentAttempt = {
+    answer: string;
+    isCorrect: boolean;
+};
+
+type QuestionRow = {
+    cardId: string;
+    position: number;
+    promptSummary: string;
+    promptFull: string;
+    recentAttempts: RecentAttempt[];
+    accuracy: number | null;
+    inWrongBook: boolean;
+};
+
+type QuizItemsPayload = {
+    items?: Array<{ card_id?: string; position?: number }>;
+};
+
+function truncateText(text: string, maxChars: number): string {
+    const trimmed = text.trim();
+    if (trimmed.length <= maxChars) return trimmed;
+    return `${trimmed.slice(0, maxChars)}…`;
+}
+
+function buildPromptFull(frontRaw: string): string {
+    const parsed = parseFront(frontRaw);
+    const prompt = parsed.prompt?.trim() || frontRaw.trim();
+    const options = Array.isArray(parsed.options) ? parsed.options : [];
+    if (!options.length) return prompt;
+    const formatted = options
+        .map((opt, idx) => ` ${opt}`)
+        .join(" ");
+    return `${prompt} 选项: ${formatted}`;
+}
+
+function formatUserAnswer(raw: string | null): string {
+    if (!raw) return "";
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.join(" / ");
+        if (typeof parsed === "string") return parsed;
+        return String(parsed);
+    } catch {
+        return raw;
+    }
+}
+
 export default function QuizResultPage() {
     const navigate = useNavigate();
     const {quizId, runId} = useParams<{ quizId?: string; runId?: string }>();
@@ -63,6 +112,10 @@ export default function QuizResultPage() {
     const [savingDeckName, setSavingDeckName] = useState(false);
     const deckNameEditRef = useRef<HTMLDivElement | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [questionRows, setQuestionRows] = useState<QuestionRow[]>([]);
+    const [questionsLoading, setQuestionsLoading] = useState(false);
+    const [questionsError, setQuestionsError] = useState<string | null>(null);
+    const [showAllAccuracy, setShowAllAccuracy] = useState(false);
 
     useEffect(() => {
         async function load() {
@@ -143,6 +196,144 @@ export default function QuizResultPage() {
         void load();
     }, [quizId, runId]);
 
+    useEffect(() => {
+        const templateId =
+            templateStats?.id ??
+            result?.template?.id ??
+            result?.template_id ??
+            quizId ??
+            null;
+        if (!templateId) return;
+        let isActive = true;
+
+        async function loadQuestionRows() {
+            setQuestionsLoading(true);
+            setQuestionsError(null);
+
+            const { data: quizData, error: quizErr } = await supabase
+                .from("user_active_quizzes")
+                .select("items")
+                .eq("id", templateId)
+                .maybeSingle();
+
+            if (!isActive) return;
+            if (quizErr || !quizData) {
+                setQuestionsError("加载题目明细失败");
+                setQuestionsLoading(false);
+                return;
+            }
+
+            const rawItems = (quizData as { items?: QuizItemsPayload }).items?.items ?? [];
+            const items = rawItems
+                .filter((item) => item?.card_id)
+                .map((item) => ({
+                    cardId: item.card_id as string,
+                    position: typeof item.position === "number" ? item.position : 0,
+                }))
+                .sort((a, b) => a.position - b.position);
+
+            if (!items.length) {
+                setQuestionRows([]);
+                setQuestionsLoading(false);
+                return;
+            }
+
+            const cardIds = items.map((item) => item.cardId);
+            const [cardsRes, reviewsRes, statsRes, wrongDeckRes] = await Promise.all([
+                supabase
+                    .from("cards")
+                    .select("id, front")
+                    .in("id", cardIds),
+                supabase
+                    .from("card_reviews")
+                    .select("card_id, user_answer, is_correct, reviewed_at")
+                    .in("card_id", cardIds)
+                    .eq("is_question", true)
+                    .order("reviewed_at", { ascending: false }),
+                supabase
+                    .from("card_stats")
+                    .select("card_id, correct_count, review_count")
+                    .in("card_id", cardIds),
+                supabase
+                    .from("decks")
+                    .select("items")
+                    .eq("title", `${deckPath}/_错题本`)
+                    .maybeSingle(),
+            ]);
+
+            if (!isActive) return;
+            if (cardsRes.error || reviewsRes.error || statsRes.error || wrongDeckRes.error) {
+                console.error("load question rows error", {
+                    cardsErr: cardsRes.error,
+                    reviewsErr: reviewsRes.error,
+                    statsErr: statsRes.error,
+                    wrongDeckErr: wrongDeckRes.error,
+                });
+                setQuestionsError("加载题目明细失败");
+                setQuestionsLoading(false);
+                return;
+            }
+
+            const cardMap = new Map<string, string>();
+            for (const card of cardsRes.data ?? []) {
+                cardMap.set(card.id, card.front ?? "");
+            }
+
+            const statsMap = new Map<string, { correct: number; total: number }>();
+            for (const stat of statsRes.data ?? []) {
+                const total = Number(stat.review_count ?? 0);
+                const correct = Number(stat.correct_count ?? 0);
+                statsMap.set(stat.card_id, { correct, total });
+            }
+
+            const reviewMap = new Map<string, RecentAttempt[]>();
+            for (const review of reviewsRes.data ?? []) {
+                const list = reviewMap.get(review.card_id) ?? [];
+                if (list.length >= 3) continue;
+                    list.push({
+                        answer: formatUserAnswer(review.user_answer ?? ""),
+                        isCorrect: Boolean(review.is_correct),
+                    });
+                reviewMap.set(review.card_id, list);
+            }
+
+            const wrongItems = (wrongDeckRes.data as { items?: { items?: Array<{ card_id?: string }> } } | null)
+                ?.items?.items ?? [];
+            const wrongSet = new Set(
+                wrongItems
+                    .map((item) => item?.card_id)
+                    .filter((id): id is string => Boolean(id))
+            );
+
+            const rows: QuestionRow[] = items.map((item) => {
+                const frontRaw = cardMap.get(item.cardId) ?? "";
+                const promptFull = buildPromptFull(frontRaw);
+                const stats = statsMap.get(item.cardId);
+                const accuracy =
+                    stats && stats.total > 0
+                        ? Math.round((stats.correct / stats.total) * 100)
+                        : null;
+                return {
+                    cardId: item.cardId,
+                    position: item.position,
+                    promptFull,
+                    promptSummary: truncateText(promptFull, 24),
+                    recentAttempts: reviewMap.get(item.cardId) ?? [],
+                    accuracy,
+                    inWrongBook: wrongSet.has(item.cardId),
+                };
+            });
+
+            setQuestionRows(rows);
+            setQuestionsLoading(false);
+        }
+
+        void loadQuestionRows();
+        return () => {
+            isActive = false;
+        };
+    }, [templateStats?.id, result?.template?.id, result?.template_id, quizId]);
+
     // 点击外部取消标题编辑
     useEffect(() => {
         if (!editingTitle) return;
@@ -196,6 +387,9 @@ export default function QuizResultPage() {
         const sum = valid.reduce((acc, r) => acc + ((r.score ?? 0) as number), 0);
         return sum / valid.length;
     }, [userRuns]);
+    const filteredQuestionRows = showAllAccuracy
+        ? questionRows
+        : questionRows.filter((row) => row.accuracy === null || row.accuracy < 100);
 
     async function handleDeleteTemplate() {
         if (!quizId && !templateStats?.id) return;
@@ -467,6 +661,16 @@ export default function QuizResultPage() {
                                 : <span className="text-slate-400 dark:text-slate-500">[双击设置路径]</span>}
                         </button>
                     )}
+                    {templateStats?.id && (
+                        <Button
+                            variant="iconRound"
+                            className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
+                            onClick={() => navigate(`/quizzes/${templateStats.id}/take`)}
+                            title="做测验"
+                        >
+                            <PencilLine className="w-5 h-5" />
+                        </Button>
+                    )}
                     <Button
                         variant="iconRound"
                         className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
@@ -537,16 +741,15 @@ export default function QuizResultPage() {
 
                 {templateStats ? (
                     <div className="space-y-2 text-base">
-
                         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
                             <div className="flex flex-wrap items-center gap-3">
-                            <span>测验次数：{templateStats.attempt_count ?? 0}</span>
-                            {typeof templateStats.last_score === "number" && (
-                                <span>最后成绩：{Math.round((templateStats.last_score ?? 0) * 100)}%</span>
-                            )}
-                            {typeof avgScore === "number" && (
-                                <span>平均成绩：{Math.round(avgScore * 100)}%</span>
-                            )}
+                                <span>测验次数：{templateStats.attempt_count ?? 0}</span>
+                                {typeof templateStats.last_score === "number" && (
+                                    <span>最后成绩：{Math.round((templateStats.last_score ?? 0) * 100)}%</span>
+                                )}
+                                {typeof avgScore === "number" && (
+                                    <span>平均成绩：{Math.round(avgScore * 100)}%</span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -555,6 +758,87 @@ export default function QuizResultPage() {
                         {runMessage ?? "暂无统计信息。"}
                     </div>
                 )}
+
+                <div className="mt-6">
+                    {questionsLoading && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400">加载题目明细中…</div>
+                    )}
+                    {questionsError && (
+                        <div className="text-xs text-rose-600 dark:text-rose-400">{questionsError}</div>
+                    )}
+                    {!questionsLoading && !questionsError && questionRows.length === 0 && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400">暂无题目明细。</div>
+                    )}
+                    {!questionsLoading && !questionsError && questionRows.length > 0 && (
+                        <div>
+                            <table className="w-full text-sm table-auto">
+                                <thead className="text-sm text-slate-500 dark:text-slate-400">
+                                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                                        <th className="py-2 text-left font-medium w-10">#</th>
+                                        <th className="py-2 text-left font-medium">题目</th>
+                                        {[1, 2, 3].map((idx) => (
+                                            <th key={idx} className="py-2 text-left font-medium w-20">{`最近${idx}`}</th>
+                                        ))}
+                                        <th className="py-2 text-left font-medium w-14">
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showAllAccuracy}
+                                                    onChange={(e) => setShowAllAccuracy(e.target.checked)}
+                                                    title="显示正确率 100% 的题目"
+                                                /><span>%</span>
+                                            </div>
+                                        </th>
+                                        <th className="py-2 text-center font-medium w-14">错题本</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-slate-700 dark:text-slate-300">
+                                    {filteredQuestionRows.map((row, rowIndex) => (
+                                        <tr key={row.cardId} className="border-b border-slate-100 dark:border-slate-800">
+                                            <td className="py-2 text-slate-500 dark:text-slate-400">
+                                                {row.position || rowIndex + 1}
+                                            </td>
+                                            <td className="py-2 pr-3 whitespace-nowrap max-w-[320px]">
+                                                <span title={row.promptFull} className="block truncate">
+                                                    {row.promptSummary || "—"}
+                                            </span>
+                                        </td>
+                                            {[0, 1, 2].map((idx) => {
+                                                const attempt = row.recentAttempts[idx];
+                                                if (!attempt) {
+                                                    return (
+                                                        <td key={idx} className="py-2 text-slate-400">
+                                                            —
+                                                        </td>
+                                                    );
+                                                }
+                                                const answerSummary = truncateText(attempt.answer || "—", 12);
+                                                return (
+                                                    <td key={idx} className="py-2">
+                                                        <div
+                                                            className={attempt.isCorrect
+                                                                ? "text-emerald-800 dark:text-emerald-200"
+                                                                : "text-rose-900 dark:text-rose-50 bg-rose-200 dark:bg-rose-900/70 px-2 py-0.5 rounded"}
+                                                            title={attempt.answer}
+                                                        >
+                                                            {answerSummary}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="py-2">
+                                                {typeof row.accuracy === "number" ? `${row.accuracy}%` : "—"}
+                                            </td>
+                                            <td className="py-2 text-center">
+                                                {row.inWrongBook ? "✓" : ""}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <ConfirmDialog
