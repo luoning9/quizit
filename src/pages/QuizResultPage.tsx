@@ -1,6 +1,6 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Trash2, Check, List, CornerUpLeft} from "lucide-react";
+import {BookOpen, Trophy, Trash2, Check, CornerUpLeft} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";

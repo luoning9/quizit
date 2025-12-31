@@ -2,7 +2,7 @@ import React, {useMemo, useState, type Dispatch, type SetStateAction} from "reac
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {List, PencilLine, CornerUpLeft} from "lucide-react";
+import {PencilLine, CornerUpLeft} from "lucide-react";
 import {Loader2} from "lucide-react";
 
 type Mode = "mixed";
@@ -278,7 +278,7 @@ function parseItems(text: string): DraftItem[] {
     }
 }
 
-export default function NewQuizTemplatePage() {
+export default function NewQuizPage() {
     const [searchParams] = useSearchParams();
     const path = searchParams.get("path") || "";
     const deckName = searchParams.has("is_deck") ? path.split("/").slice(0, -1).join("/") : path;

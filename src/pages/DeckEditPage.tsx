@@ -4,7 +4,7 @@ import {supabase} from "../../lib/supabaseClient";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, List, RotateCcw, Image, Link, CornerUpLeft } from "lucide-react";
+import { Trash2, Check, Layers, RotateCcw, Image, Link, CornerUpLeft } from "lucide-react";
 
 interface DeckRow {
     id: string;

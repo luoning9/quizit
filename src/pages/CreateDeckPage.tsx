@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
-import { List, Layers, CornerUpLeft } from "lucide-react";
+import { Layers, CornerUpLeft } from "lucide-react";
 
 const CreateDeckPage: React.FC = () => {
     const [searchParams] = useSearchParams();

@@ -12,7 +12,7 @@ import {ImageRender} from "../components/ui/ImageRender";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
-import { Image as ImageIcon, X as XIcon, LogOut, GitBranch, Map as MapIcon, Link, CornerUpLeft } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
 
 interface CardStatsRow {

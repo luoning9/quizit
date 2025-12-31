@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
-import { Image as ImageIcon, List, Upload, Download, Trash2, CornerUpLeft } from "lucide-react";
+import { Image as ImageIcon, Upload, Download, Trash2, CornerUpLeft } from "lucide-react";
 
 interface DeckRow {
     id: string;
