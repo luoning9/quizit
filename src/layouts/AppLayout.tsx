@@ -124,9 +124,11 @@ export function AppLayout() {
                     {/* 左侧 LOGO */}
                     <div className="flex items-center gap-2">
                         <Link to="/" className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-xl bg-blue-700 text-white flex items-center justify-center text-sm font-bold shadow-soft dark:bg-brand/80">
-                                Q
-                            </div>
+                            <img
+                                src="/favicon-32x32.png"
+                                alt="Quiz Studio"
+                                className="h-8 w-8 rounded-xl shadow-soft"
+                            />
                             <span className="font-semibold text-lg tracking-tight text-white dark:text-slate-50">
               Quiz Studio
             </span>
