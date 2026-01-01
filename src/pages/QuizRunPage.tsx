@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
-import {BookOpen, Loader2, CheckCircle, XCircle, CornerUpLeft} from "lucide-react";
+import {BookOpen, Loader2, CheckCircle, XCircle, CornerUpLeft, Bookmark} from "lucide-react";
 import {type QuizTemplate, renderPrompt, renderAnswer, type QuizRunResult} from "./quizRenderer";
 import {
     type BackSchema,
@@ -115,6 +115,32 @@ function QuizRunPage() {
                 setQuestions([]);
                 setLoading(false);
                 return;
+            }
+
+            // 1.25 读取错题本信息（如存在）
+            try {
+                if (typedTemplate.deck_name) {
+                    const { data: wrongDeck, error: wrongDeckErr } = await supabase
+                        .from("decks")
+                        .select("items")
+                        .eq("title", `${typedTemplate.deck_name}/_错题本`)
+                        .maybeSingle();
+                    if (!wrongDeckErr && wrongDeck) {
+                        const wrongItems =
+                            (wrongDeck as { items?: { items?: Array<{ card_id?: string }> } }).items?.items ?? [];
+                        const ids = wrongItems
+                            .map((item) => item?.card_id)
+                            .filter((id): id is string => Boolean(id));
+                        setWrongBookSet(new Set(ids));
+                    } else {
+                        setWrongBookSet(new Set());
+                    }
+                } else {
+                    setWrongBookSet(new Set());
+                }
+            } catch (err) {
+                console.error("加载错题本失败", err);
+                setWrongBookSet(new Set());
             }
 
             // 1.5 尝试在 storage 中找 front 媒体（如 {card_id}/front*.png）
@@ -266,6 +292,7 @@ function QuizRunPage() {
     const [resultSaved, setResultSaved] = useState(false);
     const [wrongReason, setWrongReason] = useState("");
     const [checkingAnswer, setCheckingAnswer] = useState(false);
+    const [wrongBookSet, setWrongBookSet] = useState<Set<string>>(new Set());
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     useEffect(() => {
         if (!finished || !runResult || !userId || resultSaved) return;
@@ -653,7 +680,12 @@ function QuizRunPage() {
             <div className="w-full flex items-start gap-4 mb-6">
                 {/* 问题卡片 */}
                 <div className="min-h-32 flex-1 min-w-[320px] rounded-2xl border border-slate-200 bg-white shadow-sm p-6 dark:border-slate-700 dark:bg-slate-900/80">
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">{currentQuestion.cardId}</div>
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mb-2">
+                        <span>{currentQuestion.cardId}</span>
+                        {wrongBookSet.has(currentQuestion.cardId) && (
+                            <Bookmark className="w-4 h-4 text-amber-500 dark:text-amber-300" title="已在错题本" />
+                        )}
+                    </div>
                     <div className="text-base text-slate-900 dark:text-slate-50">
                         {currentQuestion &&
                             renderPrompt(currentQuestion.front, {
@@ -709,6 +741,12 @@ function QuizRunPage() {
                                 variant="none"
                                 onClick={() => {
                                     if (currentQuestion) {
+                                        setWrongBookSet((prev) => {
+                                            if (prev.has(currentQuestion.cardId)) return prev;
+                                            const next = new Set(prev);
+                                            next.add(currentQuestion.cardId);
+                                            return next;
+                                        });
                                         void addCardToWrongBook(template?.deck_name ?? "", currentQuestion.cardId);
                                     }
                                     handleNextQuestion();

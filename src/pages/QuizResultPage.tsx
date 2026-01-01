@@ -712,16 +712,7 @@ export default function QuizResultPage() {
                                 {result?.finished_at && <span>结束：{result.finished_at}</span>}
                             </div>
                         </div>
-                        <div className="flex flex-wrap mt-5 justify-end">
-
-                            {result?.template_id && (
-                                <Button variant="primary"
-                                        onClick={() => navigate(`/quizzes/${result.template_id}/take`)}
-                                >
-                                    再做一次
-                                </Button>
-                            )}
-                        </div>
+                        <div className="flex flex-wrap mt-5 justify-end" />
                     </div>
 
 
@@ -817,7 +808,7 @@ export default function QuizResultPage() {
                                                     <td key={idx} className="py-2">
                                                         <div
                                                             className={attempt.isCorrect
-                                                                ? "text-emerald-800 dark:text-emerald-200"
+                                                                ? "text-slate-500 dark:text-slate-400"
                                                                 : "text-rose-900 dark:text-rose-50 bg-rose-200 dark:bg-rose-900/70 px-2 py-0.5 rounded"}
                                                             title={attempt.answer}
                                                         >
