@@ -683,7 +683,9 @@ function QuizRunPage() {
                     <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mb-2">
                         <span>{currentQuestion.cardId}</span>
                         {wrongBookSet.has(currentQuestion.cardId) && (
-                            <Bookmark className="w-4 h-4 text-amber-500 dark:text-amber-300" title="已在错题本" />
+                            <span title="已在错题本">
+                                <Bookmark className="w-4 h-4 text-amber-500 dark:text-amber-300" />
+                            </span>
                         )}
                     </div>
                     <div className="text-base text-slate-900 dark:text-slate-50">
