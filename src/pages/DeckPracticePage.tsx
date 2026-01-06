@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
@@ -13,8 +13,9 @@ import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { easeFactorToColor, easeFactorFromLevel, recordDifficultyUpdate } from "../../lib/studyUtils";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
-import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft, Info } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 
 interface CardStatsRow {
     card_id: string;
@@ -161,6 +162,48 @@ export function DeckPracticePage() {
     const dividerRef = useRef<HTMLDivElement | null>(null);
     const [mediaModal, setMediaModal] = useState<{ cardId: string; name: string } | null>(null);
     const [hoverInfo, setHoverInfo] = useState<string>("点击显示背面");
+    const [analysisInfoMap, setAnalysisInfoMap] = useState<Record<string, string | null>>({});
+    const [analysisDialogOpen, setAnalysisDialogOpen] = useState(false);
+    const [analysisDialogText, setAnalysisDialogText] = useState("");
+    const [analysisDialogTitle, setAnalysisDialogTitle] = useState("");
+
+    const analysisDialogContent = useMemo(() => {
+        if (!analysisDialogText.trim()) return null;
+        const blocks = analysisDialogText.split(/\n{2,}/).filter(Boolean);
+        return (
+            <div className="space-y-3">
+                {blocks.map((block, idx) => {
+                    const lines = block.split(/\n/).filter(Boolean);
+                    return (
+                        <div key={`analysis-${idx}`} className="space-y-1">
+                            {lines.map((line, lineIdx) => {
+                                if (line.startsWith("题目：")) {
+                                    return (
+                                        <div key={`q-${lineIdx}`} className="text-emerald-300">
+                                            {line}
+                                            <div className="h-2" />
+                                        </div>
+                                    );
+                                }
+                                if (line.startsWith("分析：")) {
+                                    return (
+                                        <div key={`a-${lineIdx}`} className="text-emerald-200 font-semibold">
+                                            {line}
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div key={`t-${lineIdx}`} className="text-emerald-300">
+                                        {line}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }, [analysisDialogText]);
 
     const [folderStats, setFolderStats] = useState<DeckFolderStatsRow | null>(null);
 
@@ -514,15 +557,63 @@ export function DeckPracticePage() {
         });
     }
 
-    // 5. 状态渲染
-    if (loading) return <div>正在抽取练习卡片…</div>;
-    if (!deckName) return <div className="text-sm text-slate-500">未找到该题库或目录。</div>;
-    if (cardIds.length === 0) return <div className="text-sm text-slate-500">当前目录下暂无可练习的卡片。</div>;
-
     const currentId = cardIds[Math.min(index, cardIds.length - 1)];
     const current = cardBaseMap[currentId];
     const currentView = cardViewMap[currentId];
     const currentStats = cardStatsMap[currentId];
+    const currentAnalysisText = currentId ? analysisInfoMap[currentId] : undefined;
+
+    useEffect(() => {
+        if (!currentId) return;
+        if (currentAnalysisText !== undefined) return;
+        let active = true;
+        const loadAnalysis = async () => {
+            const { data, error } = await supabase
+                .from("card_reviews")
+                .select("meta, reviewed_at")
+                .eq("card_id", currentId)
+                .not("meta->related_questions", "is", null)
+                .order("reviewed_at", { ascending: false })
+                .limit(1);
+            if (!active) return;
+            if (error) {
+                console.error("load weakness analysis error", error);
+                setAnalysisInfoMap((prev) => ({ ...prev, [currentId]: null }));
+                return;
+            }
+            const meta = (data ?? [])[0]?.meta as {
+                related_questions?: Array<{ question?: unknown; analysis?: unknown }>;
+            } | null;
+            const related = Array.isArray(meta?.related_questions) ? meta?.related_questions : [];
+            const analysisText = related
+                .map((row) => {
+                    const question =
+                        typeof row?.question === "string"
+                            ? row.question.trim()
+                            : typeof (row as { question_card_id?: unknown })?.question_card_id === "string"
+                                ? String((row as { question_card_id?: string }).question_card_id).trim()
+                                : "";
+                    const analysis =
+                        typeof row?.analysis === "string" ? row.analysis.trim() : "";
+                    if (question && analysis) {
+                        return `题目：${question}\n分析：${analysis}`;
+                    }
+                    return analysis || question;
+                })
+                .filter(Boolean)
+                .join("\n\n");
+            setAnalysisInfoMap((prev) => ({ ...prev, [currentId]: analysisText || null }));
+        };
+        void loadAnalysis();
+        return () => {
+            active = false;
+        };
+    }, [currentId, currentAnalysisText]);
+
+    // 5. 状态渲染
+    if (loading) return <div>正在抽取练习卡片…</div>;
+    if (!deckName) return <div className="text-sm text-slate-500">未找到该题库或目录。</div>;
+    if (cardIds.length === 0) return <div className="text-sm text-slate-500">当前目录下暂无可练习的卡片。</div>;
     if (!current) return <div className="text-sm text-slate-500">未找到该卡片。</div>;
     if (!currentView) return <div className="text-sm text-slate-500">正在准备卡片内容…</div>;
     const descriptionUrl = getHttpUrl(current.deck_description);
@@ -680,8 +771,22 @@ export function DeckPracticePage() {
                         </div>
 
                         {/* 练习次数 */}
-                        <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                            练习次数：{reviewCount}
+                        <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap flex items-center gap-2">
+                            <span>练习次数：{reviewCount}</span>
+                            {currentAnalysisText ? (
+                                <button
+                                    type="button"
+                                    className="text-orange-600 hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200"
+                                    title="错题"
+                                    onClick={() => {
+                                        setAnalysisDialogTitle("相关错题分析");
+                                        setAnalysisDialogText(currentAnalysisText);
+                                        setAnalysisDialogOpen(true);
+                                    }}
+                                >
+                                    <Info className="w-3.5 h-3.5" />
+                                </button>
+                            ) : null}
                         </div>
                     </div>
                     {/* 卡片内容 */}
@@ -896,6 +1001,16 @@ export function DeckPracticePage() {
                     </Button>
                 </div>
             )}
+            <ConfirmDialog
+                open={analysisDialogOpen}
+                title={analysisDialogTitle || "错题分析"}
+                titleClassName="text-center text-emerald-200"
+                description={analysisDialogContent}
+                confirmLabel="关闭"
+                cancelLabel="取消"
+                onCancel={() => setAnalysisDialogOpen(false)}
+                onConfirm={() => setAnalysisDialogOpen(false)}
+            />
         </div>
     );
 }

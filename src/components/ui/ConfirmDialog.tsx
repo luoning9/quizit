@@ -5,7 +5,8 @@ import { Button } from "./Button.tsx";
 interface ConfirmDialogProps {
     open: boolean;
     title?: string;
-    description?: string;
+    titleClassName?: string;
+    description?: React.ReactNode;
     confirmLabel?: string;
     cancelLabel?: string;
     loading?: boolean;
@@ -16,6 +17,7 @@ interface ConfirmDialogProps {
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                                                                 open,
                                                                 title = "确认操作",
+                                                                titleClassName = "",
                                                                 description,
                                                                 confirmLabel = "确认",
                                                                 cancelLabel = "取消",
@@ -28,7 +30,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     return (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
             <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-xl">
-                <div className="text-base font-semibold text-slate-100 mb-3">
+                <div className={`text-base font-semibold text-slate-100 mb-3 ${titleClassName}`}>
                     {title}
                 </div>
                 {description && (

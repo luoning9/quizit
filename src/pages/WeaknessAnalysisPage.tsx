@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import { Layers, ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { Layers, ArrowLeft, Loader2, RefreshCw, CornerUpLeft } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { easeFactorFromLevel, easeFactorToColor, recordDifficultyUpdate } from "../../lib/studyUtils";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
@@ -122,13 +122,14 @@ export default function WeaknessAnalysisPage() {
     }, [analysisResult, selectedQuestionPairs]);
 
     const relatedAnalysisMap = useMemo(() => {
-        const map = new Map<string, Array<{ question_card_id: string; analysis: string }>>();
+        const map = new Map<string, Array<{ question_card_id: string; question: string; analysis: string }>>();
         for (const row of analysisRows) {
             for (const card of row.relatedCards) {
                 if (!card.id) continue;
                 const list = map.get(card.id) ?? [];
                 list.push({
                     question_card_id: row.cardId,
+                    question: row.questionFull,
                     analysis: row.analysis,
                 });
                 map.set(card.id, list);
@@ -402,15 +403,26 @@ export default function WeaknessAnalysisPage() {
                 <div className="text-xl font-semibold">
                     根据“{quizTitle ?? "测验"}”的 {selectedCount} 道题目分析未掌握的知识点
                 </div>
-                <Button
-                    variant="iconRound"
-                    className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
-                    onClick={() => navigate(quizId ? `/quiz-runs/${quizId}` : "/quiz-runs")}
-                    title="返回测验情况"
-                >
-                    <ArrowLeft className="w-6 h-6" />
-                    <span className="sr-only">返回测验情况</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="iconRound"
+                        className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
+                        onClick={() => navigate(quizId ? `/quiz-runs/${quizId}` : "/quiz-runs")}
+                        title="返回测验情况"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
+                        <span className="sr-only">返回测验情况</span>
+                    </Button>
+                    <Button
+                        variant="iconRound"
+                        className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
+                        onClick={() => navigate(`/quizzes?path=${deckName ?? ""}`)}
+                        title="返回测验列表"
+                    >
+                        <CornerUpLeft className="w-6 h-6" />
+                        <span className="sr-only">返回测验列表</span>
+                    </Button>
+                </div>
             </div>
             <div className="mt-6 text-sm text-slate-600 dark:text-slate-300">
                 <div className="flex items-center gap-2 text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">
