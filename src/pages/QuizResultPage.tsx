@@ -6,6 +6,7 @@ import {Button} from "../components/ui/Button";
 import { useRef } from "react";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { parseFront } from "../../lib/quizFormat";
+import { fetchWrongBookCardIds } from "../../lib/WrongBook";
 
 type QuizRunRecord = {
     id: string;
@@ -240,7 +241,7 @@ export default function QuizResultPage() {
             }
 
             const cardIds = items.map((item) => item.cardId);
-            const [cardsRes, reviewsRes, statsRes, wrongDeckRes] = await Promise.all([
+            const [cardsRes, reviewsRes, statsRes, wrongIds] = await Promise.all([
                 supabase
                     .from("cards")
                     .select("id, front")
@@ -255,20 +256,15 @@ export default function QuizResultPage() {
                     .from("card_stats")
                     .select("card_id, correct_count, review_count")
                     .in("card_id", cardIds),
-                supabase
-                    .from("decks")
-                    .select("items")
-                    .eq("title", `${deckPath}/_错题本`)
-                    .maybeSingle(),
+                deckPath ? fetchWrongBookCardIds(deckPath) : Promise.resolve(new Set<string>()),
             ]);
 
             if (!isActive) return;
-            if (cardsRes.error || reviewsRes.error || statsRes.error || wrongDeckRes.error) {
+            if (cardsRes.error || reviewsRes.error || statsRes.error) {
                 console.error("load question rows error", {
                     cardsErr: cardsRes.error,
                     reviewsErr: reviewsRes.error,
                     statsErr: statsRes.error,
-                    wrongDeckErr: wrongDeckRes.error,
                 });
                 setQuestionsError("加载题目明细失败");
                 setQuestionsLoading(false);
@@ -298,13 +294,7 @@ export default function QuizResultPage() {
                 reviewMap.set(review.card_id, list);
             }
 
-            const wrongItems = (wrongDeckRes.data as { items?: { items?: Array<{ card_id?: string }> } } | null)
-                ?.items?.items ?? [];
-            const wrongSet = new Set(
-                wrongItems
-                    .map((item) => item?.card_id)
-                    .filter((id): id is string => Boolean(id))
-            );
+            const wrongSet = wrongIds ?? new Set<string>();
 
             const rows: QuestionRow[] = items.map((item) => {
                 const frontRaw = cardMap.get(item.cardId) ?? "";
@@ -641,16 +631,6 @@ export default function QuizResultPage() {
                     </div>
                 </div>
                 <div className="flex-1 flex items-center justify-end gap-3">
-                    {templateStats && (
-                        <Button
-                            variant="iconWarning"
-                            disabled={deleting}
-                            onClick={() => setShowDeleteConfirm(true)}
-                            title="删除测验"
-                        >
-                            {deleting ? "删除中…" : <Trash2 className="w-5 h-5" />}
-                        </Button>
-                    )}
                     {editingDeckName ? (
                         <div ref={deckNameEditRef} className="flex items-center gap-2">
                             <input
@@ -668,7 +648,7 @@ export default function QuizResultPage() {
                     ) : (
                         <button
                             type="button"
-                            className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
+                            className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 whitespace-nowrap"
                             onDoubleClick={() => {
                                 setDeckNameInput(deckPath);
                                 setEditingDeckName(true);
@@ -679,6 +659,16 @@ export default function QuizResultPage() {
                                 ? deckPath
                                 : <span className="text-slate-400 dark:text-slate-500">[双击设置路径]</span>}
                         </button>
+                    )}
+                    {templateStats && (
+                        <Button
+                            variant="iconWarning"
+                            disabled={deleting}
+                            onClick={() => setShowDeleteConfirm(true)}
+                            title="删除测验"
+                        >
+                            {deleting ? "删除中…" : <Trash2 className="w-5 h-5" />}
+                        </Button>
                     )}
                     {templateStats?.id && (
                         <Button

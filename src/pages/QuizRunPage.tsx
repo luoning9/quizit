@@ -14,7 +14,7 @@ import {
 } from "../../lib/quizFormat.ts";
 import { useTimer } from "../components/TimerContext";  // ← 新增，路径和 AppLayout 一致
 import { Button } from "../components/ui/Button";
-import { addCardToWrongBook } from "../../lib/WrongBook.ts";
+import { addCardToWrongBook, fetchWrongBookCardIds } from "../../lib/WrongBook.ts";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { differenceInSeconds } from "date-fns";
 import MarkdownText from "../components/MarkdownText";
@@ -120,21 +120,8 @@ function QuizRunPage() {
             // 1.25 读取错题本信息（如存在）
             try {
                 if (typedTemplate.deck_name) {
-                    const { data: wrongDeck, error: wrongDeckErr } = await supabase
-                        .from("decks")
-                        .select("items")
-                        .eq("title", `${typedTemplate.deck_name}/_错题本`)
-                        .maybeSingle();
-                    if (!wrongDeckErr && wrongDeck) {
-                        const wrongItems =
-                            (wrongDeck as { items?: { items?: Array<{ card_id?: string }> } }).items?.items ?? [];
-                        const ids = wrongItems
-                            .map((item) => item?.card_id)
-                            .filter((id): id is string => Boolean(id));
-                        setWrongBookSet(new Set(ids));
-                    } else {
-                        setWrongBookSet(new Set());
-                    }
+                    const ids = await fetchWrongBookCardIds(typedTemplate.deck_name);
+                    setWrongBookSet(ids);
                 } else {
                     setWrongBookSet(new Set());
                 }

@@ -54,7 +54,7 @@ type NavContext = {
 };
 
 // 根据 view 的 path 构造目录树，并收集所有路径前缀
-function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckNameSet: Set<string> } {
+function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckPathAndNames: Set<string> } {
     const root: DeckTreeNode = {
         name: "",
         fullPath: "",
@@ -68,7 +68,7 @@ function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckNameSet: Se
         isDeck: false,
         deckId: "",
     };
-    const deckNameSet = new Set<string>();
+    const deckPathAndNames = new Set<string>();
 
     const ensureChild = (parent: DeckTreeNode, name: string): DeckTreeNode => {
         const existing = parent.children.find((c) => c.name === name);
@@ -103,7 +103,7 @@ function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckNameSet: Se
         let acc = "";
         parts.forEach((part, idx) => {
             acc = idx === 0 ? part : `${acc}/${part}`;
-            deckNameSet.add(acc);
+            deckPathAndNames.add(acc);
         });
 
         let current = root;
@@ -134,7 +134,7 @@ function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckNameSet: Se
         current.isDeck = row.deck_id != null;
     }
 
-    return { root, deckNameSet };
+    return { root, deckPathAndNames };
 }
 
 // 根据路径查找目录节点
@@ -260,7 +260,8 @@ export function MainSelectPage() {
         loadFolderStats();
     }, []);
 
-    const { root: tree, deckNameSet } = useMemo(() => buildDeckTree(deckStats), [deckStats]);
+    // 所有 deck 路径前缀 + 完整路径（用于判断目录树上的占用路径）
+    const { root: tree, deckPathAndNames } = useMemo(() => buildDeckTree(deckStats), [deckStats]);
     useEffect(() => {
         if (setNavDueCount) {
             setNavDueCount(tree.dueCount ?? 0);
@@ -282,15 +283,37 @@ export function MainSelectPage() {
             if (na == null && nb != null) return 1;
             return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         }), [currentNode]);
+    // 真实 deck 的完整路径集合（不含前缀）
+    const realDeckNames = useMemo(() => {
+        const set = new Set<string>();
+        deckStats.forEach((row) => {
+            if (row.deck_name) set.add(row.deck_name);
+        });
+        return set;
+    }, [deckStats]);
+
     const quizzesInCurrentDir = useMemo(
         () =>
             quizTemplates
                 .filter((t) => {
                     const path = t.deck_name ?? "";
-                    if (!selectedPath) {
-                        return !deckNameSet.has(path);
+                    const hasPath = selectedPath && selectedPath.trim().length > 0;
+                    const prefix = hasPath ? `${selectedPath}/` : "";
+
+                    if (hasPath) {
+                        if (!(path === selectedPath || path.startsWith(prefix))) return false;
                     }
-                    return path === selectedPath;
+
+                    const isDirectChild = hasPath
+                        ? path.startsWith(prefix) && !path.slice(prefix.length).includes("/")
+                        : !path.includes("/");
+                    const isRealDeck = realDeckNames.has(path);
+
+                    return (
+                        !deckPathAndNames.has(path) ||
+                        path === selectedPath ||
+                        (isDirectChild && isRealDeck)
+                    );
                 })
                 .map((t) => ({
                     id: t.id,
@@ -302,7 +325,7 @@ export function MainSelectPage() {
                     lastScore: t.last_score ?? 0,
                     lastAttemptAt: t.last_attempt_at ?? 0,
                 })),
-        [quizTemplates, selectedPath, deckNameSet]
+        [quizTemplates, selectedPath, deckPathAndNames, realDeckNames]
     );
 
     const breadcrumbSegments = selectedPath ? selectedPath.split("/").filter(Boolean).map((seg, idx, arr) => ({
