@@ -116,6 +116,7 @@ export default function QuizResultPage() {
     const [questionsLoading, setQuestionsLoading] = useState(false);
     const [questionsError, setQuestionsError] = useState<string | null>(null);
     const [showAllAccuracy, setShowAllAccuracy] = useState(false);
+    const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         async function load() {
@@ -325,6 +326,7 @@ export default function QuizResultPage() {
             });
 
             setQuestionRows(rows);
+            setSelectedQuestionIds(new Set(rows.filter((row) => row.inWrongBook).map((row) => row.cardId)));
             setQuestionsLoading(false);
         }
 
@@ -373,6 +375,12 @@ export default function QuizResultPage() {
     }, [editingDeckName]);
 
     const title = templateStats?.title;
+    const templateId =
+        templateStats?.id ??
+        result?.template?.id ??
+        result?.template_id ??
+        quizId ??
+        null;
     const descriptionText = templateStats?.description ?? result?.template?.description ?? null;
     const correct = result?.correct_items ?? 0;
     const total = result?.total_items ?? 0;
@@ -390,6 +398,9 @@ export default function QuizResultPage() {
     const filteredQuestionRows = showAllAccuracy
         ? questionRows
         : questionRows.filter((row) => row.accuracy === null || row.accuracy < 100);
+    const allFilteredSelected =
+        filteredQuestionRows.length > 0 &&
+        filteredQuestionRows.every((row) => selectedQuestionIds.has(row.cardId));
 
     async function handleDeleteTemplate() {
         if (!quizId && !templateStats?.id) return;
@@ -409,6 +420,14 @@ export default function QuizResultPage() {
         }
         navigate(`/quizzes?path=${templateStats?.deck_name ?? ""}`);
         //window.location.href = "/quizzes";
+    }
+
+    function handleWeaknessAnalysis() {
+        if (!templateId || selectedQuestionIds.size === 0) return;
+        const ids = Array.from(selectedQuestionIds).join(",");
+        const params = new URLSearchParams();
+        params.set("ids", ids);
+        navigate(`/quiz-runs/${templateId}/weakness?${params.toString()}`);
     }
 
     async function handleSaveDeckName() {
@@ -742,6 +761,21 @@ export default function QuizResultPage() {
                                     <span>平均成绩：{Math.round(avgScore * 100)}%</span>
                                 )}
                             </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                    已选择 {selectedQuestionIds.size} 题
+                                </span>
+                                <Button
+                                    variant="secondary"
+                                    className="px-3 py-1 text-sm"
+                                    type="button"
+                                    title="弱点分析"
+                                    disabled={selectedQuestionIds.size === 0}
+                                    onClick={handleWeaknessAnalysis}
+                                >
+                                    弱点分析
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -760,7 +794,7 @@ export default function QuizResultPage() {
                     {!questionsLoading && !questionsError && questionRows.length === 0 && (
                         <div className="text-xs text-slate-500 dark:text-slate-400">暂无题目明细。</div>
                     )}
-                    {!questionsLoading && !questionsError && questionRows.length > 0 && (
+                            {!questionsLoading && !questionsError && questionRows.length > 0 && (
                         <div>
                             <table className="w-full text-sm table-auto">
                                 <thead className="text-sm text-slate-500 dark:text-slate-400">
@@ -781,6 +815,24 @@ export default function QuizResultPage() {
                                             </div>
                                         </th>
                                         <th className="py-2 text-center font-medium w-14">错题本</th>
+                                        <th className="py-2 text-center font-medium w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={allFilteredSelected}
+                                                onChange={(e) => {
+                                                    setSelectedQuestionIds((prev) => {
+                                                        const next = new Set(prev);
+                                                        if (e.target.checked) {
+                                                            filteredQuestionRows.forEach((row) => next.add(row.cardId));
+                                                        } else {
+                                                            filteredQuestionRows.forEach((row) => next.delete(row.cardId));
+                                                        }
+                                                        return next;
+                                                    });
+                                                }}
+                                                title="全选/全不选"
+                                            />
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-slate-700 dark:text-slate-300">
@@ -822,6 +874,24 @@ export default function QuizResultPage() {
                                             </td>
                                             <td className="py-2 text-center">
                                                 {row.inWrongBook ? "✓" : ""}
+                                            </td>
+                                            <td className="py-2 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedQuestionIds.has(row.cardId)}
+                                                    onChange={(e) => {
+                                                        setSelectedQuestionIds((prev) => {
+                                                            const next = new Set(prev);
+                                                            if (e.target.checked) {
+                                                                next.add(row.cardId);
+                                                            } else {
+                                                                next.delete(row.cardId);
+                                                            }
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    aria-label={`选择题目 ${row.position || rowIndex + 1}`}
+                                                />
                                             </td>
                                         </tr>
                                     ))}

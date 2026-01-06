@@ -10,6 +10,7 @@ import {DotRender} from "../components/ui/DotRender";
 import {MapPdfViewer} from "../components/ui/MapPdfViewer";
 import {ImageRender} from "../components/ui/ImageRender";
 import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
+import { easeFactorToColor, easeFactorFromLevel, recordDifficultyUpdate } from "../../lib/studyUtils";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
 import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft } from "lucide-react";
@@ -45,15 +46,6 @@ function completionColor(percent: number) {
     const b = Math.round(b1 + (b2 - b1) * t);
 
     return `rgb(${r}, ${g}, ${b})`;
-}
-
-function easeFactorToColor(ease_factor: number | null | undefined): string {
-    if (!ease_factor) return "bg-neutral-500";
-
-    if (ease_factor < 1.5) return "bg-purple-700";      // 太难
-    if (ease_factor < 2.5) return "bg-orange-500";   // 有点难
-    if (ease_factor < 3.5) return "bg-blue-500";     // 还行
-    return "bg-green-600";                             // 很容易
 }
 
 type CardStatsMap = Record<string, CardStatsRow | undefined>;
@@ -482,13 +474,7 @@ export function DeckPracticePage() {
 
         if (!user) return;
 
-        const easeMap: Record<number, number> = {
-            1: 1.0,
-            2: 2.0,
-            3: 3.0,
-            4: 4.0
-        };
-        const ease_factor = easeMap[level] ?? 2.0;
+        const ease_factor = easeFactorFromLevel(level);
 
         const user_id = user.id;
         const card_id = currentCard.id;
@@ -500,74 +486,21 @@ export function DeckPracticePage() {
                 : null;
         cardStartTimeRef.current = new Date();
 
-        const is_correct = ease_factor >2;
-
-        // ------- 1) 记录 card_reviews（一条记录就插入一次） -------
-        await supabase.from("card_reviews").insert({
-            card_id,
-            reviewed_at: now,
-            user_answer: null,         // 你目前没有输入作答内容
-            is_correct: is_correct,          // 没有对错概念，写 null
-            time_spent: timeSpentSeconds,
-            belongs_to: currentCard.deck_id ?? null,
-            is_question: false,
-            meta: {difficulty: ease_factor} // 把点击难度记在 meta 里
+        const snapshot = await recordDifficultyUpdate({
+            supabase,
+            userId: user_id,
+            cardId: card_id,
+            deckId: currentCard.deck_id ?? null,
+            easeFactor: ease_factor,
+            reviewedAt: now,
+            timeSpentSeconds,
+            isQuestion: false,
+            meta: { difficulty: ease_factor },
         });
-
-        // ------- 2) 更新 card_stats（累积统计） -------
-        const {data: existing} = await supabase
-            .from("card_stats")
-            .select("*")
-            .eq("user_id", user_id)
-            .eq("card_id", card_id)
-            .maybeSingle();
-
-        if (!existing) {
-            await supabase.from("card_stats").insert({
-                user_id,
-                card_id,
-                review_count: 1,
-                correct_count: is_correct ? 1 : 0,
-                wrong_count: is_correct ? 0 : 1,
-                ease_factor,
-                last_reviewed_at: now
-            });
-            // 本地也更新一下 map
+        if (snapshot) {
             setCardStatsMap((prev) => ({
                 ...prev,
-                [card_id]: {
-                    card_id,
-                    review_count: 1,
-                    correct_count: is_correct ? 1 : 0,
-                    wrong_count: is_correct ? 0 : 1,
-                    ease_factor,
-                    last_reviewed_at: now,
-                },
-            }));
-        } else {
-            const newReviewCount = (existing.review_count || 0) + 1;
-            const newCorrectCount = is_correct ? ((existing.correct_count || 0) + 1) : 0;
-            const newWrongCount = is_correct ? 0 : ((existing.wrong_count || 0) + 1);
-            await supabase
-                .from("card_stats")
-                .update({
-                    review_count: newReviewCount,
-                    correct_count: newCorrectCount,
-                    wrong_count: newWrongCount,
-                    ease_factor,
-                    last_reviewed_at: now
-                })
-                .eq("id", existing.id);
-            setCardStatsMap((prev) => ({
-                ...prev,
-                [card_id]: {
-                    card_id,
-                    review_count: newReviewCount,
-                    correct_count: newCorrectCount,
-                    wrong_count: newWrongCount,
-                    ease_factor,
-                    last_reviewed_at: now,
-                },
+                [card_id]: snapshot,
             }));
         }
         setAnswersSinceBreak((prev) => {
