@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { theDeckService } from "../../lib/DeckService";
 import { Layers, ArrowLeft, Loader2, RefreshCw, CornerUpLeft } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { easeFactorFromLevel, easeFactorToColor, recordDifficultyUpdate } from "../../lib/studyUtils";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { compareDeckTitlesByPath } from "../../lib/deckSort";
 
 type QuestionAnswerPair = {
     card_id: string;
@@ -35,32 +37,6 @@ function buildPromptFull(frontRaw: string): string {
 
 function collapseEmptyLines(text: string): string {
     return text.replace(/\n+/g, "\n");
-}
-
-function parseLeadingNumber(name: string): number | null {
-    const head = name.split(/[_\s]/)[0] || "";
-    const direct = Number(head);
-    if (!Number.isNaN(direct)) return direct;
-
-    const digitMap: Record<string, number> = {
-        "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
-    };
-
-    if (digitMap[head] != null) return digitMap[head];
-
-    const matchTens = head.match(/^([一二三四五六七八九])?十([一二三四五六七八九])?$/);
-    if (matchTens) {
-        const tens = matchTens[1] ? digitMap[matchTens[1]] : 1;
-        const ones = matchTens[2] ? digitMap[matchTens[2]] : 0;
-        return tens * 10 + ones;
-    }
-
-    return null;
-}
-
-function getLastSegment(path: string): string {
-    const parts = path.split("/").filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : path;
 }
 
 export default function WeaknessAnalysisPage() {
@@ -233,27 +209,16 @@ export default function WeaknessAnalysisPage() {
         if (!deckName) return;
         let active = true;
         const loadDecks = async () => {
-            const { data, error } = await supabase
-                .from("user_active_decks")
-                .select("id, title")
-                .or(`title.eq.${deckName},title.ilike.${deckName}/%`);
-            if (!active) return;
-            if (error) {
+            let decks: Array<{ id: string; title: string }>;
+            try {
+                decks = await theDeckService.listDecksByPrefix(deckName);
+            } catch (error) {
                 console.error("load related decks error", error);
                 return;
             }
-            const decks = (data ?? []) as Array<{ id: string; title: string }>;
+            if (!active) return;
             const filteredDecks = decks.filter((deck) => !deck.title.includes("/_"));
-            filteredDecks.sort((a, b) => {
-                const nameA = getLastSegment(a.title);
-                const nameB = getLastSegment(b.title);
-                const na = parseLeadingNumber(nameA);
-                const nb = parseLeadingNumber(nameB);
-                if (na != null && nb != null && na !== nb) return na - nb;
-                if (na != null && nb == null) return -1;
-                if (na == null && nb != null) return 1;
-                return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
-            });
+            filteredDecks.sort((a, b) => compareDeckTitlesByPath(a.title, b.title));
             setRelatedDecks(filteredDecks);
             const defaultSelected = new Set<string>();
             const exact = filteredDecks.find((deck) => deck.title === deckName);

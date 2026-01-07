@@ -1,21 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { type DeckItem, type DeckRow, theDeckService } from "../../lib/DeckService";
 import { Button } from "../components/ui/Button";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { Image as ImageIcon, Upload, Download, Trash2, CornerUpLeft } from "lucide-react";
-
-interface DeckRow {
-    id: string;
-    title: string;
-    description: string | null;
-    items: { items: { card_id: string; position: number }[] } | null;
-}
-
-interface DeckItem {
-    card_id: string;
-    position: number;
-}
 
 interface CardRow {
     id: string;
@@ -202,23 +191,23 @@ export default function DeckResourcesPage() {
             setLoading(true);
             setError(null);
 
-            const { data: deckData, error: deckError } = await supabase
-                .from("decks")
-                .select("id, title, description, items")
-                .eq("id", deckId)
-                .single();
-
-            if (deckError || !deckData) {
+            let deckData: DeckRow | null = null;
+            try {
+                deckData = await theDeckService.getDeckById(deckId);
+                if (!deckData) {
+                    setError("加载 deck 失败");
+                    setLoading(false);
+                    return;
+                }
+                setDeck(deckData);
+            } catch (deckError) {
                 console.error("load deck error", deckError);
                 setError("加载 deck 失败");
                 setLoading(false);
                 return;
             }
 
-            const typedDeck = deckData as DeckRow;
-            setDeck(typedDeck);
-
-            const rawItems = (typedDeck.items?.items ?? []) as DeckItem[];
+            const rawItems = (deckData.items?.items ?? []) as DeckItem[];
             const cardIds = rawItems.map((it) => it.card_id).filter(Boolean);
 
             if (cardIds.length === 0) {

@@ -1,22 +1,11 @@
 import React, {useEffect, useRef, useState} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
+import { type DeckItem, type DeckRow, theDeckService } from "../../lib/DeckService";
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
 import { Trash2, Check, Layers, RotateCcw, Image, Link, CornerUpLeft } from "lucide-react";
-
-interface DeckRow {
-    id: string;
-    title: string;
-    description: string | null;
-    items: { items: { card_id: string; position: number }[] } | null
-}
-
-interface DeckItem {
-    card_id: string;
-    position: number;
-}
 
 interface CardRow {
     id: string;
@@ -157,6 +146,7 @@ const DeckEditPage: React.FC = () => {
     const navigate = useNavigate();
 
     const [loading, setLoading] = useState(true);
+    const [cardsLoading, setCardsLoading] = useState(false);
     const [importing, setImporting] = useState(false);
     // 新增：多选 & 删除状态
     const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -195,14 +185,16 @@ const DeckEditPage: React.FC = () => {
             setError(null);
             setSaveMetaMessage(null);
 
-            const {data: deckData, error: deckError} = await supabase
-                .from("decks")
-                .select("id, title, description, items")
-                .eq("id", deckId)
-                .single();
-
-            if (deckError || !deckData) {
-                console.error("load deck error", deckError);
+            let deckData;
+            try {
+                deckData = await theDeckService.getDeckById(deckId);
+            } catch (err) {
+                console.error("load deck error", err);
+                setError("加载 deck 失败");
+                setLoading(false);
+                return;
+            }
+            if (!deckData) {
                 setError("加载 deck 失败");
                 setLoading(false);
                 return;
@@ -212,16 +204,18 @@ const DeckEditPage: React.FC = () => {
             setDeck(typedDeck);
             setTitleInput(typedDeck.title ?? "");
             setDescriptionInput(typedDeck.description ?? "");
+            setLoading(false);
 
             const rawItems = (typedDeck.items?.items ?? []) as DeckItem[];
             const cardIds = rawItems.map((it) => it.card_id).filter(Boolean);
 
             if (cardIds.length === 0) {
                 setCards([]);
-                setLoading(false);
+                setCardsLoading(false);
                 return;
             }
 
+            setCardsLoading(true);
             const {data: cardsData, error: cardsError} = await supabase
                 .from("cards")
                 .select("id, front, back")
@@ -230,7 +224,7 @@ const DeckEditPage: React.FC = () => {
             if (cardsError || !cardsData) {
                 console.error("load cards error", cardsError);
                 setError("加载卡片失败");
-                setLoading(false);
+                setCardsLoading(false);
                 return;
             }
 
@@ -242,7 +236,7 @@ const DeckEditPage: React.FC = () => {
 
             setCards(orderedCards);
             setSelectedIds(new Set<string>());
-            setLoading(false);
+            setCardsLoading(false);
         }
 
         void loadDeck();
@@ -277,11 +271,9 @@ const DeckEditPage: React.FC = () => {
     async function saveDeckMeta(partial: { title?: string; description?: string | null }) {
         if (!deckId) return false;
         setSaveMetaMessage(null);
-        const { error } = await supabase
-            .from("decks")
-            .update(partial)
-            .eq("id", deckId);
-        if (error) {
+        try {
+            await theDeckService.updateDeck(deckId, partial);
+        } catch (error) {
             console.error("update deck meta error", error);
             setSaveMetaMessage("保存失败，请稍后再试。");
             return false;
@@ -422,12 +414,9 @@ const DeckEditPage: React.FC = () => {
             const newItemsArray = [...prevItems, ...appendedItems];
             const newItemsJson = {items: newItemsArray};
 
-            const {error: updateDeckError} = await supabase
-                .from("decks")
-                .update({items: newItemsJson})
-                .eq("id", deckId);
-
-            if (updateDeckError) {
+            try {
+                await theDeckService.updateDeck(deckId, { items: newItemsJson });
+            } catch (updateDeckError) {
                 console.error("update deck items error", updateDeckError);
                 setError("导入部分成功，但更新 deck.items 失败。");
                 setImporting(false);
@@ -577,12 +566,9 @@ const DeckEditPage: React.FC = () => {
             );
             const newItemsJson = { items: filteredItems };
 
-            const { error: updateDeckError } = await supabase
-                .from("decks")
-                .update({ items: newItemsJson })
-                .eq("id", deckId);
-
-            if (updateDeckError) {
+            try {
+                await theDeckService.updateDeck(deckId, { items: newItemsJson });
+            } catch (updateDeckError) {
                 console.error(
                     "update deck items after delete error",
                     updateDeckError
@@ -621,19 +607,22 @@ const DeckEditPage: React.FC = () => {
         setDeletingDeck(true);
         setError(null);
 
-        const { error: deleteError } = await supabase
-            .from("decks")
-            .update({ is_deleted: true })
-            .eq("id", deckId);
-
-        if (deleteError) {
+        try {
+            await theDeckService.deleteDeck(deckId);
+        } catch (deleteError) {
             console.error("delete deck error", deleteError);
             setError("删除 deck 失败，请稍后再试。");
             setDeletingDeck(false);
             return;
         }
 
-        navigate(`/`);
+        const parentPath = (deck?.title ?? "")
+            .split("/")
+            .filter(Boolean)
+            .slice(0, -1)
+            .join("/");
+        const next = parentPath ? `/?path=${encodeURIComponent(parentPath)}` : "/";
+        navigate(next);
     }
 
     if (!deckId) {
@@ -936,7 +925,7 @@ front,back
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
                 <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-semibold">
-                        卡片预览（{cards.length} 条）
+                        {cardsLoading ? "卡片预览（加载中…）" : `卡片预览（${cards.length} 条）`}
                     </div>
                     <div className="flex items-center gap-2">
         <span className="text-xs text-slate-400">
@@ -966,7 +955,9 @@ front,back
                         </Button>
                     </div>
                 </div>
-                {cards.length === 0 ? (
+                {cardsLoading ? (
+                    <div className="text-xs text-slate-500">正在加载卡片…</div>
+                ) : cards.length === 0 ? (
                     <div className="text-xs text-slate-500">当前 deck 还没有卡片。</div>
                 ) : (
                     <ul className="space-y-2 pr-2">

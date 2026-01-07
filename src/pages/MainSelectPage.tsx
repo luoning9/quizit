@@ -4,6 +4,7 @@ import {Button} from "../components/ui/Button";
 import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import { loadDeckTree, isDeckPathOccupiedSync, isRealDeckSync, type DeckTreeNode } from "../../lib/deckTree";
+import { compareDeckSegments } from "../../lib/deckSort";
 import {useLocation, useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
 interface QuizTemplate {
@@ -53,27 +54,6 @@ function findNodeByPath(root: DeckTreeNode, path: string): DeckTreeNode {
 function calcProgress(node: DeckTreeNode): number {
     if (!node || node.totalItems === 0) return 0;
     return Math.round((node.totalEaseFactor / (node.totalItems * 4)) * 100);
-}
-
-function parseLeadingNumber(name: string): number | null {
-    const head = name.split(/[_\s]/)[0] || "";
-    const direct = Number(head);
-    if (!Number.isNaN(direct)) return direct;
-
-    const digitMap: Record<string, number> = {
-        "零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
-    };
-
-    if (digitMap[head] != null) return digitMap[head];
-
-    const matchTens = head.match(/^([一二三四五六七八九])?十([一二三四五六七八九])?$/);
-    if (matchTens) {
-        const tens = matchTens[1] ? digitMap[matchTens[1]] : 1;
-        const ones = matchTens[2] ? digitMap[matchTens[2]] : 0;
-        return tens * 10 + ones;
-    }
-
-    return null;
 }
 
 function truncateDeckName(name: string, maxChars: number): string {
@@ -169,15 +149,7 @@ export function MainSelectPage() {
 
     const childNodes = useMemo(() => currentNode.children
         .slice()
-        .sort((a, b) => {
-            const na = parseLeadingNumber(a.name);
-            const nb = parseLeadingNumber(b.name);
-
-            if (na != null && nb != null && na !== nb) return na - nb;
-            if (na != null && nb == null) return -1;
-            if (na == null && nb != null) return 1;
-            return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-        }), [currentNode]);
+        .sort((a, b) => compareDeckSegments(a.name, b.name)), [currentNode]);
     const quizzesInCurrentDir = useMemo(
         () =>
             quizTemplates

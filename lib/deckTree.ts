@@ -103,19 +103,30 @@ export function buildDeckTree(
     for (const row of stats) {
         if (!row.deck_name) continue;
         const parts = row.deck_name.split("/").filter(Boolean);
+        if (parts.length === 0) continue;
         let current = root;
         let acc = "";
+        const pathNodes: DeckTreeNode[] = [root];
         for (const part of parts) {
             acc = acc ? `${acc}/${part}` : part;
             current = ensureChild(current, part);
-
-            current.deckCount += 1;
-            current.totalItems += row.item_count ?? 0;
-            current.totalEaseFactor += row.ease_sum ?? 0;
-            current.learnedCount += row.learned_count ?? 0;
-            current.dueCount += row.due_count ?? 0;
-            current.recentUnlearnedCount += row.recent_unlearned_count ?? 0;
+            pathNodes.push(current);
         }
+
+        const items = row.item_count ?? 0;
+        const learned = row.learned_count ?? 0;
+        const due = row.due_count ?? 0;
+        const ease = row.ease_sum ?? 0;
+        const recentUnlearned = row.recent_unlearned_count ?? 0;
+
+        pathNodes.forEach((node) => {
+            node.deckCount += 1;
+            node.totalItems += items;
+            node.totalEaseFactor += ease;
+            node.learnedCount += learned;
+            node.dueCount += due;
+            node.recentUnlearnedCount += recentUnlearned;
+        });
 
         current.deckId = row.deck_id;
         current.isDeck = row.deck_id != null;
