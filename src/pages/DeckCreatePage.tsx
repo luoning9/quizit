@@ -1,7 +1,9 @@
 // src/features/decks/DeckCreatePage.tsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { theDeckService } from "../../lib/DeckService";
+import { isDeckPathOccupied } from "../../lib/deckTree";
 import { Button } from "../components/ui/Button";
 import { Layers, CornerUpLeft } from "lucide-react";
 
@@ -12,15 +14,33 @@ const DeckCreatePage: React.FC = () => {
 
     const navigate = useNavigate();
 
-    const [title, setTitle] = useState(initialPath?initialPath+'/':"");
+    const [title, setTitle] = useState(initialPath ? `${initialPath}/` : "");
     const [description, setDescription] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const normalizedTitle = useMemo(() => {
+        const raw = title.trim();
+        if (!raw) return "";
+        const parts = raw.split("/").map((p) => p.trim()).filter(Boolean);
+        return parts.join("/");
+    }, [title]);
+    const initialPrefix = useMemo(() => {
+        const raw = initialPath.trim();
+        if (!raw) return "";
+        const parts = raw.split("/").map((p) => p.trim()).filter(Boolean);
+        return parts.join("/");
+    }, [initialPath]);
+    const hasPrefix = initialPrefix ? normalizedTitle.startsWith(`${initialPrefix}/`) : true;
+    const titleValid = normalizedTitle.length > 0 && !normalizedTitle.endsWith("/") && hasPrefix;
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!title.trim()) {
+        if (!normalizedTitle) {
             setError("标题不能为空。");
+            return;
+        }
+        if (!hasPrefix) {
+            setError("标题必须包含当前路径前缀。");
             return;
         }
 
@@ -41,25 +61,21 @@ const DeckCreatePage: React.FC = () => {
                 return;
             }
 
-            // 2. 插入 decks
-            const { data, error: insertError } = await supabase
-                .from("decks")
-                .insert({
-                    title: title.trim(),
-                    description: description.trim() || null,
-                    // 其它字段用默认值：items 默认为 {"items": []}
-                })
-                .select("id")
-                .single();
-
-            if (insertError || !data) {
-                console.error("insert deck error", insertError);
-                setError("创建 deck 失败，请稍后再试。");
+            // 2. 检查重名
+            const occupied = await isDeckPathOccupied(normalizedTitle);
+            if (occupied) {
+                setError("标题路径已被占用，请修改后再创建。");
                 setSubmitting(false);
                 return;
             }
 
-            // 3. 跳转到编辑页面
+            // 3. 插入 decks
+            const data = await theDeckService.createDeck({
+                title: normalizedTitle,
+                description: description.trim() || null,
+            });
+
+            // 4. 跳转到编辑页面
             navigate(`/decks/${data.id}/edit`);
         } catch (err) {
             console.error(err);
@@ -136,9 +152,7 @@ const DeckCreatePage: React.FC = () => {
                         variant="primary"
                         disabled={
                             submitting ||
-                            !title.trim() ||
-                            title.trim() === initialPath.trim() ||
-                            title.trim().endsWith("/")
+                            !titleValid
                         }
                         className="text-sm font-medium px-4 py-2 rounded-xl"
                     >

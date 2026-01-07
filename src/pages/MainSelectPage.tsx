@@ -4,7 +4,7 @@ import {Button} from "../components/ui/Button";
 import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import { loadDeckTree, isDeckPathOccupiedSync, isRealDeckSync, type DeckTreeNode } from "../../lib/deckTree";
-import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
+import {useLocation, useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 
 interface QuizTemplate {
     id: string;
@@ -90,6 +90,7 @@ export function MainSelectPage() {
     const initialPath = searchParams.get("path") || "";
 
     const navigate = useNavigate();
+    const location = useLocation();
     const {setNavDueCount, setNavRecentNewCount} = useOutletContext<NavContext>();
     const [deckTree, setDeckTree] = useState<DeckTreeNode | null>(null);
     const [loading, setLoading] = useState(true);
@@ -153,7 +154,7 @@ export function MainSelectPage() {
         }
 
         loadFolderStats();
-    }, []);
+    }, [location.key]);
 
     const tree = deckTree ?? EMPTY_TREE;
     useEffect(() => {
@@ -435,19 +436,21 @@ export function MainSelectPage() {
                             <Layers size={16} />
                             <span>新建卡组</span>
                         </Button>
-                        <Button
-                            variant="none"
-                            className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg px-3 py-2 flex items-center gap-1 dark:border-blue-600 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-800/60"
-                            onClick={() => {
-                                const params = new URLSearchParams();
-                                params.set("path", selectedPath);
-                                if (currentNode?.isDeck) params.set("is_deck", "1");
-                                navigate(`/quizzes/new?${params.toString()}`);
-                            }}
-                        >
-                            <PlusCircle size={16} />
-                            <span>新增测验</span>
-                        </Button>
+                        {selectedPath && (
+                            <Button
+                                variant="none"
+                                className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg px-3 py-2 flex items-center gap-1 dark:border-blue-600 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-800/60"
+                                onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set("path", selectedPath);
+                                    if (currentNode?.isDeck) params.set("is_deck", "1");
+                                    navigate(`/quizzes/new?${params.toString()}`);
+                                }}
+                            >
+                                <PlusCircle size={16} />
+                                <span>新增测验</span>
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
