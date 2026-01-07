@@ -3,39 +3,8 @@ import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
+import { loadDeckTree, isDeckPathOccupiedSync, isRealDeckSync, type DeckTreeNode } from "../../lib/deckTree";
 import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
-
-/**
- * 来自 view：user_deck_folder_view 的记录
- * path            目录路径，如 "A", "A/B", "Physics/Grade8"
- * deck_count      该节点下（含子节点）的 deck 数量
- * total_items     该节点下（含子节点）的 items 总数
- * total_ease_factor 该节点下所有已学习卡片的 ease_factor 之和
- */
-type DeckStat = {
-    deck_id: string;
-    deck_name: string;
-    deck_created_at?: string | null;
-    item_count: number;
-    learned_count?: number;
-    due_count?: number;
-    recent_unlearned_count?: number;
-    ease_sum: number;
-};
-
-interface DeckTreeNode {
-    name: string;
-    fullPath: string;
-    children: DeckTreeNode[];
-    deckCount: number;
-    totalItems: number;
-    totalEaseFactor: number;
-    learnedCount: number;
-    dueCount: number;
-    recentUnlearnedCount: number;
-    isDeck: boolean;
-    deckId: string;
-}
 
 interface QuizTemplate {
     id: string;
@@ -53,89 +22,19 @@ type NavContext = {
     setNavRecentNewCount?: (n: number) => void;
 };
 
-// 根据 view 的 path 构造目录树，并收集所有路径前缀
-function buildDeckTree(stats: DeckStat[]): { root: DeckTreeNode; deckPathAndNames: Set<string> } {
-    const root: DeckTreeNode = {
-        name: "",
-        fullPath: "",
-        children: [],
-        deckCount: 0,
-        totalItems: 0,
-        totalEaseFactor: 0,
-        learnedCount: 0,
-        dueCount: 0,
-        recentUnlearnedCount: 0,
-        isDeck: false,
-        deckId: "",
-    };
-    const deckPathAndNames = new Set<string>();
-
-    const ensureChild = (parent: DeckTreeNode, name: string): DeckTreeNode => {
-        const existing = parent.children.find((c) => c.name === name);
-        if (existing) return existing;
-
-        const fullPath = parent.fullPath ? `${parent.fullPath}/${name}` : name;
-
-        const node: DeckTreeNode = {
-            name,
-            fullPath,
-            children: [],
-            deckCount: 0,
-            totalItems: 0,
-            totalEaseFactor: 0,
-            learnedCount: 0,
-            dueCount: 0,
-            recentUnlearnedCount: 0,
-            isDeck: false,
-            deckId: "",
-        };
-
-        parent.children.push(node);
-        return node;
-    };
-
-    for (const row of stats) {
-        if (!row.deck_name) continue;
-        const parts = row.deck_name.split("/").filter(Boolean);
-        if (parts.length === 0) continue;
-
-        // 收集所有前缀路径
-        let acc = "";
-        parts.forEach((part, idx) => {
-            acc = idx === 0 ? part : `${acc}/${part}`;
-            deckPathAndNames.add(acc);
-        });
-
-        let current = root;
-        const pathNodes: DeckTreeNode[] = [root];
-        for (const part of parts) {
-            current = ensureChild(current, part);
-            pathNodes.push(current);
-        }
-
-        const items = row.item_count ?? 0;
-        const learned = row.learned_count ?? 0;
-        const due = row.due_count ?? 0;
-        const ease = row.ease_sum ?? 0;
-        const recentUnlearned = row.recent_unlearned_count ?? 0;
-
-        // 累加到路径上的每个节点（含自身）
-        pathNodes.forEach((node) => {
-            node.deckCount += 1;
-            node.totalItems += items;
-            node.totalEaseFactor += ease;
-            node.learnedCount += learned;
-            node.dueCount += due;
-            node.recentUnlearnedCount += recentUnlearned;
-        });
-
-        // 叶子节点标记 deck 信息
-        current.deckId = row.deck_id;
-        current.isDeck = row.deck_id != null;
-    }
-
-    return { root, deckPathAndNames };
-}
+const EMPTY_TREE: DeckTreeNode = {
+    name: "",
+    fullPath: "",
+    children: [],
+    deckCount: 0,
+    totalItems: 0,
+    totalEaseFactor: 0,
+    learnedCount: 0,
+    dueCount: 0,
+    recentUnlearnedCount: 0,
+    isDeck: false,
+    deckId: "",
+};
 
 // 根据路径查找目录节点
 function findNodeByPath(root: DeckTreeNode, path: string): DeckTreeNode {
@@ -192,7 +91,7 @@ export function MainSelectPage() {
 
     const navigate = useNavigate();
     const {setNavDueCount, setNavRecentNewCount} = useOutletContext<NavContext>();
-    const [deckStats, setDeckStats] = useState<DeckStat[]>([]);
+    const [deckTree, setDeckTree] = useState<DeckTreeNode | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedPath, setSelectedPath] = useState(initialPath);
     const [quizTemplates, setQuizTemplates] = useState<QuizTemplate[]>([]);
@@ -244,15 +143,11 @@ export function MainSelectPage() {
     useEffect(() => {
         async function loadFolderStats() {
             setLoading(true);
-            const {data, error} = await supabase
-                .from("user_deck_stats_view")
-                .select("deck_id, deck_name, item_count, learned_count, due_count, ease_sum, recent_unlearned_count")
-                .order("deck_name", {ascending: true});
-
-            if (error) {
-                console.error("Error loading user_deck_stats_view:", error);
-            } else if (data) {
-                setDeckStats(data as DeckStat[]);
+            try {
+                const treeResult = await loadDeckTree();
+                setDeckTree(treeResult.root);
+            } catch (err) {
+                console.error("Error building deck tree:", err);
             }
             setLoading(false);
         }
@@ -260,8 +155,7 @@ export function MainSelectPage() {
         loadFolderStats();
     }, []);
 
-    // 所有 deck 路径前缀 + 完整路径（用于判断目录树上的占用路径）
-    const { root: tree, deckPathAndNames } = useMemo(() => buildDeckTree(deckStats), [deckStats]);
+    const tree = deckTree ?? EMPTY_TREE;
     useEffect(() => {
         if (setNavDueCount) {
             setNavDueCount(tree.dueCount ?? 0);
@@ -283,15 +177,6 @@ export function MainSelectPage() {
             if (na == null && nb != null) return 1;
             return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         }), [currentNode]);
-    // 真实 deck 的完整路径集合（不含前缀）
-    const realDeckNames = useMemo(() => {
-        const set = new Set<string>();
-        deckStats.forEach((row) => {
-            if (row.deck_name) set.add(row.deck_name);
-        });
-        return set;
-    }, [deckStats]);
-
     const quizzesInCurrentDir = useMemo(
         () =>
             quizTemplates
@@ -307,12 +192,12 @@ export function MainSelectPage() {
                     const isDirectChild = hasPath
                         ? path.startsWith(prefix) && !path.slice(prefix.length).includes("/")
                         : !path.includes("/");
-                    const isRealDeck = realDeckNames.has(path);
+                    const isRealDeckFlag = isRealDeckSync(path);
 
                     return (
-                        !deckPathAndNames.has(path) ||
+                        !isDeckPathOccupiedSync(path) ||
                         path === selectedPath ||
-                        (isDirectChild && isRealDeck)
+                        (isDirectChild && isRealDeckFlag)
                     );
                 })
                 .map((t) => ({
@@ -325,7 +210,7 @@ export function MainSelectPage() {
                     lastScore: t.last_score ?? 0,
                     lastAttemptAt: t.last_attempt_at ?? 0,
                 })),
-        [quizTemplates, selectedPath, deckPathAndNames, realDeckNames]
+        [quizTemplates, selectedPath, deckTree]
     );
 
     const breadcrumbSegments = selectedPath ? selectedPath.split("/").filter(Boolean).map((seg, idx, arr) => ({

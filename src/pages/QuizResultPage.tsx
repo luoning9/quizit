@@ -6,7 +6,7 @@ import {Button} from "../components/ui/Button";
 import { useRef } from "react";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { parseFront } from "../../lib/quizFormat";
-import { fetchWrongBookCardIds } from "../../lib/WrongBook";
+import { fetchWrongBookDeck } from "../../lib/WrongBook";
 
 type QuizRunRecord = {
     id: string;
@@ -241,7 +241,7 @@ export default function QuizResultPage() {
             }
 
             const cardIds = items.map((item) => item.cardId);
-            const [cardsRes, reviewsRes, statsRes, wrongIds] = await Promise.all([
+            const [cardsRes, reviewsRes, statsRes, wrongDeck] = await Promise.all([
                 supabase
                     .from("cards")
                     .select("id, front")
@@ -256,7 +256,7 @@ export default function QuizResultPage() {
                     .from("card_stats")
                     .select("card_id, correct_count, review_count")
                     .in("card_id", cardIds),
-                deckPath ? fetchWrongBookCardIds(deckPath) : Promise.resolve(new Set<string>()),
+                deckPath ? fetchWrongBookDeck(deckPath) : Promise.resolve(null),
             ]);
 
             if (!isActive) return;
@@ -294,7 +294,13 @@ export default function QuizResultPage() {
                 reviewMap.set(review.card_id, list);
             }
 
-            const wrongSet = wrongIds ?? new Set<string>();
+            const wrongItems =
+                (wrongDeck as { items?: { items?: Array<{ card_id?: string }> } } | null)?.items?.items ?? [];
+            const wrongBookCardSet = new Set(
+                wrongItems
+                    .map((item) => item?.card_id)
+                    .filter((id): id is string => Boolean(id))
+            );
 
             const rows: QuestionRow[] = items.map((item) => {
                 const frontRaw = cardMap.get(item.cardId) ?? "";
@@ -311,7 +317,7 @@ export default function QuizResultPage() {
                     promptSummary: truncateText(promptFull, 24),
                     recentAttempts: reviewMap.get(item.cardId) ?? [],
                     accuracy,
-                    inWrongBook: wrongSet.has(item.cardId),
+                    inWrongBook: wrongBookCardSet.has(item.cardId),
                 };
             });
 
