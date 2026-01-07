@@ -11,7 +11,7 @@ import LoginPage from "./pages/LoginPage.tsx";
 import { MainSelectPage } from "./pages/MainSelectPage.tsx";
 import DeckEditPage from "./pages/DeckEditPage.tsx";
 import DeckResourcesPage from "./pages/DeckResourcesPage.tsx";
-import CreateDeckPage from "./pages/CreateDeckPage.tsx";
+import DeckCreatePage from "./pages/DeckCreatePage.tsx";
 import NewQuizPage from "./pages/NewQuizPage";
 import QuizResultPage from "./pages/QuizResultPage";
 import WeaknessAnalysisPage from "./pages/WeaknessAnalysisPage";
@@ -43,7 +43,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/quiz-runs/:quizId/weakness" element={<WeaknessAnalysisPage />} />
                     <Route path="/decks/:deckId/edit" element={<DeckEditPage />} />
                     <Route path="/decks/:deckId/resources" element={<DeckResourcesPage />} />
-                    <Route path="/decks/new" element={<CreateDeckPage />} />
+                    <Route path="/decks/new" element={<DeckCreatePage />} />
                     <Route path="/decks/newest" element={<NewDecksPage />} />
                     <Route path="/decks/due" element={<DueDecksPage />} />
                     <Route path="/debug/map-pdf" element={<MapPdfTestPage />} />

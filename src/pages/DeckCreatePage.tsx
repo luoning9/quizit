@@ -1,11 +1,11 @@
-// src/features/decks/CreateDeckPage.tsx
+// src/features/decks/DeckCreatePage.tsx
 import React, { useState } from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "../components/ui/Button";
 import { Layers, CornerUpLeft } from "lucide-react";
 
-const CreateDeckPage: React.FC = () => {
+const DeckCreatePage: React.FC = () => {
     const [searchParams] = useSearchParams();
     // 用 URL 里的 ?path=... 作为初始值，没有就用 "/"
     const initialPath = searchParams.get("path") || "";
@@ -150,4 +150,4 @@ const CreateDeckPage: React.FC = () => {
     );
 };
 
-export default CreateDeckPage;
+export default DeckCreatePage;
