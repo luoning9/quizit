@@ -288,7 +288,7 @@ export function MainSelectPage() {
                                             )}
                                         </div>
                                         <div className="w-full">
-                                            <div className="grid grid-cols-[2fr_2fr_1fr] items-center gap-2 w-full">
+                                            <div className="grid grid-cols-[3fr_2fr_1fr] items-center gap-2 w-full">
 
                                                 {/* 名称 + 统计信息 同一行 */}
                                                 <span className="text-sm text-left">
