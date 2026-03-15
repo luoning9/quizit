@@ -35,6 +35,17 @@ export function parseLeadingNumber(name: string): number | null {
         return parseChineseNumber(leadingChinese);
     }
 
+    const ordinalDigits = head.match(/^第(\d+)(?:单元|课|章|节)?/)?.[1];
+    if (ordinalDigits) {
+        const direct = Number(ordinalDigits);
+        return Number.isNaN(direct) ? null : direct;
+    }
+
+    const ordinalChinese = head.match(/^第([零〇一二两三四五六七八九十]+)(?:单元|课|章|节)?/)?.[1];
+    if (ordinalChinese) {
+        return parseChineseNumber(ordinalChinese);
+    }
+
     return null;
 }
 
