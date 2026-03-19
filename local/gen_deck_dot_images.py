@@ -10,6 +10,7 @@
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Optional, Dict
@@ -93,6 +94,27 @@ def generate_graph_prompt(keyword: str) -> str:
 {keyword}
     '''
 
+
+def sanitize_dot_output(text: Optional[str]) -> Optional[str]:
+    if not text:
+        return None
+
+    cleaned = text.strip()
+    fenced = re.fullmatch(r"```(?:dot|graphviz)?\s*(.*?)```", cleaned, re.DOTALL)
+    if fenced:
+        cleaned = fenced.group(1).strip()
+
+    # Accept only plain DOT digraph content; reject explanatory text.
+    if "digraph" not in cleaned or "{" not in cleaned or "}" not in cleaned:
+        return None
+
+    digraph_index = cleaned.find("digraph")
+    cleaned = cleaned[digraph_index:].strip()
+
+    if not cleaned.endswith("}"):
+        return None
+    return cleaned
+
 def fetch_graph(
     oa_client: OpenAI,
     store_id: str,
@@ -127,7 +149,7 @@ def fetch_graph(
                     break
         except Exception:
             text = None
-    return text
+    return sanitize_dot_output(text)
 
 
 def main(argv: Optional[list[str]] = None) -> None:
