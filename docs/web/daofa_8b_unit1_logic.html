@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第一单元知识结构图（完整版）</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&display=swap");
+
+        :root {
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --line: #cbd5e1;
+            --line-soft: #e2e8f0;
+            --blue: #2563eb;
+            --indigo: #4f46e5;
+            --emerald: #059669;
+            --violet: #7c3aed;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(circle at 8% 10%, #e6efff 0, transparent 32%),
+                        radial-gradient(circle at 92% 88%, #ebfff5 0, transparent 34%),
+                        var(--bg);
+            color: var(--ink);
+            font-family: "Noto Sans SC", sans-serif;
+            overflow-x: hidden;
+        }
+
+        .board {
+            width: min(1360px, calc(100vw - 48px));
+            border: 1px solid var(--line-soft);
+            border-radius: 22px;
+            background: var(--panel);
+            box-shadow: 0 24px 44px -18px rgba(15, 23, 42, 0.24);
+            padding: 22px 22px 18px;
+            position: relative;
+        }
+
+        .board::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            background-image: linear-gradient(to right, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+        }
+
+        .header {
+            position: relative;
+            z-index: 4;
+            border-bottom: 1px solid var(--line-soft);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: #111827;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+        }
+
+        .icon-chip {
+            width: 24px;
+            height: 24px;
+            border-radius: 7px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            flex: 0 0 auto;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        .icon-chip svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.9;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .summary-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            font-size: 11px;
+            border-color: rgba(148, 163, 184, 0.22);
+        }
+
+        .icon-blue {
+            background: rgba(37, 99, 235, 0.14);
+            border-color: rgba(37, 99, 235, 0.18);
+            color: #2563eb;
+        }
+
+        .icon-green {
+            background: rgba(5, 150, 105, 0.14);
+            border-color: rgba(5, 150, 105, 0.18);
+            color: #059669;
+        }
+
+        .icon-violet {
+            background: rgba(124, 58, 237, 0.14);
+            border-color: rgba(124, 58, 237, 0.18);
+            color: #7c3aed;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: clamp(18px, 2.2vw, 24px);
+            font-weight: 800;
+            letter-spacing: 0.2px;
+        }
+
+        .header p {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 1.3px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 700;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+        }
+
+        .main {
+            position: relative;
+            z-index: 3;
+            margin-top: 14px;
+            padding-top: 10px;
+            padding-bottom: 132px;
+            overflow: visible;
+            scrollbar-width: none;
+        }
+
+        .main::-webkit-scrollbar {
+            display: none;
+        }
+
+        .flow-wrap {
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            position: relative;
+            gap: clamp(2px, 0.6vw, 6px);
+        }
+
+        .loop-line {
+            position: absolute;
+            inset: auto 0 auto 0;
+            top: 210px;
+            height: 104px;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .loop-label {
+            position: absolute;
+            left: 50%;
+            top: 286px;
+            transform: translateX(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.94);
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 6px 14px;
+            white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+            z-index: 4;
+        }
+
+        .loop-label svg {
+            width: 16px;
+            height: 16px;
+            stroke: #64748b;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex: 0 0 auto;
+        }
+
+        .step {
+            width: clamp(150px, 17vw, 240px);
+            background: #fff;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid #dbeafe;
+            box-shadow: 0 10px 16px -12px rgba(15, 23, 42, 0.24);
+            position: relative;
+            z-index: 2;
+        }
+
+        .step:hover {
+            transform: translateY(-3px);
+            transition: transform 0.2s ease;
+        }
+
+        .step-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+            padding: 11px 12px;
+            font-weight: 800;
+            font-size: 18px;
+        }
+
+        .step-top-left {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .step-num {
+            font-size: 10px;
+            opacity: 0.85;
+            letter-spacing: 0.8px;
+        }
+
+        .step-body {
+            padding: 13px 14px 14px;
+            background: #f8fbff;
+        }
+
+        .step-title {
+            margin: 0;
+            font-size: 17px;
+            line-height: 1.25;
+            font-weight: 800;
+        }
+
+        .step-sub {
+            margin-top: 2px;
+            margin-bottom: 9px;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .items {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 7px;
+        }
+
+        .items li {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.35;
+        }
+
+        .items li::before {
+            content: "";
+            margin-top: 6px;
+            width: 5px;
+            height: 5px;
+            border-radius: 999px;
+            background: currentColor;
+            flex-shrink: 0;
+            opacity: 0.65;
+        }
+
+        .bridge {
+            width: clamp(28px, 2.8vw, 42px);
+            min-height: 262px;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .bridge-line {
+            position: absolute;
+            left: 50%;
+            top: 194px;
+            width: 96px;
+            height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #cbd5e1 0%, #94a3b8 100%);
+            transform: translateX(-50%);
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .bridge-label {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.3;
+            text-align: center;
+            padding: 6px 10px;
+            width: 136px;
+            white-space: normal;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+            z-index: 3;
+        }
+
+        .bridge-arrow {
+            position: absolute;
+            right: -1px;
+            top: 50%;
+            width: 10px;
+            height: 10px;
+            border-top: 2px solid #94a3b8;
+            border-right: 2px solid #94a3b8;
+            transform: translateY(-50%) rotate(45deg);
+            color: transparent;
+            font-size: 0;
+        }
+
+        @media (max-width: 960px) {
+            body {
+                padding: 10px;
+            }
+
+            .board {
+                width: calc(100vw - 20px);
+                padding: 14px 14px 12px;
+            }
+
+            .header p {
+                font-size: 10px;
+                letter-spacing: 0.9px;
+            }
+
+            .loop-label {
+                font-size: 11px;
+                padding: 4px 10px;
+                top: 278px;
+            }
+
+            .step-title {
+                font-size: 15px;
+            }
+
+            .items li {
+                font-size: 12px;
+            }
+
+            .bridge-label {
+                display: none;
+            }
+        }
+
+        .bottom {
+            position: relative;
+            z-index: 3;
+            margin-top: 2px;
+            border: 1px solid var(--line-soft);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .bottom-item {
+            padding: 13px 14px;
+            border-right: 1px solid #f1f5f9;
+        }
+
+        .bottom-item:last-child {
+            border-right: none;
+        }
+
+        .bottom-title {
+            margin: 0 0 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .bottom-text {
+            margin: 0;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .footer {
+            margin-top: 10px;
+            text-align: center;
+            color: #cbd5e1;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2.4px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+<div class="board">
+    <header class="header">
+        <div class="header-left">
+            <div class="header-badge">▦</div>
+            <div>
+                <h1>宪法逻辑全景图：第一单元知识串联</h1>
+                <p>Constitutional Logic &amp; Power Regulation</p>
+            </div>
+        </div>
+        <div class="legend">
+            <span class="legend-item"><i class="dot" style="background:#2563eb"></i>意志</span>
+            <span class="legend-item"><i class="dot" style="background:#059669"></i>规范</span>
+            <span class="legend-item"><i class="dot" style="background:#7c3aed"></i>监督</span>
+        </div>
+    </header>
+
+    <section class="main">
+        <div class="flow-wrap">
+            <svg class="loop-line" viewBox="0 0 1220 118" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="loopGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#3b82f6"></stop>
+                        <stop offset="100%" stop-color="#8b5cf6"></stop>
+                    </linearGradient>
+                </defs>
+                <path class="loop-track" d="M 1115 10 V 96 H 105 V 10" fill="none" stroke="url(#loopGradient)" stroke-width="2" stroke-dasharray="6 4" opacity="0.35"></path>
+                <path class="loop-arrow" d="M 99 22 L 105 10 L 111 22" fill="none" stroke="#3b82f6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div class="loop-label">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 12a8 8 0 0 1-13.6 5.7"></path>
+                    <path d="M4 12a8 8 0 0 1 13.6-5.7"></path>
+                    <path d="m6.2 19.2.2-3.6 3.6.2"></path>
+                    <path d="m17.8 4.8-.2 3.6-3.6-.2"></path>
+                </svg>
+                <span>闭环机制：通过监督确保所有环节回归“统一意志”</span>
+            </div>
+
+            <article class="step" style="border-color:#bfdbfe">
+                <div class="step-top" style="background:#2563eb">
+                    <span class="step-top-left">
+                        <span class="icon-chip" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 3.5 18 6v5c0 4-2.4 7.2-6 8.8C8.4 18.2 6 15 6 11V6z"></path>
+                                <path d="m9.3 11.8 1.8 1.8 3.6-4"></path>
+                            </svg>
+                        </span>
+                    </span>
+                    <span class="step-num">阶段 01</span>
+                </div>
+                <div class="step-body">
+                    <h3 class="step-title" style="color:#1d4ed8">统一意志</h3>
+                    <div class="step-sub">Will of the People</div>
+                    <ul class="items">
+                        <li>党的主张与人民意志统一</li>
+                        <li>尊重保障人权为核心</li>
+                        <li>权力属于人民的本质要求</li>
+                    </ul>
+                </div>
+            </article>
+
+            <div class="bridge">
+                <div class="bridge-line">
+                    <div class="bridge-label">意志的制度化</div>
+                    <div class="bridge-arrow">➤</div>
+                </div>
+            </div>
+
+            <article class="step" style="border-color:#c7d2fe">
+                <div class="step-top" style="background:#4f46e5">
+                    <span class="step-top-left">
+                        <span class="icon-chip" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 4h6l4 4v11.5H8z"></path>
+                                <path d="M14 4v4h4"></path>
+                                <path d="M10 12h6"></path>
+                                <path d="M10 15h4.5"></path>
+                            </svg>
+                        </span>
+                    </span>
+                    <span class="step-num">阶段 02</span>
+                </div>
+                <div class="step-body" style="background:#f8f7ff">
+                    <h3 class="step-title" style="color:#3730a3">治国安邦总章程</h3>
+                    <div class="step-sub">Fundamental Charter</div>
+                    <ul class="items">
+                        <li>规定国家生活的根本问题</li>
+                        <li>确定国家性质与根本制度</li>
+                        <li>法律体系中居于最高地位</li>
+                    </ul>
+                </div>
+            </article>
+
+            <div class="bridge">
+                <div class="bridge-line">
+                    <div class="bridge-label">权力运行的规范化</div>
+                    <div class="bridge-arrow">➤</div>
+                </div>
+            </div>
+
+            <article class="step" style="border-color:#a7f3d0">
+                <div class="step-top" style="background:#059669">
+                    <span class="step-top-left">
+                        <span class="icon-chip" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4.5 9.5h15"></path>
+                                <path d="M7.5 9.5v8"></path>
+                                <path d="M12 9.5v8"></path>
+                                <path d="M16.5 9.5v8"></path>
+                                <path d="M4 18h16"></path>
+                                <path d="m4.5 9.5 7.5-4 7.5 4"></path>
+                            </svg>
+                        </span>
+                    </span>
+                    <span class="step-num">阶段 03</span>
+                </div>
+                <div class="step-body" style="background:#f5fff9">
+                    <h3 class="step-title" style="color:#065f46">依宪治国实践</h3>
+                    <div class="step-sub">Standard Governance</div>
+                    <ul class="items">
+                        <li>坚持宪法至上，依法履职</li>
+                        <li>法无授权不可为</li>
+                        <li>规范权力以保障权利</li>
+                    </ul>
+                </div>
+            </article>
+
+            <div class="bridge">
+                <div class="bridge-line">
+                    <div class="bridge-label">对权力的事后监督</div>
+                    <div class="bridge-arrow">➤</div>
+                </div>
+            </div>
+
+            <article class="step" style="border-color:#ddd6fe">
+                <div class="step-top" style="background:#7c3aed">
+                    <span class="step-top-left">
+                        <span class="icon-chip" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3.5 12s3.2-5 8.5-5 8.5 5 8.5 5-3.2 5-8.5 5-8.5-5-8.5-5z"></path>
+                                <circle cx="12" cy="12" r="2.4"></circle>
+                            </svg>
+                        </span>
+                    </span>
+                    <span class="step-num">阶段 04</span>
+                </div>
+                <div class="step-body" style="background:#faf7ff">
+                    <h3 class="step-title" style="color:#6d28d9">宪法监督保障</h3>
+                    <div class="step-sub">Ex-post Supervision</div>
+                    <ul class="items">
+                        <li>建立合宪性审查制度</li>
+                        <li>纠正违宪行为，维护统一</li>
+                        <li>宪法生命与权威在于实施</li>
+                    </ul>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="bottom">
+        <div class="bottom-grid">
+            <div class="bottom-item">
+                <h4 class="bottom-title" style="color:#2563eb">
+                    <span class="icon-chip summary-icon icon-blue" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 3.5 18 6v5c0 4-2.4 7.2-6 8.8C8.4 18.2 6 15 6 11V6z"></path>
+                            <path d="m9.3 11.8 1.8 1.8 3.6-4"></path>
+                        </svg>
+                    </span>
+                    意志制度化
+                </h4>
+                <p class="bottom-text">将<strong>党的主张和人民意志</strong>通过法定程序固定，使其获得国家强制力。</p>
+            </div>
+            <div class="bottom-item">
+                <h4 class="bottom-title" style="color:#059669">
+                    <span class="icon-chip summary-icon icon-green" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M4.5 9.5h15"></path>
+                            <path d="M7.5 9.5v8"></path>
+                            <path d="M12 9.5v8"></path>
+                            <path d="M16.5 9.5v8"></path>
+                            <path d="M4 18h16"></path>
+                            <path d="m4.5 9.5 7.5-4 7.5 4"></path>
+                        </svg>
+                    </span>
+                    运行规范化
+                </h4>
+                <p class="bottom-text">依宪治国是权力的<strong>操作手册</strong>，明确职权边界，防止权力任性。</p>
+            </div>
+            <div class="bottom-item">
+                <h4 class="bottom-title" style="color:#7c3aed">
+                    <span class="icon-chip summary-icon icon-violet" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M3.5 12s3.2-5 8.5-5 8.5 5 8.5 5-3.2 5-8.5 5-8.5-5-8.5-5z"></path>
+                            <circle cx="12" cy="12" r="2.4"></circle>
+                        </svg>
+                    </span>
+                    事后监督
+                </h4>
+                <p class="bottom-text"><strong>纠偏机制</strong>：通过合宪性审查，确保权力运行不背离初衷。</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="footer">Constitution Logic Matrix · Static HTML Edition</div>
+</div>
+<script>
+    (() => {
+        const wrap = document.querySelector(".flow-wrap");
+        const svg = document.querySelector(".loop-line");
+        const track = document.querySelector(".loop-track");
+        const arrow = document.querySelector(".loop-arrow");
+        const label = document.querySelector(".loop-label");
+        const steps = wrap ? [...wrap.querySelectorAll(".step")] : [];
+        const bridges = wrap ? [...wrap.querySelectorAll(".bridge")] : [];
+        const firstStep = steps[0] || null;
+        const lastStep = steps[steps.length - 1] || null;
+
+        if (!wrap || !svg || !track || !arrow || !firstStep || !lastStep) {
+            return;
+        }
+
+        const draw = () => {
+            const wrapRect = wrap.getBoundingClientRect();
+            const stepRects = steps.map((step) => step.getBoundingClientRect());
+            const firstRect = stepRects[0];
+            const lastRect = stepRects[stepRects.length - 1];
+            const width = Math.max(10, Math.round(wrapRect.width));
+            const cardBottom = Math.max(...stepRects.map((rect) => rect.bottom - wrapRect.top));
+
+            bridges.forEach((bridge, index) => {
+                const prevRect = stepRects[index];
+                const nextRect = stepRects[index + 1];
+                const line = bridge.querySelector(".bridge-line");
+
+                if (!prevRect || !nextRect || !line) {
+                    return;
+                }
+
+                const bridgeRect = bridge.getBoundingClientRect();
+                const lineTop = Math.round(Math.max(prevRect.bottom, nextRect.bottom) - wrapRect.top + 14);
+                const lineStart = Math.round(prevRect.right - bridgeRect.left + 12);
+                const lineEnd = Math.round(nextRect.left - bridgeRect.left - 12);
+                const lineWidth = Math.max(56, lineEnd - lineStart);
+
+                line.style.top = `${lineTop}px`;
+                line.style.left = `${lineStart}px`;
+                line.style.width = `${lineWidth}px`;
+                line.style.transform = "none";
+            });
+
+            const loopTop = Math.round(cardBottom - 2);
+            const height = 104;
+            const topY = 2;
+            const bottomY = 76;
+
+            let endX = Math.round(firstRect.left - wrapRect.left + firstRect.width / 2);
+            let startX = Math.round(lastRect.left - wrapRect.left + lastRect.width / 2);
+
+            const edgePadding = 14;
+            endX = Math.max(edgePadding, Math.min(width - edgePadding, endX));
+            startX = Math.max(edgePadding, Math.min(width - edgePadding, startX));
+
+            if (startX <= endX + 120) {
+                const mid = Math.round((startX + endX) / 2);
+                startX = mid + 60;
+                endX = mid - 60;
+            }
+
+            svg.style.top = `${loopTop}px`;
+            svg.style.height = `${height}px`;
+            svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+            track.setAttribute("d", `M ${startX} ${topY} V ${bottomY} H ${endX} V ${topY}`);
+            arrow.setAttribute("d", `M ${endX - 6} ${topY + 12} L ${endX} ${topY} L ${endX + 6} ${topY + 12}`);
+
+            if (label) {
+                const middleGapCenter = stepRects[1] && stepRects[2]
+                    ? Math.round((stepRects[1].right + stepRects[2].left) / 2 - wrapRect.left)
+                    : Math.round((startX + endX) / 2);
+
+                label.style.top = `${loopTop + bottomY + 12}px`;
+                label.style.left = `${middleGapCenter}px`;
+            }
+        };
+
+        draw();
+        window.addEventListener("resize", draw, { passive: true });
+    })();
+</script>
+</body>
+</html>
