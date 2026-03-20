@@ -179,6 +179,7 @@ const DeckEditPage: React.FC = () => {
     // 1. 载入 deck + cards
     useEffect(() => {
         if (!deckId) return;
+        const currentDeckId = deckId;
 
         async function loadDeck() {
             setLoading(true);
@@ -187,7 +188,7 @@ const DeckEditPage: React.FC = () => {
 
             let deckData;
             try {
-                deckData = await theDeckService.getDeckById(deckId);
+                deckData = await theDeckService.getDeckById(currentDeckId);
             } catch (err) {
                 console.error("load deck error", err);
                 setError("加载 deck 失败");
@@ -562,7 +563,7 @@ const DeckEditPage: React.FC = () => {
             // 1) 只更新 deck.items：过滤掉这些 card_id
             const prevItems = ((deck?.items?.items ?? []) as DeckItem[]);
             const filteredItems = prevItems.filter(
-                (it) => !ids.includes(it.card_id)
+                (it) => !it.card_id || !ids.includes(it.card_id)
             );
             const newItemsJson = { items: filteredItems };
 

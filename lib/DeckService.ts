@@ -44,8 +44,11 @@ type ListOptions = {
 export class DeckService {
     private lastDeckMutationAt = 0;
     private deckByIdCache = new Map<string, DeckRow>();
+    private supabase: SupabaseClient;
 
-    constructor(private supabase: SupabaseClient) {}
+    constructor(supabase: SupabaseClient) {
+        this.supabase = supabase;
+    }
 
     async createDeck(input: CreateDeckInput): Promise<DeckRow> {
         const { data, error } = await this.supabase

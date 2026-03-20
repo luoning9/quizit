@@ -186,6 +186,7 @@ export default function DeckResourcesPage() {
 
     useEffect(() => {
         if (!deckId) return;
+        const currentDeckId = deckId;
 
         async function loadDeck() {
             setLoading(true);
@@ -193,7 +194,7 @@ export default function DeckResourcesPage() {
 
             let deckData: DeckRow | null = null;
             try {
-                deckData = await theDeckService.getDeckById(deckId);
+                deckData = await theDeckService.getDeckById(currentDeckId);
                 if (!deckData) {
                     setError("加载 deck 失败");
                     setLoading(false);
