@@ -71,10 +71,10 @@
 }
 
 /* MainSelect deck row hover */
-.deck-row:hover .deck-row-main {
+.deck-row:hover {
     background-color: #f1f5f9; /* slate-100 */
 }
 
-.dark .deck-row:hover .deck-row-main {
+.dark .deck-row:hover {
     background-color: rgba(30, 41, 59, 0.7); /* slate-800/70 */
 }

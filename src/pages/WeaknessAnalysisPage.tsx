@@ -333,6 +333,8 @@ export default function WeaknessAnalysisPage() {
         const easeFactor = easeFactorFromLevel(2);
         const deckId = selectedDeckIdList[0] ?? null;
         const ids = Array.from(selectedRelatedIds);
+        // TODO: For AI-derived quizzes, push the analysis outcome back to the source flashcards
+        // here once quiz-level source_card_ids/per-question source metadata is available.
         await Promise.all(
             ids.map((cardId) =>
                 recordDifficultyUpdate({

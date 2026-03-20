@@ -1,11 +1,12 @@
 import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle} from "lucide-react";
+import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle, Trash2} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import { loadDeckTree, isDeckPathOccupiedSync, isRealDeckSync, type DeckTreeNode } from "../../lib/deckTree";
 import { compareDeckSegments } from "../../lib/deckSort";
 import {useLocation, useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
+import {ConfirmDialog} from "../components/ui/ConfirmDialog";
 
 interface QuizTemplate {
     id: string;
@@ -61,6 +62,10 @@ function truncateDeckName(name: string, maxChars: number): string {
     return `${name.slice(0, maxChars)}…`;
 }
 
+function countDirectQuizzesForDeck(quizzes: QuizTemplate[], deckPath: string): number {
+    return quizzes.filter((quiz) => (quiz.deck_name ?? "") === deckPath).length;
+}
+
 export function MainSelectPage() {
     const isEditMode =
         typeof window !== "undefined" &&
@@ -77,6 +82,26 @@ export function MainSelectPage() {
     const [selectedPath, setSelectedPath] = useState(initialPath);
     const [quizTemplates, setQuizTemplates] = useState<QuizTemplate[]>([]);
     const [hoveredQuizId, setHoveredQuizId] = useState<string | null>(null);
+    const [quizIdPendingDelete, setQuizIdPendingDelete] = useState<string | null>(null);
+    const [deletingQuiz, setDeletingQuiz] = useState(false);
+
+    async function handleDeleteQuiz(quizId: string) {
+        setDeletingQuiz(true);
+        const { error } = await supabase
+            .from("quizzes")
+            .update({ is_deleted: true })
+            .eq("id", quizId);
+        setDeletingQuiz(false);
+
+        if (error) {
+            console.error("delete quiz error", error);
+            window.alert("删除失败，请稍后再试");
+            return;
+        }
+
+        setQuizTemplates((prev) => prev.filter((quiz) => quiz.id !== quizId));
+        setQuizIdPendingDelete(null);
+    }
 
     // 2️⃣ 当 selectedPath 改变时，把它写回 URL
     useEffect(() => {
@@ -294,8 +319,20 @@ export function MainSelectPage() {
                                                 <span className="text-sm text-left">
                                                     {truncateDeckName(node.name, 10)}
                                                 </span>
-                                                <span
-                                                    className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">{node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards</span>
+                                                <span className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                                    {node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards
+                                                    {node.isDeck && (
+                                                        countDirectQuizzesForDeck(quizTemplates, node.fullPath) > 0 ? (
+                                                            <span className="mt-1 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-200">
+                                                                {countDirectQuizzesForDeck(quizTemplates, node.fullPath)} quizzes
+                                                            </span>
+                                                        ) : (
+                                                            <span className="block mt-0.5">
+                                                                0 quizzes
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </span>
                                                 <span>{calcProgress(node)}%</span>
                                             </div>
                                             <div
@@ -351,7 +388,7 @@ export function MainSelectPage() {
             {/* 右侧：测验列表 + 新增按钮 */}
             <div className="flex flex-col gap-3">
                 <section
-                    className="rounded-2xl border border-blue-200 bg-blue-50/70 backdrop-blur-md p-4 shadow-sm dark:border-blue-600/80 dark:bg-blue-900/40">
+                    className="rounded-2xl bg-emerald-200/65 backdrop-blur-sm p-4 shadow-sm dark:bg-emerald-900/40">
                     <h2 className="text-sm font-medium text-slate-900 mb-3 dark:text-slate-100"/>
                     {quizzesInCurrentDir.length === 0 ? (<div className="text-xs text-muted">
                         暂无测验。
@@ -377,6 +414,15 @@ export function MainSelectPage() {
                             </div>
 
                             <div className="flex items-center gap-2">
+                                <Button
+                                    variant="iconView"
+                                    className="text-rose-600 hover:text-white hover:bg-rose-600 dark:text-rose-300 dark:hover:text-rose-100 dark:hover:bg-rose-700"
+                                    onClick={() => setQuizIdPendingDelete(quiz.id)}
+                                    aria-label="删除"
+                                    title="删除"
+                                >
+                                    <Trash2 className="h-5 w-5" />
+                                </Button>
                                 <Button
                                     variant="iconView"
                                     onClick={() => navigate(`/quiz-runs/${quiz.id}`)}
@@ -425,6 +471,22 @@ export function MainSelectPage() {
                         )}
                     </div>
                 )}
+                <ConfirmDialog
+                    open={Boolean(quizIdPendingDelete)}
+                    title="删除测验"
+                    description="确认删除这个测验？"
+                    confirmLabel="确认删除"
+                    cancelLabel="取消"
+                    loading={deletingQuiz}
+                    onConfirm={() => {
+                        if (!quizIdPendingDelete) return;
+                        void handleDeleteQuiz(quizIdPendingDelete);
+                    }}
+                    onCancel={() => {
+                        if (deletingQuiz) return;
+                        setQuizIdPendingDelete(null);
+                    }}
+                />
             </div>
         </div>
     </div>);

@@ -1,6 +1,6 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Trash2, Check, CornerUpLeft, PencilLine} from "lucide-react";
+import {BookOpen, Trophy, Trash2, Check, CornerUpLeft, PencilLine, BookOpenCheck} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";
@@ -666,16 +666,15 @@ export default function QuizResultPage() {
                                 : <span className="text-slate-400 dark:text-slate-500">[双击设置路径]</span>}
                         </button>
                     )}
-                    {templateStats && (
-                        <Button
-                            variant="iconWarning"
-                            disabled={deleting}
-                            onClick={() => setShowDeleteConfirm(true)}
-                            title="删除测验"
-                        >
-                            {deleting ? "删除中…" : <Trash2 className="w-5 h-5" />}
-                        </Button>
-                    )}
+                    <Button
+                        variant="iconRound"
+                        className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
+                        disabled={!deckPath?.trim()}
+                        onClick={() => navigate(`/decks/${encodeURIComponent(deckPath)}/practice`)}
+                        title="继续学习"
+                    >
+                        <BookOpenCheck className="w-5 h-5" />
+                    </Button>
                     {templateStats?.id && (
                         <Button
                             variant="iconRound"
