@@ -1,6 +1,6 @@
 import {useEffect, useState, useMemo} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import {BookOpen, Trophy, Check, CornerUpLeft, PencilLine, BookOpenCheck} from "lucide-react";
+import {ClipboardCheck, Trophy, Check, CornerUpLeft, FileQuestion, NotebookPen} from "lucide-react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import { useRef } from "react";
@@ -30,6 +30,10 @@ type TemplateStats = {
     deck_name: string;
     attempt_count: number;
     last_score: number | null;
+};
+
+type TemplateConfigRow = {
+    config: Record<string, unknown> | null;
 };
 
 type UserRunSummary = {
@@ -95,6 +99,7 @@ export default function QuizResultPage() {
     const [result, setResult] = useState<QuizRunRecord | null>(null);
     const [templateStats, setTemplateStats] = useState<TemplateStats | null>();
     const [userRuns, setUserRuns] = useState<UserRunSummary[]>([]);
+    const [templateConfig, setTemplateConfig] = useState<Record<string, unknown> | null>(null);
     const [loading, setLoading] = useState(true);
     const [runsLoading, setRunsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -332,6 +337,45 @@ export default function QuizResultPage() {
         };
     }, [templateStats?.id, result?.template?.id, result?.template_id, quizId]);
 
+    useEffect(() => {
+        const targetTemplateId =
+            templateStats?.id ??
+            result?.template?.id ??
+            result?.template_id ??
+            quizId ??
+            null;
+        if (!targetTemplateId) {
+            setTemplateConfig(null);
+            return;
+        }
+
+        let active = true;
+
+        async function loadTemplateConfig() {
+            // TODO: expose quizzes.config on user_quiz_stats_view so QuizResultPage
+            // can reuse the initial template query instead of issuing this extra read.
+            const { data, error } = await supabase
+                .from("user_active_quizzes")
+                .select("config")
+                .eq("id", targetTemplateId)
+                .maybeSingle();
+
+            if (!active) return;
+            if (error) {
+                console.error("加载测验配置失败", error);
+                setTemplateConfig(null);
+                return;
+            }
+
+            setTemplateConfig((data as TemplateConfigRow | null)?.config ?? null);
+        }
+
+        void loadTemplateConfig();
+        return () => {
+            active = false;
+        };
+    }, [templateStats?.id, result?.template?.id, result?.template_id, quizId]);
+
     // 点击外部取消标题编辑
     useEffect(() => {
         if (!editingTitle) return;
@@ -382,6 +426,18 @@ export default function QuizResultPage() {
     const total = result?.total_items ?? 0;
     const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
     const deckPath = templateStats?.deck_name ?? "";
+    const sourceCardIds = useMemo(() => {
+        const raw = templateConfig?.source_card_ids;
+        return Array.isArray(raw)
+            ? raw.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+            : [];
+    }, [templateConfig]);
+    const sourceCardCount = useMemo(() => {
+        return sourceCardIds.length;
+    }, [sourceCardIds]);
+    const continueLearningTitle = sourceCardCount > 0
+        ? `继续学习（本测验由 ${sourceCardCount} 张闪卡生成）`
+        : "继续学习";
     const hasRun = Boolean(runId && result);
     const hasHistory = userRuns.length > 0;
     const avgScore = useMemo(() => {
@@ -538,7 +594,7 @@ export default function QuizResultPage() {
         <div className="max-w-3xl mx-auto py-10 px-4 text-slate-900 dark:text-slate-100 space-y-6">
             {/* 标题和描述 */}
             <div className="flex items-center gap-3 mb-4">
-                <BookOpen className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+                <ClipboardCheck className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
                 <div className="flex-1">
                     <div className="text-xl font-semibold text-slate-900 dark:text-white">
                         {!editingTitle && (
@@ -668,12 +724,24 @@ export default function QuizResultPage() {
                     )}
                     <Button
                         variant="iconRound"
-                        className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
+                        className="relative text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
                         disabled={!deckPath?.trim()}
-                        onClick={() => navigate(`/decks/${encodeURIComponent(deckPath)}/practice`)}
-                        title="继续学习"
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (sourceCardIds.length > 0) {
+                                params.set("card_ids", sourceCardIds.join(","));
+                            }
+                            const suffix = params.toString() ? `?${params.toString()}` : "";
+                            navigate(`/decks/${encodeURIComponent(deckPath)}/practice${suffix}`);
+                        }}
+                        title={continueLearningTitle}
                     >
-                        <BookOpenCheck className="w-5 h-5" />
+                        <NotebookPen className="w-5 h-5" />
+                        {sourceCardCount > 0 && (
+                            <span className="absolute left-[6px] top-[5px] min-w-[1.1rem] rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm dark:bg-emerald-500">
+                                {sourceCardCount}
+                            </span>
+                        )}
                     </Button>
                     {templateStats?.id && (
                         <Button
@@ -682,7 +750,7 @@ export default function QuizResultPage() {
                             onClick={() => navigate(`/quizzes/${templateStats.id}/take`)}
                             title="做测验"
                         >
-                            <PencilLine className="w-5 h-5" />
+                            <FileQuestion className="w-5 h-5" />
                         </Button>
                     )}
                     <Button

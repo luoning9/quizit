@@ -1,4 +1,4 @@
-import { Eye, BookOpenCheck } from "lucide-react";
+import { Eye, NotebookPen } from "lucide-react";
 import { Button } from "./ui/Button";
 
 export type DeckListItem = {
@@ -74,7 +74,7 @@ export function DeckList({
                     aria-label="学习"
                     title="学习"
                   >
-                    <BookOpenCheck className="h-6 w-6" />
+                    <NotebookPen className="h-6 w-6" />
                   </Button>
                   {onView && (
                     <Button

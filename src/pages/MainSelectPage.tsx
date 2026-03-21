@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {BookOpenCheck, Eye, Folder, Layers, PencilLine, PlusCircle, Trash2} from "lucide-react";
+import {Eye, FileQuestion, Folder, Layers, NotebookPen, PlusCircle, Trash2} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import { loadDeckTree, isDeckPathOccupiedSync, isRealDeckSync, type DeckTreeNode } from "../../lib/deckTree";
 import { compareDeckSegments } from "../../lib/deckSort";
@@ -274,7 +274,7 @@ export function MainSelectPage() {
                                     aria-label="学习当前目录"
                                     title="学习"
                                 >
-                                    <BookOpenCheck size={24} />
+                                    <NotebookPen size={24} />
                                 </Button>
                             </div>
                         </div>
@@ -364,7 +364,7 @@ export function MainSelectPage() {
                                                 aria-label="学习"
                                                 title="学习"
                                             >
-                                                <BookOpenCheck className="h-5 w-5" />
+                                                <NotebookPen className="h-5 w-5" />
                                             </Button>
                                         )}
                                         {!node.isDeck && (
@@ -375,7 +375,7 @@ export function MainSelectPage() {
                                                 aria-label="学习目录"
                                                 title="学习目录"
                                             >
-                                                <BookOpenCheck className="h-5 w-5" />
+                                                <NotebookPen className="h-5 w-5" />
                                             </Button>
                                         )}
                                     </div>
@@ -437,7 +437,7 @@ export function MainSelectPage() {
                                     aria-label="开始"
                                     title="开始"
                                 >
-                                    <PencilLine className="h-5 w-5" />
+                                    <FileQuestion className="h-5 w-5" />
                                 </Button>
                             </div>
                         </div>))}

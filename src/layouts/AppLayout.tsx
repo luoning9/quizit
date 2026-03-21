@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useTimer } from "../components/TimerContext";
 import { Button } from "../components/ui/Button";
-import { Moon, Sun, Sparkles, Bell, BarChart3, BookOpenCheck, Settings, LogIn, LogOut, Menu } from "lucide-react";
+import { Moon, Sun, Sparkles, Bell, BarChart3, NotebookPen, Settings, LogIn, LogOut, Menu } from "lucide-react";
 
 function TimerBar() {
     const { seconds } = useTimer();
@@ -215,7 +215,7 @@ export function AppLayout() {
                                                 setIsMenuOpen(false);
                                             }}
                                         >
-                                            {studyMode === "study" ? <BookOpenCheck size={16} /> : <Settings size={16} />}
+                                            {studyMode === "study" ? <NotebookPen size={16} /> : <Settings size={16} />}
                                             {studyMode === "study" ? "切换为编辑模式" : "切换为学习模式"}
                                         </button>
                                     )}

@@ -50,6 +50,12 @@ export function parseLeadingNumber(name: string): number | null {
 }
 
 export function compareDeckSegments(nameA: string, nameB: string): number {
+    const underscoreA = nameA.trimStart().startsWith("_");
+    const underscoreB = nameB.trimStart().startsWith("_");
+    if (underscoreA !== underscoreB) {
+        return underscoreA ? -1 : 1;
+    }
+
     let nextA = nameA;
     let nextB = nameB;
     const maxPrefix = Math.min(nameA.length, nameB.length);

@@ -2,7 +2,7 @@ import React, {useMemo, useState, type Dispatch, type SetStateAction} from "reac
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {PencilLine, CornerUpLeft} from "lucide-react";
+import {FileQuestion, CornerUpLeft} from "lucide-react";
 import {Loader2} from "lucide-react";
 
 type Mode = "mixed";
@@ -449,7 +449,7 @@ export default function NewQuizPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <div className="flex items-center gap-3">
-                        <PencilLine className="w-6 h-6 text-emerald-600 dark:text-sky-300"/>
+                        <FileQuestion className="w-6 h-6 text-emerald-600 dark:text-sky-300"/>
                         <div>
                             <h1 className="text-xl font-semibold">新建测验</h1>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">

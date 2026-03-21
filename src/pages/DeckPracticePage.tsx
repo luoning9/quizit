@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
-import {useNavigate} from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router-dom";
 import {useParams} from "react-router-dom";
 import {supabase} from "../../lib/supabaseClient";
 import {Card} from "../components/ui/Card";
@@ -13,7 +13,7 @@ import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
 import { easeFactorToColor, easeFactorFromLevel, recordDifficultyUpdate } from "../../lib/studyUtils";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
-import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft, Info, Pause, BookOpenCheck, Loader2 } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft, Info, Pause, FileQuestion, Loader2 } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 
@@ -41,6 +41,22 @@ interface DeckFolderStatsRow {
     total_ease_factor: number | null;
     is_deck: boolean;
 }
+
+type DeckCardRow = {
+    card_id: string;
+    deck_id: string;
+    deck_title: string;
+    deck_description: string | null;
+    front: string;
+    back: string;
+};
+
+type UserCardStatsViewRow = {
+    card_id: string;
+    deck_id: string;
+    deck_name: string;
+    deck_description: string | null;
+};
 
 function completionColor(percent: number) {
     const t = Math.max(0, Math.min(1, percent));
@@ -213,6 +229,21 @@ function formatQuizTimestamp(date: Date): string {
     return `${month}${day} ${hours}:${minutes}`;
 }
 
+function parseCardIdsParam(raw: string | null): string[] {
+    if (!raw) return [];
+    const seen = new Set<string>();
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return raw
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => uuidPattern.test(part))
+        .filter((id) => {
+            if (seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        });
+}
+
 interface QuizConfigDialogProps {
     open: boolean;
     count: number;
@@ -256,7 +287,7 @@ function QuizConfigDialog({
                 <div className="mb-4 flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                         <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                            <BookOpenCheck className="h-5 w-5" />
+                            <FileQuestion className="h-5 w-5" />
                         </div>
                         <div>
                             <div className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
@@ -456,8 +487,13 @@ function QuizConfigDialog({
 
 export function DeckPracticePage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const {deckName} = useParams();
     const decodedName = decodeURIComponent(deckName || "");
+    const requestedCardIds = useMemo(
+        () => parseCardIdsParam(searchParams.get("card_ids")),
+        [searchParams]
+    );
     // 每轮练习取多少张卡
     const CARD_THRESHOLD = 10;
 
@@ -562,31 +598,93 @@ export function DeckPracticePage() {
                 } else {
                     setFolderStats(null);
                 }
-                const {data, error} = await supabase.rpc("select_practice_cards_leitner", {
-                    _folder_path: decodedName || "", // 当前目录/卡组路径
-                    _limit: CARD_THRESHOLD,                      // 一次抽多少张卡，先写死也行
-                    _mode: "ordered",                 // "random" | "ordered"
-                });
 
-                if (error) {
-                    console.error("select_practice_cards error", error);
-                    setCardIds([]);
-                    setCardBaseMap({});
-                    setCardMediaMap({});
-                    setCardViewMap({});
-                    setLoading(false);
-                    return;
+                let rows: DeckCardRow[] = [];
+                if (requestedCardIds.length > 0) {
+                    const { data: statRows, error: statsError } = await supabase
+                        .from("user_card_stats_view")
+                        .select("card_id, deck_id, deck_name, deck_description")
+                        .eq("deck_name", decodedName)
+                        .in("card_id", requestedCardIds);
+
+                    if (statsError) {
+                        console.error("load user_card_stats_view by card_ids error", statsError);
+                        setCardIds([]);
+                        setCardBaseMap({});
+                        setCardMediaMap({});
+                        setCardViewMap({});
+                        setLoading(false);
+                        return;
+                    }
+
+                    const matchedStats = (statRows as UserCardStatsViewRow[] | null) ?? [];
+                    const matchedCardIds = matchedStats.map((row) => row.card_id);
+
+                    if (!matchedCardIds.length) {
+                        setCardIds([]);
+                        setCardBaseMap({});
+                        setCardMediaMap({});
+                        setCardViewMap({});
+                        setLoading(false);
+                        return;
+                    }
+
+                    const { data: cardsData, error: cardsError } = await supabase
+                        .from("cards")
+                        .select("id, front, back")
+                        .in("id", matchedCardIds);
+
+                    if (cardsError) {
+                        console.error("load cards by card_ids error", cardsError);
+                        setCardIds([]);
+                        setCardBaseMap({});
+                        setCardMediaMap({});
+                        setCardViewMap({});
+                        setLoading(false);
+                        return;
+                    }
+
+                    const statMap = new Map(matchedStats.map((row) => [row.card_id, row]));
+                    const cardMap = new Map(
+                        ((cardsData as Array<{ id: string; front: string; back: string }> | null) ?? [])
+                            .map((row) => [row.id, row])
+                    );
+
+                    rows = requestedCardIds
+                        .map((cardId) => {
+                            const stat = statMap.get(cardId);
+                            const card = cardMap.get(cardId);
+                            if (!stat || !card) return null;
+                            return {
+                                card_id: cardId,
+                                deck_id: stat.deck_id,
+                                deck_title: stat.deck_name,
+                                deck_description: stat.deck_description ?? null,
+                                front: card.front,
+                                back: card.back,
+                            } satisfies DeckCardRow;
+                        })
+                        .filter((row): row is DeckCardRow => Boolean(row));
+                } else {
+                    const {data, error} = await supabase.rpc("select_practice_cards_leitner", {
+                        _folder_path: decodedName || "",
+                        _limit: CARD_THRESHOLD,
+                        _mode: "ordered",
+                    });
+
+                    if (error) {
+                        console.error("select_practice_cards error", error);
+                        setCardIds([]);
+                        setCardBaseMap({});
+                        setCardMediaMap({});
+                        setCardViewMap({});
+                        setLoading(false);
+                        return;
+                    }
+
+                    rows =
+                        (data as DeckCardRow[] | null) ?? [];
                 }
-
-                const rows =
-                    (data as {
-                        card_id: string;
-                        deck_id: string;
-                        deck_title: string;
-                        deck_description: string | null;
-                        front: string;
-                        back: string;
-                    }[]) || [];
 
                 if (rows.length === 0) {
                     setCardIds([]);
@@ -627,7 +725,7 @@ export function DeckPracticePage() {
         }
 
         loadPracticeCards();
-    }, [decodedName, reloadKey]);
+    }, [decodedName, reloadKey, requestedCardIds]);
 
     // 记录所抽取卡片的ease_factor之和
     const totalEaseFactorOfCards = useRef(0);
