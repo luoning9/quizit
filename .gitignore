@@ -22,6 +22,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-/local/
-local/tmp/
-local/files/
+# local: 默认全部忽略，仅放行 .py 脚本
+/local/**
+!/local/
+!/local/**/
+!/local/**/*.py
+
+# local 下明确禁止入库的内容
+/local/tmp/**
+/local/files/**
+/local/.env.local
+/local/**/.env.local
+/local/**/__pycache__/
+/local/**/*.pyc
+/local/**/*.pyo
