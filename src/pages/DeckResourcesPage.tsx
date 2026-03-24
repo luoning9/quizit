@@ -4,7 +4,20 @@ import { supabase } from "../../lib/supabaseClient";
 import { type DeckItem, type DeckRow, theDeckService } from "../../lib/DeckService";
 import { Button } from "../components/ui/Button";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
-import { Image as ImageIcon, Upload, Download, Trash2, CornerUpLeft } from "lucide-react";
+import { DotRender } from "../components/ui/DotRender";
+import { ImageRender } from "../components/ui/ImageRender";
+import { MapPdfViewer } from "../components/ui/MapPdfViewer";
+import {
+    Image as ImageIcon,
+    Upload,
+    Download,
+    Trash2,
+    CornerUpLeft,
+    GitBranch,
+    Map as MapIcon,
+    FileText,
+    X as XIcon,
+} from "lucide-react";
 
 interface CardRow {
     id: string;
@@ -39,6 +52,14 @@ function formatBytes(bytes?: number) {
 function isImageFile(name: string) {
     const ext = name.split(".").pop()?.toLowerCase();
     return Boolean(ext && ["png", "jpg", "jpeg", "gif", "webp"].includes(ext));
+}
+
+function getMediaType(name: string): "dot" | "map" | "image" | null {
+    const lower = name.toLowerCase();
+    if (lower.endsWith(".dot")) return "dot";
+    if (lower.endsWith(".map")) return "map";
+    if (/\.(png|jpe?g|gif|webp)$/.test(lower)) return "image";
+    return null;
 }
 
 function isAllowedFile(name: string) {
@@ -179,7 +200,7 @@ export default function DeckResourcesPage() {
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [deletingPath, setDeletingPath] = useState<string | null>(null);
-    const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+    const [mediaModal, setMediaModal] = useState<{ cardId: string; name: string } | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<{ cardId: string; fileName: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -669,7 +690,7 @@ export default function DeckResourcesPage() {
                                     previewMap={previewMap}
                                     deletingPath={deletingPath}
                                     onDelete={handleDelete}
-                                    onPreview={(url, name) => setPreviewImage({ url, name })}
+                                    onOpenMedia={(cardId, name) => setMediaModal({ cardId, name })}
                                     showDelete
                                     imageCaptions={frontCaptions}
                                     extraContent={
@@ -702,7 +723,7 @@ export default function DeckResourcesPage() {
                                     previewMap={previewMap}
                                     deletingPath={deletingPath}
                                     onDelete={handleDelete}
-                                    onPreview={(url, name) => setPreviewImage({ url, name })}
+                                    onOpenMedia={(cardId, name) => setMediaModal({ cardId, name })}
                                     showDelete
                                     imageCaptions={backCaptions}
                                     extraContent={
@@ -735,7 +756,7 @@ export default function DeckResourcesPage() {
                                         previewMap={previewMap}
                                         deletingPath={deletingPath}
                                         onDelete={handleDelete}
-                                        onPreview={(url, name) => setPreviewImage({ url, name })}
+                                        onOpenMedia={(cardId, name) => setMediaModal({ cardId, name })}
                                         showDelete
                                     />
                                 )}
@@ -770,7 +791,7 @@ export default function DeckResourcesPage() {
                                             previewMap={previewMap}
                                             deletingPath={deletingPath}
                                             onDownload={handleDownload}
-                                            onPreview={(url, name) => setPreviewImage({ url, name })}
+                                            onOpenMedia={(cardId, name) => setMediaModal({ cardId, name })}
                                             showDownload
                                         />
                                         <ResourceSection
@@ -780,7 +801,7 @@ export default function DeckResourcesPage() {
                                             previewMap={previewMap}
                                             deletingPath={deletingPath}
                                             onDownload={handleDownload}
-                                            onPreview={(url, name) => setPreviewImage({ url, name })}
+                                            onOpenMedia={(cardId, name) => setMediaModal({ cardId, name })}
                                             showDownload
                                         />
                                         {otherFiles.length > 0 && (
@@ -791,7 +812,7 @@ export default function DeckResourcesPage() {
                                                 previewMap={previewMap}
                                                 deletingPath={deletingPath}
                                                 onDownload={handleDownload}
-                                                onPreview={(url, name) => setPreviewImage({ url, name })}
+                                                onOpenMedia={(cardId, name) => setMediaModal({ cardId, name })}
                                                 showDownload
                                             />
                                         )}
@@ -803,28 +824,50 @@ export default function DeckResourcesPage() {
                 )}
             </div>
 
-            {previewImage && (
+            {mediaModal && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6"
-                    onClick={() => setPreviewImage(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => setMediaModal(null)}
                 >
                     <div
-                        className="relative max-h-full max-w-5xl w-full flex items-center justify-center"
+                        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-auto p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button
-                            type="button"
-                            className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-slate-900 text-slate-100 border border-slate-700"
-                            onClick={() => setPreviewImage(null)}
-                            aria-label="关闭预览"
-                        >
-                            ×
-                        </button>
-                        <img
-                            src={previewImage.url}
-                            alt={previewImage.name}
-                            className="max-h-[85vh] max-w-full rounded-lg shadow-2xl"
-                        />
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="text-sm text-slate-600 dark:text-slate-300">
+                                {mediaModal.name}
+                            </div>
+                            <button
+                                className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-300 underline"
+                                onClick={() => setMediaModal(null)}
+                            >
+                                <XIcon className="h-4 w-4" />
+                                关闭
+                            </button>
+                        </div>
+                        {getMediaType(mediaModal.name) === "dot" ? (
+                            <DotRender
+                                cardId={mediaModal.cardId}
+                                fileName={mediaModal.name}
+                                className="w-full"
+                            />
+                        ) : getMediaType(mediaModal.name) === "map" ? (
+                            <MapPdfViewer
+                                cardId={mediaModal.cardId}
+                                filename={mediaModal.name}
+                                className="w-full"
+                            />
+                        ) : getMediaType(mediaModal.name) === "image" ? (
+                            <ImageRender
+                                cardId={mediaModal.cardId}
+                                fileName={mediaModal.name}
+                                className="w-full"
+                            />
+                        ) : (
+                            <div className="text-sm text-rose-500">
+                                暂不支持的文件类型：{mediaModal.name}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -857,7 +900,7 @@ type ResourceSectionProps = {
     deletingPath: string | null;
     onDelete?: (cardId: string, fileName: string) => void;
     onDownload?: (cardId: string, fileName: string) => void;
-    onPreview: (url: string, name: string) => void;
+    onOpenMedia: (cardId: string, name: string) => void;
     showDelete?: boolean;
     showDownload?: boolean;
     headerAction?: React.ReactNode;
@@ -873,7 +916,7 @@ function ResourceSection({
     deletingPath,
     onDelete,
     onDownload,
-    onPreview,
+    onOpenMedia,
     showDelete = false,
     showDownload = false,
     headerAction,
@@ -895,21 +938,38 @@ function ResourceSection({
                     {files.map((file) => {
                         const path = `${cardId}/${file.name}`;
                         const previewUrl = previewMap[path];
-                        const isImage = isImageFile(file.name);
+                        const mediaType = getMediaType(file.name);
+                        const isImage = mediaType === "image";
                         const caption = isImage ? imageCaptions[imageIndex] : undefined;
                         if (isImage) {
                             imageIndex += 1;
                         }
+                        const MediaIcon =
+                            mediaType === "dot"
+                                ? GitBranch
+                                : mediaType === "map"
+                                    ? MapIcon
+                                    : mediaType === "image"
+                                        ? ImageIcon
+                                        : FileText;
+                        const mediaLabel =
+                            mediaType === "dot"
+                                ? "查看图示"
+                                : mediaType === "map"
+                                    ? "查看地图"
+                                    : mediaType === "image"
+                                        ? "查看图片"
+                                        : "文件";
                         return (
                             <div
                                 key={file.name}
                                 className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm"
                             >
-                                {isImage ? (
+                                {isImage && previewUrl ? (
                                     <button
                                         type="button"
                                         className="h-28 w-28 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 overflow-hidden"
-                                        onClick={() => previewUrl && onPreview(previewUrl, file.name)}
+                                        onClick={() => onOpenMedia(cardId, file.name)}
                                         aria-label={`预览 ${file.name}`}
                                     >
                                         <img
@@ -919,9 +979,17 @@ function ResourceSection({
                                         />
                                     </button>
                                 ) : (
-                                    <div className="h-14 w-14 rounded-md border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400">
-                                        文件
-                                    </div>
+                                    <button
+                                        type="button"
+                                        className="h-14 w-14 rounded-md border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                        onClick={() => {
+                                            if (mediaType) onOpenMedia(cardId, file.name);
+                                        }}
+                                        disabled={!mediaType}
+                                        aria-label={`${mediaLabel} ${file.name}`}
+                                    >
+                                        <MediaIcon className="h-6 w-6" />
+                                    </button>
                                 )}
                                 <div className="flex-1 min-w-0">
                                     <div className="font-mono text-slate-700 dark:text-slate-200 break-all">
@@ -934,6 +1002,12 @@ function ResourceSection({
                                             <>
                                                 <br />
                                                 {caption}
+                                            </>
+                                        ) : null}
+                                        {!caption && mediaType ? (
+                                            <>
+                                                <br />
+                                                {mediaLabel}
                                             </>
                                         ) : null}
                                     </div>
