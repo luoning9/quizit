@@ -25,7 +25,6 @@ from quizit_storage import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MAP_INDEX_PATH = REPO_ROOT / "docs" / "geography_8a_maps.md"
 MAP_INDEX_HEADER = "章节标题,图片名称,页码,位置"
 
 
@@ -36,31 +35,31 @@ def get_openai_client(env: Dict[str, str]) -> Optional[OpenAI]:
         return None
     return OpenAI(api_key=api_key)
 
-def load_map_index_csv() -> str:
-    if not MAP_INDEX_PATH.exists():
-        print(f"❌ 未找到地图索引文件：{MAP_INDEX_PATH}", file=sys.stderr)
+def load_map_index_csv(map_index_path: Path) -> str:
+    if not map_index_path.exists():
+        print(f"❌ 未找到地图索引文件：{map_index_path}", file=sys.stderr)
         sys.exit(1)
 
-    text = MAP_INDEX_PATH.read_text(encoding="utf-8")
+    text = map_index_path.read_text(encoding="utf-8")
     lines = [line.rstrip() for line in text.splitlines()]
 
     try:
         header_index = next(i for i, line in enumerate(lines) if line.strip() == MAP_INDEX_HEADER)
     except StopIteration:
         print(
-            f"❌ 地图索引文件格式不正确，未找到表头“{MAP_INDEX_HEADER}”：{MAP_INDEX_PATH}",
+            f"❌ 地图索引文件格式不正确，未找到表头“{MAP_INDEX_HEADER}”：{map_index_path}",
             file=sys.stderr,
         )
         sys.exit(1)
 
     csv_lines = [line.strip() for line in lines[header_index:] if line.strip()]
     if len(csv_lines) <= 1:
-        print(f"❌ 地图索引文件中没有有效数据：{MAP_INDEX_PATH}", file=sys.stderr)
+        print(f"❌ 地图索引文件中没有有效数据：{map_index_path}", file=sys.stderr)
         sys.exit(1)
     return "\n".join(csv_lines)
 
 
-def build_system_prompt(map_index_csv: str) -> str:
+def build_system_prompt(map_index_csv: str, map_file: str) -> str:
     return f'''
 你是一名初中地理教师。我将提供给你一张知识卡片的内容，你需要根据我给出的《地图册图片索引表》为该卡片挑选出相关的图片。
 
@@ -74,10 +73,10 @@ def build_system_prompt(map_index_csv: str) -> str:
 
 1. 从索引表中自动选择 **1～3 张最符合卡片核心知识点** 的地图。
 2. 输出格式必须是 JSON 数组。
-3. 每个元素必须使用以下固定结构（map_file 固定为 "geo_8_1"）：
+3. 每个元素必须使用以下固定结构（map_file 固定为 "{map_file}"）：
 
 {{
-  "map_file": "geo_8_1",
+  "map_file": "{map_file}",
   "name": "<图片名称>",
   "page": <页码数字>,
   "position": "<图片在该页的位置>"
@@ -130,6 +129,8 @@ def make_map_refs(
 def main(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(description="根据 deck title 获取 deck 内的所有卡片，并生成地图册引用文件back.map存放在后端")
     parser.add_argument("--title", required=True, help="deck 的 title，需精确匹配")
+    parser.add_argument("--map-file", required=True, help='地图文件目录名，例如 "geo_8_1"')
+    parser.add_argument("--map-index-file", required=True, help='地图索引文件路径，例如 "docs/geography_8a_maps.md"')
     parser.add_argument("--model", default="gpt-5-mini", help="OpenAI 模型，默认 gpt-5-mini")
     args = parser.parse_args(argv)
 
@@ -137,10 +138,18 @@ def main(argv: Optional[list[str]] = None) -> None:
         print(f"❌ deck title 应包含“地理”，请确认是否输入错误：{args.title}", file=sys.stderr)
         sys.exit(1)
 
+    map_file = args.map_file.strip()
+    if not map_file:
+        print("❌ --map-file 不能为空", file=sys.stderr)
+        sys.exit(1)
+    map_index_path = Path(args.map_index_file)
+    if not map_index_path.is_absolute():
+        map_index_path = REPO_ROOT / map_index_path
+
     env = load_env()
     oa_client = get_openai_client(env)
-    map_index_csv = load_map_index_csv()
-    system_prompt = build_system_prompt(map_index_csv)
+    map_index_csv = load_map_index_csv(map_index_path)
+    system_prompt = build_system_prompt(map_index_csv, map_file)
     cards = fetch_cards_by_deck_title(args.title)
     if not cards:
         print(f"未找到 deck 或该 deck 无卡片：{args.title}")

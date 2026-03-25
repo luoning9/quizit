@@ -85,47 +85,156 @@ python3 local/gen_deck_dot_images.py --title "某个 deck 标题"
 
 ## 生成地理地图引用（MAP）
 
-地理卡片使用的不是直接生成图片，而是生成 `.map` 引用文件。脚本会根据卡片内容，从地理图册索引表中挑选相关图片，生成指向地图册 PDF 页面的引用信息。
+地理卡片使用的不是直接生成图片，而是生成 `.map` 引用文件。`.map` 里只保存“该卡片对应哪一本图册、哪一页、页内哪个区域”，前端再据此打开对应的地图 PDF。
 
-### 索引表来源
+### 1. 准备地图索引表
 
-地理图册图片索引表维护在：
+每本图册都需要一份索引文件，格式是从表头开始的 CSV：
 
-- `docs/geography_8a_maps.md`
-
-`local/gen_deck_map_refs.py` 会在运行时读取这个文件，并从表头 `章节标题,图片名称,页码,位置` 开始提取 CSV 内容作为 prompt 输入。
-
-### 1. 生成某个地理 deck 的 `.map` 文件
-
-运行命令：
-
-```bash
-python3 local/gen_deck_map_refs.py --title "某个地理 deck 标题"
+```text
+章节标题,图片名称,页码,位置
 ```
 
-可选参数：
+当前仓库中的示例：
 
-- `--model`，默认 `gpt-5-mini`
+- `docs/geography_8a_maps.md`
+- `docs/geography_8b_maps.md`
 
-示例：
+这些索引表可以直接维护，也可以使用下面的 prompt 从图册 PDF / OCR 文本生成：
+
+- `docs/prompt_generate_map_list.md`
+
+这些文件用于告诉模型：
+
+- 某张图片属于哪一章
+- 图片名称是什么
+- 在图册第几页
+- 在该页的大致位置是什么
+
+`local/gen_deck_map_refs.py` 会在运行时读取你传入的索引文件，并从表头 `章节标题,图片名称,页码,位置` 开始提取 CSV 内容作为 prompt 输入。
+
+如果需要从一本新的地理图册生成索引表，可以把图册 PDF 提供给模型，并使用 `docs/prompt_generate_map_list.md` 中的提示词，让模型输出：
+
+```text
+章节标题,图片名称,页码,位置
+```
+
+再将结果保存到例如：
+
+- `docs/geography_8a_maps.md`
+- `docs/geography_8b_maps.md`
+- 或其他你准备传给 `--map-index-file` 的文件
+
+### 2. 处理原始地理图册 PDF
+
+如果手头是整本图册 PDF，而前端需要的是“每页一个 PDF”，推荐按下面流程处理。
+
+处理目标：
+
+- 保留 PDF 中可提取的文字和矢量内容
+- 将原图册按两页拼成一页
+- 再拆成单页 PDF
+- 将每页压缩到较小体积，便于上传和访问
+
+示例源文件：
+
+```text
+local/tmp/geography_maps_8b.pdf
+```
+
+1. 先做 PDF 级双页拼版，保留文字
+
+不要先转图片，否则文字会被栅格化。
+
+```bash
+pdfjam --nup 2x1 --landscape \
+  --outfile local/tmp/geography_maps_8b_spreads_text.pdf \
+  local/tmp/geography_maps_8b.pdf
+```
+
+2. 将拼版结果拆成每页一个 PDF
+
+```bash
+pdfseparate \
+  local/tmp/geography_maps_8b_spreads_text.pdf \
+  local/tmp/geography_maps_8b_spreads_text_pages/page-%03d.pdf
+```
+
+3. 轻度压缩单页 PDF
+
+为了把每页控制在约 `500KB` 以内，可以用 `gs` 做轻度有损压缩。实践中，`144dpi` 已足够把这批页面压到目标范围内。
+
+处理后目录示例：
+
+```text
+local/tmp/geography_maps_8b_spreads_text_pages_500k/
+```
+
+4. 上传到 Supabase
+
+前端 `MapPdfViewer` 当前会按下面的固定规则拼接路径：
+
+```text
+quizit_big_medias/maps/<map_file>/page_<page>.pdf
+```
+
+例如：
+
+```text
+quizit_big_medias/maps/geo_8_1/page_13.pdf
+quizit_big_medias/maps/geo_8_2/page_7.pdf
+```
+
+注意：
+
+- 当前代码按 `.map` 文件里的 `page` 数字直接拼接文件名
+- 上传到 `quizit_big_medias/maps/<map_file>/` 时，应使用 `page_<page>.pdf`
+- 例如 `page_1.pdf`、`page_13.pdf`、`page_25.pdf`
+
+### 3. 生成某个地理 deck 的 `.map` 文件
+
+`local/gen_deck_map_refs.py` 当前有 `4` 个命令行参数，其中 `3` 个为核心业务参数：
+
+- `--title`，必填，目标 deck 标题
+- `--map-file`，必填，Supabase 中图册目录名，例如 `geo_8_1`
+- `--map-index-file`，必填，图册索引文件路径，例如 `docs/geography_8a_maps.md`
+- `--model`，可选，默认 `gpt-5-mini`
+
+命令示例：
 
 ```bash
 python3 local/gen_deck_map_refs.py \
-  --title "八上地理/第二章/中国的自然环境"
+  --title "八上地理/第二章/中国的自然环境" \
+  --map-file "geo_8_1" \
+  --map-index-file "docs/geography_8a_maps.md"
 ```
 
-### 2. 生成逻辑
+另一个示例：
+
+```bash
+python3 local/gen_deck_map_refs.py \
+  --title "八下地理/第五章/中国的地理差异" \
+  --map-file "geo_8_2" \
+  --map-index-file "docs/geography_8b_maps.md"
+```
+
+### 4. `gen_deck_map_refs.py` 的生成逻辑
 
 脚本会：
 
 - 校验 `deck title` 中包含“地理”
 - 读取 deck 中的卡片内容
-- 从 `docs/geography_8a_maps.md` 中读取图册图片索引表
-- 让模型为每张卡片挑选 1 到 3 张最相关的地图
+- 读取 `--map-index-file` 指定的地图索引表
+- 要求模型为每张卡片挑选 1 到 3 张最相关的地图
 - 将结果缓存到 `tmp/maps/<card_id>.map`
-- 上传到卡片资源，文件名通常为 `back.map`，多张时为 `back0.map`、`back1.map` 等
+- 上传到卡片资源
 
-`.map` 文件内容是 JSON，结构类似：
+上传命名规则：
+
+- 如果模型返回的是数组，会上传成 `back0.map`、`back1.map`、`back2.map` ...
+- 如果返回的不是数组，会上传成 `back.map`
+
+`.map` 文件内容示例：
 
 ```json
 {
@@ -136,7 +245,7 @@ python3 local/gen_deck_map_refs.py \
 }
 ```
 
-### 3. 前端如何显示
+### 5. 前端如何显示 `.map`
 
 前端会先读取卡片资源中的 `.map` 文件，再根据其中的：
 
