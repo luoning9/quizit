@@ -117,25 +117,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from split_columns_questions import Column, Line
+
 DEFAULT_IMAGE_DPI = 180.0
 _COLUMN_DARK_CACHE: dict[tuple[int, int, int, str], np.ndarray] = {}
 
-
-@dataclass(frozen=True)
-class Line:
-    text: str
-    x_min: float
-    y_min: float
-    x_max: float
-    y_max: float
-
-
-@dataclass(frozen=True)
-class Column:
-    index: int
-    x_min: float
-    x_max: float
-    start_x: float
 
 
 @dataclass(frozen=True)

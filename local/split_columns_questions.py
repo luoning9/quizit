@@ -63,6 +63,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from rough_split_questions import (
+    Column,
+    Line,
     PageLayout,
     Section,
     analyze_page_layout,
