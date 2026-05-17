@@ -387,7 +387,7 @@ due_cards AS (
     WHERE learned
       AND (next_due_at IS NULL OR next_due_at <= now() + interval '2 days')
     ORDER BY COALESCE(next_due_at, now()) ASC
-    LIMIT _limit * 2
+    LIMIT _limit
 ),
 new_cards AS (
     SELECT
@@ -401,21 +401,25 @@ new_cards AS (
     ORDER BY deck_created_at ASC
     LIMIT _limit * 2
 ),
+fallback_cards AS (
+    SELECT
+        row_number() OVER (
+            ORDER BY coalesce(ease_factor, 0) ASC, deck_created_at DESC
+        ) + (_limit * 4) AS seq,
+        card_id,
+        deck_id,
+        deck_name AS deck_title,
+        deck_description
+    FROM base
+    ORDER BY coalesce(ease_factor, 0) ASC, deck_created_at DESC
+    LIMIT _limit
+),
 pooled AS (
     SELECT card_id, deck_id, deck_title, deck_description, seq FROM due_cards
     UNION ALL
     SELECT card_id, deck_id, deck_title, deck_description, seq FROM new_cards
     UNION ALL
-    SELECT
-        card_id,
-        deck_id,
-        deck_name AS deck_title,
-        deck_description,
-        row_number() OVER (
-            ORDER BY coalesce(ease_factor, 0) ASC, deck_created_at DESC
-        ) + (_limit * 4) AS seq
-    FROM base
-    LIMIT _limit
+    SELECT card_id, deck_id, deck_title, deck_description, seq FROM fallback_cards
 ),
 dedup AS (
     SELECT DISTINCT ON (card_id)
