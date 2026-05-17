@@ -669,7 +669,7 @@ export function DeckPracticePage() {
                     const {data, error} = await supabase.rpc("select_practice_cards_leitner", {
                         _folder_path: decodedName || "",
                         _limit: CARD_THRESHOLD,
-                        _mode: "ordered",
+                        _mode: "random",
                     });
 
                     if (error) {
