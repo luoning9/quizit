@@ -9,11 +9,11 @@ import {useTimer} from "../components/TimerContext";  // ← 新增，路径和 
 import {DotRender} from "../components/ui/DotRender";
 import {MapPdfViewer} from "../components/ui/MapPdfViewer";
 import {ImageRender} from "../components/ui/ImageRender";
-import { parseFront, parseBack, type UserAnswer } from "../../lib/quizFormat";
+import { parseFront, parseBack, indexToLetter, type UserAnswer } from "../../lib/quizFormat";
 import { easeFactorToColor, easeFactorFromLevel, recordDifficultyUpdate } from "../../lib/studyUtils";
 import { renderPrompt, renderAnswer } from "./quizRenderer";
 import { differenceInSeconds } from "date-fns";
-import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft, Info, Pause, FileQuestion, Loader2 } from "lucide-react";
+import { Image as ImageIcon, X as XIcon, GitBranch, Map as MapIcon, Link, CornerUpLeft, Info, Pause, FileQuestion, Loader2, Square, Volume2 } from "lucide-react";
 import MarkdownText from "../components/MarkdownText";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 
@@ -122,6 +122,42 @@ function trimEmptyLines(content: string): string {
     while (lines.length && !lines[0].trim()) lines.shift();
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return lines.join("\n");
+}
+
+function normalizeSpeechText(text: string): string {
+    return trimEmptyLines(
+        text
+            .replace(/!\[[^\]]*]/g, " ")
+            .replace(/\{\{(\d+)}}/g, (_, num: string) => `空${num}`)
+            .replace(/\s+/g, " ")
+    ).trim();
+}
+
+function stripChoicePrefixForSpeech(text: string): string {
+    return text.replace(/^\s*[A-Ha-h](?:[.:、，]\s+|\s+)/, "").trim();
+}
+
+function getFrontSpeechText(view: CardViewData): string {
+    const schema = view.frontSchema;
+    if (!schema) {
+        return normalizeSpeechText(view.frontClean);
+    }
+
+    const parts: string[] = [];
+    const prompt = normalizeSpeechText(schema.prompt);
+    if (prompt) {
+        parts.push(prompt);
+    }
+
+    if ((schema.type === "single_choice" || schema.type === "multiple_choice") && Array.isArray(schema.options)) {
+        schema.options.forEach((opt, idx) => {
+            const clean = normalizeSpeechText(stripChoicePrefixForSpeech(opt));
+            if (!clean) return;
+            parts.push(`${indexToLetter(idx)}. ${clean}`);
+        });
+    }
+
+    return normalizeSpeechText(parts.join("\n"));
 }
 
 function getMediaType(name: string): "dot" | "map" | "image" | null {
@@ -510,9 +546,11 @@ export function DeckPracticePage() {
 
     const [index, setIndex] = useState(0);
     const [showBack, setShowBack] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
     const frontRef = useRef<HTMLDivElement | null>(null);
     const backRef = useRef<HTMLDivElement | null>(null);
     const dividerRef = useRef<HTMLDivElement | null>(null);
+    const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
     const [mediaModal, setMediaModal] = useState<{ cardId: string; name: string } | null>(null);
     const [hoverInfo, setHoverInfo] = useState<string>("点击显示背面");
     const [analysisInfoMap, setAnalysisInfoMap] = useState<Record<string, string | null>>({});
@@ -894,6 +932,11 @@ export function DeckPracticePage() {
     // 3. 切题 / 翻面
     const nextCard = () => {
         if (cardIds.length === 0) return;
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        setIsSpeaking(false);
+        speechRef.current = null;
         if (showBack) flip();
         //setShowBack(false);
         //if (backRef.current) backRef.current.classList.add("hidden");
@@ -901,6 +944,11 @@ export function DeckPracticePage() {
     };
 
     const flip = () => {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        setIsSpeaking(false);
+        speechRef.current = null;
         //const front = frontRef.current;
         const back = backRef.current;
         const divider = dividerRef.current;
@@ -921,6 +969,51 @@ export function DeckPracticePage() {
             setShowBack(false);
             setHoverInfo("点击显示背面");
         }
+    };
+
+    const speakFrontText = () => {
+        if (!currentView) return;
+        if (typeof window === "undefined") return;
+        if (typeof window.speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
+            window.alert("当前浏览器不支持语音合成。");
+            return;
+        }
+
+        const text = getFrontSpeechText(currentView);
+        if (!text) return;
+
+        if (isSpeaking) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+            speechRef.current = null;
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = /[\u4E00-\u9FFF]/.test(text) ? "zh-CN" : "en-US";
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        utterance.onstart = () => {
+            setIsSpeaking(true);
+        };
+        utterance.onend = () => {
+            setIsSpeaking(false);
+            if (speechRef.current === utterance) {
+                speechRef.current = null;
+            }
+        };
+        utterance.onerror = () => {
+            setIsSpeaking(false);
+            if (speechRef.current === utterance) {
+                speechRef.current = null;
+            }
+        };
+
+        speechRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
     };
 
     // 4. 记录掌握程度（写入 card_stats 和 card_reviews，并自动下一题）
@@ -1031,6 +1124,16 @@ export function DeckPracticePage() {
             active = false;
         };
     }, [currentId, currentAnalysisText]);
+
+    useEffect(() => {
+        return () => {
+            if (typeof window !== "undefined" && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            speechRef.current = null;
+            setIsSpeaking(false);
+        };
+    }, [currentId]);
 
     const practicedCardIds = cardIds.slice(0, Math.max(0, Math.min(answersSinceBreak, cardIds.length)));
 
@@ -1340,6 +1443,28 @@ export function DeckPracticePage() {
 
                         {/* 练习次数 */}
                         <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap flex items-center gap-2">
+                            <button
+                                type="button"
+                                className={clsx(
+                                    "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition",
+                                    "border-slate-300 bg-white/90 text-slate-600 hover:border-emerald-400 hover:text-emerald-700",
+                                    "dark:border-slate-600 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-emerald-500 dark:hover:text-emerald-300",
+                                    isSpeaking && "border-emerald-500 text-emerald-700 dark:border-emerald-400 dark:text-emerald-300"
+                                )}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    speakFrontText();
+                                }}
+                                onMouseEnter={() => setHoverInfo(isSpeaking ? "停止播放正面文字" : "播放正面文字")}
+                                onMouseLeave={() => setHoverInfo(showBack ? "点击隐藏背面" : "点击显示背面")}
+                                title={isSpeaking ? "停止播放正面文字" : "播放正面文字"}
+                                aria-pressed={isSpeaking}
+                            >
+                                {isSpeaking ? <Square className="h-3.5 w-3.5" aria-hidden /> : <Volume2 className="h-3.5 w-3.5" aria-hidden />}
+                                <span>{isSpeaking ? "停止" : "朗读"}</span>
+                                <span className="sr-only">正面文字</span>
+                            </button>
                             <span>练习次数：{reviewCount}</span>
                             {currentAnalysisText ? (
                                 <button
