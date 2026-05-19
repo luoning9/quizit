@@ -43,12 +43,6 @@
 - 当某栏的第一道题上方仍有区域时，这段区域归到前一栏最后一道题，记为 `column_continuation`。
 - 导出指定题目 PDF 时，会按 `segments` 顺序自上而下拼接成单页。
 - 多个 segment 之间保留 `3pt` 空白。
-
-典型用法：
-1. 只生成分栏分题结果：
-   `python3 local/split_columns_questions.py input.pdf --out tmp/columns_questions`
-2. 额外导出单题 PDF：
-   `python3 local/split_columns_questions.py input.pdf --out tmp/columns_questions --export-question-id p001_q10`
 """
 
 from __future__ import annotations
@@ -62,7 +56,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from rough_split_questions import (
+from split_columns_layout import (
     Column,
     Line,
     PageLayout,
@@ -76,6 +70,8 @@ from rough_split_questions import (
     parse_pages_spec,
     render_page_image,
 )
+
+DEFAULT_OUT_DIR = Path("tmp/columns_questions")
 
 
 def compute_page_columns_and_questions(
@@ -340,13 +336,6 @@ def get_question_image(
     *,
     gap_pt: float = 3.0,
 ) -> Image.Image:
-    """
-    按照与 export_question_pdf 相同的裁图方式，将指定题目的所有 segment 从渲染图裁出并
-    竖向拼接，返回 PIL Image。
-
-    question_id：完整题目 ID，如 "p003_q05"。
-    gap_pt：多段之间的空白间距（单位 pt），默认 3pt。
-    """
     question = next(
         (item for item in page_record["questions"] if item["question_id"] == question_id),
         None,
@@ -379,7 +368,7 @@ def get_question_image(
     if not crops:
         raise RuntimeError(
             f"no segments could be cropped for question "
-            f"{question.get('question_id', question_no)}"
+            f"{question.get('question_id', question_id)}"
         )
 
     max_width = max(crop.width for crop in crops)
@@ -395,21 +384,9 @@ def get_question_image(
     return stitched
 
 
-
 class ColumnQuestionSplitter:
     """
     基于 PDF 文件的分栏分题工具类。
-
-    根据 PDF 路径创建实例，按需渲染页面并缓存结果，提供两个主要接口：
-    - compute_columns_and_questions(page_no)：返回该页的分栏分题数据（page_record）
-    - get_question_image(question_id)：返回指定题目的拼接图（PIL Image）
-
-    支持 with 语句（自动清理临时目录）：
-        with ColumnQuestionSplitter(pdf_path) as splitter:
-            img = splitter.get_question_image("p003_q05")
-
-    也可传入 out_dir 持久化渲染结果：
-        splitter = ColumnQuestionSplitter(pdf_path, out_dir="tmp/rendered")
     """
 
     def __init__(
@@ -427,12 +404,7 @@ class ColumnQuestionSplitter:
         self._page_records: dict[int, dict] = {}
         self._image_paths: dict[int, Path] = {}
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
     def _render_dir(self) -> Path:
-        """返回渲染图存放目录，必要时创建临时目录。"""
         if self._out_dir is not None:
             render_dir = self._out_dir / "rendered_pages"
             render_dir.mkdir(parents=True, exist_ok=True)
@@ -444,7 +416,6 @@ class ColumnQuestionSplitter:
         return render_dir
 
     def _ensure_page(self, page_no: int) -> tuple[PageLayout, Path]:
-        """按需解析 layout 并渲染页面图，结果均缓存。"""
         if page_no not in self._layouts:
             self._layouts[page_no] = analyze_page_layout(self._pdf_path, page_no)
         if page_no not in self._image_paths:
@@ -453,22 +424,17 @@ class ColumnQuestionSplitter:
             )
         return self._layouts[page_no], self._image_paths[page_no]
 
+    def get_rendered_page_path(self, page_no: int) -> Path:
+        _, image_path = self._ensure_page(page_no)
+        return image_path
+
     def _page_no_from_question_id(self, question_id: str) -> int:
-        """从 question_id（如 'p003_q05'）解析页码。"""
         m = re.match(r"p(\d+)_q\d+", question_id)
         if not m:
             raise ValueError(f"无法从 question_id 解析页码: {question_id!r}")
         return int(m.group(1))
 
-    # ------------------------------------------------------------------
-    # Public interface
-    # ------------------------------------------------------------------
-
     def compute_columns_and_questions(self, page_no: int) -> dict:
-        """
-        计算并返回指定页的分栏分题数据（page_record）。
-        结果会被缓存，同一页号重复调用不会重复计算。
-        """
         if page_no not in self._page_records:
             layout, image_path = self._ensure_page(page_no)
             self._page_records[page_no] = compute_page_columns_and_questions(
@@ -482,21 +448,12 @@ class ColumnQuestionSplitter:
         *,
         gap_pt: float = 3.0,
     ) -> Image.Image:
-        """
-        返回指定题目的 PIL Image（各 segment 竖向拼接）。
-        question_id 格式如 'p003_q05'，页码由其自动解析。
-        """
         page_no = self._page_no_from_question_id(question_id)
         page_record = self.compute_columns_and_questions(page_no)
         _, image_path = self._ensure_page(page_no)
         return get_question_image(page_record, image_path, question_id, gap_pt=gap_pt)
 
-    # ------------------------------------------------------------------
-    # Context manager
-    # ------------------------------------------------------------------
-
     def close(self) -> None:
-        """释放临时目录（使用持久 out_dir 时无需调用）。"""
         if self._tmp is not None:
             self._tmp.cleanup()
             self._tmp = None
@@ -513,8 +470,8 @@ def main() -> None:
     parser.add_argument("pdf", help="源 PDF 路径")
     parser.add_argument(
         "--out",
-        default="tmp/columns_questions",
-        help="输出目录，默认 tmp/columns_questions",
+        default=str(DEFAULT_OUT_DIR),
+        help="输出目录，默认当前目录 tmp/columns_questions",
     )
     parser.add_argument(
         "--pages",
@@ -556,7 +513,7 @@ def main() -> None:
         for page_no in pages:
             page_record = splitter.compute_columns_and_questions(page_no)
             page_manifest.append(page_record)
-            _, image_path = splitter._ensure_page(page_no)
+            image_path = splitter.get_rendered_page_path(page_no)
             draw_page_overlay(
                 image_path,
                 page_record,

@@ -117,7 +117,9 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from split_columns_questions import Column, Line
+from split_columns_layout import Column, Line
+
+DEFAULT_OUT_DIR = Path("tmp/question_bands")
 
 DEFAULT_IMAGE_DPI = 180.0
 _COLUMN_DARK_CACHE: dict[tuple[int, int, int, str], np.ndarray] = {}
@@ -1719,7 +1721,20 @@ def load_surya_detect_lines(
     if not image_map:
         return {}
 
-    os.environ["TORCH_DEVICE"] = "mps"
+    def _select_surya_device() -> str:
+        configured = os.environ.get("TORCH_DEVICE")
+        if configured and configured.lower() not in {"mps", "auto"}:
+            return configured
+        try:
+            import torch
+
+            if torch.backends.mps.is_available():
+                return "mps"
+        except Exception:
+            pass
+        return "cpu"
+
+    os.environ["TORCH_DEVICE"] = _select_surya_device()
     from surya.detection import DetectionPredictor
 
     ordered_pages = sorted(image_map)
@@ -2210,8 +2225,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--out",
-        default="tmp/question_bands",
-        help="输出目录，默认 tmp/question_bands",
+        default=str(DEFAULT_OUT_DIR),
+        help="输出目录，默认当前目录 tmp/question_bands",
     )
     parser.add_argument(
         "--dpi",

@@ -338,7 +338,8 @@ class ExamPaper:
         assert info and info.original_file_name
         source_pdf = Path(info.original_file_name)
         self.document_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_pdf, self.document_path)
+        if source_pdf.resolve() != self.document_path.resolve():
+            shutil.copy2(source_pdf, self.document_path)
         self._document_info = info
         self._document_info_path().write_text(
             json.dumps(asdict(info), ensure_ascii=False, indent=2),
@@ -920,7 +921,7 @@ def _group_lines_by_rows(lines: Sequence[Line], line_height: float) -> list[list
     if not lines:
         return []
 
-    ordered = sorted(lines, key=lambda line: (line.rect.y_min, line.rect.x_min, line.rect.y_max, line.rect.x_max))
+    ordered = sorted(lines, key=lambda line: (line.row.y_min, line.row.x_min, line.row.y_max, line.row.x_max))
     row_gap = max(1.0, line_height * 0.35)
     groups: list[list[Line]] = []
     current_group: list[Line] = [ordered[0]]
@@ -942,7 +943,7 @@ def _group_lines_by_rows(lines: Sequence[Line], line_height: float) -> list[list
 def _render_text_row(lines: Sequence[Line], rect: Rect, char_width: float) -> str:
     width_chars = max(1, int(round((rect.x_max - rect.x_min) / char_width)))
     buffer = [" "] * width_chars
-    for line in sorted(lines, key=lambda item: (item.rect.x_min, item.rect.y_min, item.rect.x_max, item.rect.y_max)):
+    for line in sorted(lines, key=lambda item: (item.row.x_min, item.row.y_min, item.row.x_max, item.row.y_max)):
         start = int(round((line.rect.x_min - rect.x_min) / char_width))
         if start >= width_chars:
             continue
@@ -992,11 +993,11 @@ def build_question_parts(
     question_records: list[tuple[int, int]] = []
     index_in_page = 0
     for column in columns:
-        column_anchors = sorted(anchors_by_column.get(column.index, []), key=lambda item: item.rect.y_min)
+        column_anchors = sorted(anchors_by_column.get(column.index, []), key=lambda item: item.row.y_min)
         if column_anchors:
             first_anchor = column_anchors[0]
-            top_gap = first_anchor.rect.y_min - column.rect.y_min
-            anchor_height = first_anchor.rect.y_max - first_anchor.rect.y_min
+            top_gap = first_anchor.row.y_min - column.rect.y_min
+            anchor_height = first_anchor.row.y_max - first_anchor.row.y_min
             if top_gap >= anchor_height and top_gap > 0:
                 question_parts.append(
                     QuestionPart(
@@ -1005,7 +1006,7 @@ def build_question_parts(
                             x_min=column.rect.x_min,
                             y_min=column.rect.y_min,
                             x_max=column.rect.x_max,
-                            y_max=first_anchor.rect.y_min,
+                            y_max=first_anchor.row.y_min,
                         ),
                         column=column.index,
                         index_in_page=index_in_page,
@@ -1013,10 +1014,10 @@ def build_question_parts(
                 )
                 index_in_page += 1
         for index, anchor in enumerate(column_anchors):
-            part_top = anchor.rect.y_min
+            part_top = anchor.row.y_min
             part_bottom = column.rect.y_max
             if index + 1 < len(column_anchors):
-                part_bottom = min(part_bottom, column_anchors[index + 1].rect.y_min)
+                part_bottom = min(part_bottom, column_anchors[index + 1].row.y_min)
             if part_bottom <= part_top:
                 continue
             question_parts.append(
@@ -1110,10 +1111,10 @@ def analyze_page_layout(
     # Tighten each column vertically to the first and last anchor it contains.
     updated_columns: list[Column] = []
     for column in columns:
-        column_anchors = sorted(anchors_by_column.get(column.index, []), key=lambda item: item.rect.y_min)
+        column_anchors = sorted(anchors_by_column.get(column.index, []), key=lambda item: item.row.y_min)
         if column_anchors:
-            top = column_anchors[0].rect.y_min
-            bottom = column_anchors[-1].rect.y_max
+            top = column_anchors[0].row.y_min
+            bottom = column_anchors[-1].row.y_max
         else:
             top = 0.0
             bottom = page_height
@@ -1202,7 +1203,7 @@ def analyze_page_layout(
         refined_columns: list[Column] = []
         for idx, column in enumerate(final_columns):
             # find anchors of this column, order by y
-            column_anchors = sorted(anchors_by_column.get(column.index, []), key=lambda item: item.rect.y_min)
+            column_anchors = sorted(anchors_by_column.get(column.index, []), key=lambda item: item.row.y_min)
             left_blank = boundary_blank_rects[idx]
             right_blank = boundary_blank_rects[idx + 1]
 
@@ -1213,7 +1214,7 @@ def analyze_page_layout(
             right = right_blank.x_min
 
             if column_anchors and column_anchors[0].question_no == "1":
-                top = column_anchors[0].rect.y_min
+                top = column_anchors[0].row.y_min
             refined_columns.append(
                 Column(
                     index=column.index,
@@ -1326,7 +1327,8 @@ def parse_exam_paper(
     dpi: int = DEFAULT_DPI,
     page_no: int | None = None,
 ) -> ExamPaper:
-    work_dir = create_output_dir(pdf_file)
+    pdf_path = Path(pdf_file)
+    work_dir = create_output_dir(str(pdf_path))
     exam_paper = ExamPaper(work_dir=work_dir, dpi=dpi)
 
     if exam_paper.ready() and not recreate:
@@ -1335,11 +1337,120 @@ def parse_exam_paper(
     if recreate and work_dir.exists():
         shutil.rmtree(work_dir)
         work_dir.mkdir(parents=True, exist_ok=True)
+        exam_paper = ExamPaper(work_dir=work_dir, dpi=dpi)
 
-    total_pages = get_total_pages(Path(pdf_file))
-    if not exam_paper.ready() or recreate:
-        document_info = DocumentInfo(original_file_name=pdf_file, page_count=total_pages)
-        exam_paper.save_document(document_info)
+    total_pages = get_total_pages(pdf_path)
+    document_info = DocumentInfo(original_file_name=str(pdf_path), page_count=total_pages)
+    exam_paper.save_document(document_info)
+
+    return _parse_exam_paper_pages(exam_paper, dpi=dpi, page_no=page_no)
+
+
+def parse_exam_paper_from_dir(
+    work_dir: str | Path,
+    dpi: int = DEFAULT_DPI,
+    page_no: int | None = None,
+) -> ExamPaper:
+    work_dir_path = Path(work_dir)
+    if not work_dir_path.exists():
+        raise FileNotFoundError(f"work dir does not exist: {work_dir_path}")
+    if not work_dir_path.is_dir():
+        raise NotADirectoryError(f"work dir is not a directory: {work_dir_path}")
+
+    exam_paper = ExamPaper(work_dir=work_dir_path, dpi=dpi)
+    if not exam_paper.document_path.exists():
+        raise FileNotFoundError(f"paper.pdf not found in work dir: {work_dir_path}")
+
+    return _parse_exam_paper_pages(exam_paper, dpi=dpi, page_no=page_no)
+
+
+def parse_output_target(value: str) -> tuple[int, int]:
+    match = re.fullmatch(r"\s*p(\d+)_q(\d+)\s*", value)
+    if not match:
+        raise argparse.ArgumentTypeError("expected p<page_no>_q<question_no>")
+    return int(match.group(1)), int(match.group(2))
+
+
+def question_output_payload(exam_paper: ExamPaper, page_no: int, question_no: int) -> dict:
+    page_info = exam_paper.get_page_info(page_no)
+    if page_info is None:
+        raise ValueError(f"page {page_no} not found in {exam_paper.work_dir}")
+
+    try:
+        question = exam_paper.get_question(page_no, question_no)
+    except KeyError as exc:
+        raise ValueError(f"question {question_no} not found on page {page_no}") from exc
+
+    parts = exam_paper.find_question_parts(page_no, question_no)
+    return {
+        "page_no": page_no,
+        "question_no": question_no,
+        "question": asdict(question),
+        "parts": [asdict(part) for part in parts],
+    }
+
+
+def question_png_path(page_no: int, question_no: int, output_dir: Path | str | None = None) -> Path:
+    directory = (Path.cwd() / "output") if output_dir is None else Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory / f"question_q{page_no}_q{question_no}.png"
+
+
+def question_binary_png_path(page_no: int, question_no: int, output_dir: Path | str | None = None) -> Path:
+    directory = (Path.cwd() / "output") if output_dir is None else Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory / f"question_q{page_no}_q{question_no}_binary.png"
+
+
+def save_question_png(
+    exam_paper: ExamPaper,
+    page_no: int,
+    question_no: int,
+    output_dir: Path | str | None = None,
+) -> tuple[Path, bool]:
+    path = question_png_path(page_no, question_no, output_dir)
+    if path.exists():
+        return path, False
+
+    image = exam_paper.create_question_image(page_no, question_no)
+    try:
+        image.save(path)
+        return path, True
+    finally:
+        image.close()
+
+
+def save_question_binary_png(
+    exam_paper: ExamPaper,
+    page_no: int,
+    question_no: int,
+    output_dir: Path | str | None = None,
+) -> tuple[Path, bool]:
+    path = question_binary_png_path(page_no, question_no, output_dir)
+    if path.exists():
+        return path, False
+
+    if exam_paper.get_page_binary_image(page_no) is None:
+        raise FileNotFoundError(f"binary page image not found for page {page_no}")
+
+    image = exam_paper.create_question_binary_image(page_no, question_no)
+    try:
+        image.save(path)
+        return path, True
+    finally:
+        image.close()
+
+
+def _parse_exam_paper_pages(
+    exam_paper: ExamPaper,
+    dpi: int = DEFAULT_DPI,
+    page_no: int | None = None,
+) -> ExamPaper:
+    if exam_paper.ready():
+        return exam_paper
+
+    assert exam_paper.document_info is not None
+    total_pages = exam_paper.document_info.page_count
 
     exam_paper.debug_dir.mkdir(parents=True, exist_ok=True)
     page_nos = [page_no] if page_no is not None else list(range(1, total_pages + 1))
@@ -1421,26 +1532,89 @@ def parse_exam_paper(
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="exam_paper_parser.py",
-        description="Create an output directory for an exam paper PDF.",
+        description="Parse an exam paper PDF into a work directory, or resume from an existing work directory.",
     )
-    parser.add_argument("pdf_file", help="PDF file name or path")
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument(
+        "--pdf",
+        dest="pdf_file",
+        help="PDF file name or path to parse into a new work directory",
+    )
+    input_group.add_argument(
+        "--dir",
+        dest="work_dir",
+        help="Existing work directory containing paper.pdf and parsed data",
+    )
+    parser.add_argument(
+        "--output",
+        type=parse_output_target,
+        help="Output question info for p<page_no>_q<question_no>",
+    )
+    parser.add_argument(
+        "--png",
+        action="store_true",
+        help="Save question image and binary image to work dir/output when used with --output",
+    )
     parser.add_argument(
         "--recreate",
         action="store_true",
-        help="Rebuild the output directory even if parsed data already exists",
+        help="Rebuild the output directory even if parsed data already exists (PDF mode only)",
     )
     parser.add_argument(
-        "--p",
+        "--page",
         type=int,
         help="Only parse a single page number",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.work_dir and args.recreate:
+        parser.error("--dir cannot be used with --recreate")
+    if args.png and args.output is None:
+        parser.error("--png can only be used with --output")
+    if args.output is not None and args.page is not None and args.page != args.output[0]:
+        parser.error("--page must match the page number in --output")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    exam_paper = parse_exam_paper(args.pdf_file, recreate=args.recreate, page_no=args.p)
-    print(exam_paper.work_dir)
+    requested_page_no = args.page
+    if args.output is not None:
+        requested_page_no = args.output[0]
+    if args.pdf_file:
+        exam_paper = parse_exam_paper(args.pdf_file, recreate=args.recreate, page_no=requested_page_no)
+    else:
+        exam_paper = parse_exam_paper_from_dir(args.work_dir, page_no=requested_page_no)
+    if args.output is not None:
+        page_no, question_no = args.output
+        try:
+            payload = question_output_payload(exam_paper, page_no, question_no)
+            if args.png:
+                png_dir = exam_paper.work_dir / "output"
+                png_path, created = save_question_png(exam_paper, page_no, question_no, output_dir=png_dir)
+                if created:
+                    print(f"saved question image: {png_path}", file=sys.stderr)
+                else:
+                    print(f"question image already exists, skipped: {png_path}", file=sys.stderr)
+                try:
+                    binary_png_path, binary_created = save_question_binary_png(
+                        exam_paper,
+                        page_no,
+                        question_no,
+                        output_dir=png_dir,
+                    )
+                except FileNotFoundError as exc:
+                    print(f"question binary image skipped: {exc}", file=sys.stderr)
+                else:
+                    if binary_created:
+                        print(f"saved question binary image: {binary_png_path}", file=sys.stderr)
+                    else:
+                        print(f"question binary image already exists, skipped: {binary_png_path}", file=sys.stderr)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(exam_paper.work_dir)
     return 0
 
 

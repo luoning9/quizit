@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+tmp/
 
 # Editor directories and files
 .vscode/*
@@ -36,3 +37,4 @@ dist-ssr
 /local/**/__pycache__/
 /local/**/*.pyc
 /local/**/*.pyo
+/exam-data/
