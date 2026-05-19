@@ -59,6 +59,7 @@ export default function StatsPage() {
     const [deckNames, setDeckNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
     const [quizNames, setQuizNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
     const backfilledDatesRef = useRef<Set<string>>(new Set());
+    const [pendingBackfillDates, setPendingBackfillDates] = useState<Record<string, true>>({});
 
     // 获取用户 ID
     useEffect(() => {
@@ -87,13 +88,23 @@ export default function StatsPage() {
             }
 
             const rows = (Array.isArray(data) ? (data as DailyStat[]) : []).filter(Boolean);
-            if (!rows.length) return;
-
             const insertedAt = new Date().toISOString();
-            const payload = rows.map((row) => ({
-                ...row,
-                inserted_at: insertedAt,
-            }));
+            const payload = rows.length
+                ? rows.map((row) => ({
+                    ...row,
+                    inserted_at: insertedAt,
+                }))
+                : [{
+                    user_id: userId,
+                    date: dateStr,
+                    questions_reviewed: 0,
+                    question_time_spent: 0,
+                    quizzes: null,
+                    cards_reviewed: 0,
+                    card_time_spent: 0,
+                    decks: null,
+                    inserted_at: insertedAt,
+                }];
 
             const { error: upsertError } = await supabase
                 .from("daily_user_stats")
@@ -118,14 +129,9 @@ export default function StatsPage() {
         [userId]
     );
 
-    const backfillCurrentMonth = useCallback(
+    const backfillVisibleMonth = useCallback(
         async (statsMap: Record<string, DailyStat>) => {
             if (!userId) return;
-
-            const isCurrentMonth =
-                month.getUTCFullYear() === today.getUTCFullYear() &&
-                month.getUTCMonth() === today.getUTCMonth();
-            if (!isCurrentMonth) return;
 
             const todayStr = formatDateCN(today);
             const monthStart = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
@@ -148,7 +154,25 @@ export default function StatsPage() {
 
             if (!candidates.length) return;
 
-            await Promise.allSettled(candidates.map((dateStr) => backfillDailyStat(dateStr)));
+            setPendingBackfillDates((prev) => {
+                const next = { ...prev };
+                for (const dateStr of candidates) {
+                    next[dateStr] = true;
+                }
+                return next;
+            });
+
+            try {
+                await Promise.allSettled(candidates.map((dateStr) => backfillDailyStat(dateStr)));
+            } finally {
+                setPendingBackfillDates((prev) => {
+                    const next = { ...prev };
+                    for (const dateStr of candidates) {
+                        delete next[dateStr];
+                    }
+                    return next;
+                });
+            }
         },
         [backfillDailyStat, month, today, userId]
     );
@@ -179,9 +203,9 @@ export default function StatsPage() {
                 });
                 setMonthStats(map);
                 setMonthLoading(false);
-                void backfillCurrentMonth(map);
-        });
-    }, [backfillCurrentMonth, userId, month]);
+                void backfillVisibleMonth(map);
+            });
+    }, [backfillVisibleMonth, userId, month]);
 
     const mergedStats = useMemo(() => {
         const merged = { ...monthStats };
@@ -196,6 +220,11 @@ export default function StatsPage() {
     const selectedTableStat = monthStats[selectedDate] ?? null;
     const selectedStat = isFutureSelected ? null : mergedStats[selectedDate] ?? null;
     const selectedStatFinal = isDailyStatFinal(selectedTableStat, selectedDate);
+    const selectedIsPending = Boolean(pendingBackfillDates[selectedDate]);
+    const selectedHasData = Boolean(
+        selectedTableStat &&
+            ((selectedTableStat.cards_reviewed ?? 0) > 0 || (selectedTableStat.questions_reviewed ?? 0) > 0)
+    );
 
     const fetchNames = useCallback(
         async (ids: string[], type: "deck" | "quiz") => {
@@ -305,6 +334,7 @@ export default function StatsPage() {
         const cardCount = stat?.cards_reviewed ?? 0;
         const quizCount = stat?.questions_reviewed ?? 0;
         const isEmptyDay = cardCount === 0 && quizCount === 0;
+        const isPendingDay = Boolean(pendingBackfillDates[dateStr]);
         const disabled = isFuture || isEmptyDay;
         return (
             <button
@@ -320,7 +350,9 @@ export default function StatsPage() {
                 <div className="flex items-start justify-between w-full gap-2">
                     <div className="text-2xl font-semibold tracking-tight leading-none text-slate-400 dark:text-slate-500">{day}</div>
                     <div className="flex-1 flex flex-col items-end text-xs text-slate-600 dark:text-slate-300 pr-1">
-                        {!isEmptyDay ? (
+                        {isPendingDay ? (
+                            <span className="text-[11px] text-amber-500 dark:text-amber-300">统计中</span>
+                        ) : !isEmptyDay ? (
                             <>
                                 <span className="inline-flex min-w-[2rem] justify-center rounded-full px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-100 font-semibold font-mono text-sm">
                                     {cardCount}
@@ -330,7 +362,7 @@ export default function StatsPage() {
                                 </span>
                             </>
                         ) : (
-                            <span className="text-[11px] text-slate-400 dark:text-slate-500">无数据</span>
+                            <span className="text-[11px] text-slate-400 dark:text-slate-500">无</span>
                         )}
                     </div>
                 </div>
@@ -452,11 +484,13 @@ function renderMap(
                             <div className="text-sm text-slate-500 dark:text-slate-400">日期</div>
                             <div className="text-xl font-semibold text-slate-900 dark:text-slate-100">{selectedDate}</div>
                             <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {selectedTableStat
-                                    ? selectedStatFinal
-                                        ? "最终统计"
-                                        : "统计回补中"
-                                    : "暂无统计记录"}
+                                {selectedIsPending
+                                    ? "统计中"
+                                    : selectedTableStat
+                                        ? selectedHasData
+                                            ? (selectedStatFinal ? "最终统计" : "统计中")
+                                            : "无"
+                                        : "无"}
                             </div>
                         </div>
                         {isSameDayCN(selectedDate, today) && (
@@ -477,7 +511,7 @@ function renderMap(
 
                     {selectedStat ? (
                         selectedStat.cards_reviewed === 0 && selectedStat.questions_reviewed === 0 ? (
-                            <div className="text-sm text-slate-500 dark:text-slate-400">当日暂无数据。</div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400">无</div>
                         ) : (
                             <div className="space-y-4">
                                 {selectedStat.cards_reviewed > 0 && (
@@ -499,9 +533,9 @@ function renderMap(
                                 )}
                             </div>
                         )
-                    ) : (
-                        <div className="text-sm text-slate-500 dark:text-slate-400">当日暂无数据。</div>
-                    )}
+            ) : (
+                <div className="text-sm text-slate-500 dark:text-slate-400">无</div>
+            )}
                 </div>
             </div>
         </div>
