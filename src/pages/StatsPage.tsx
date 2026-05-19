@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 type DailyStat = {
     user_id: string;
     date: string;
+    inserted_at?: string | null;
     questions_reviewed: number;
     question_time_spent: number;
     quizzes: Record<string, number> | null;
@@ -34,6 +35,11 @@ function isSameDayCN(a: string, b: Date) {
     return a === formatDateCN(b);
 }
 
+function isDailyStatFinal(stat: DailyStat | null | undefined, date: string) {
+    if (!stat?.inserted_at) return false;
+    return formatDateCN(new Date(stat.inserted_at)) > date;
+}
+
 export default function StatsPage() {
     const navigate = useNavigate();
     const today = useMemo(() => new Date(), []);
@@ -52,7 +58,7 @@ export default function StatsPage() {
     const [authChecked, setAuthChecked] = useState(false);
     const [deckNames, setDeckNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
     const [quizNames, setQuizNames] = useState<Record<string, { name: string; deleted: boolean }>>({});
-    const missingPatchMonthsRef = useRef<Set<string>>(new Set());
+    const backfilledDatesRef = useRef<Set<string>>(new Set());
 
     // 获取用户 ID
     useEffect(() => {
@@ -66,6 +72,87 @@ export default function StatsPage() {
         });
     }, []);
 
+    const backfillDailyStat = useCallback(
+        async (dateStr: string) => {
+            if (!userId) return;
+
+            const { data, error } = await supabase.rpc("compute_daily_user_stats", {
+                target_date: dateStr,
+                target_user: userId,
+            });
+
+            if (error) {
+                console.error("compute daily stat error", { dateStr, error });
+                return;
+            }
+
+            const rows = (Array.isArray(data) ? (data as DailyStat[]) : []).filter(Boolean);
+            if (!rows.length) return;
+
+            const insertedAt = new Date().toISOString();
+            const payload = rows.map((row) => ({
+                ...row,
+                inserted_at: insertedAt,
+            }));
+
+            const { error: upsertError } = await supabase
+                .from("daily_user_stats")
+                .upsert(payload, { onConflict: "user_id,date" });
+
+            if (upsertError) {
+                console.error("upsert daily_user_stats error", { dateStr, upsertError });
+                return;
+            }
+
+            setMonthStats((prev) => {
+                const next = { ...prev };
+                for (const row of payload) {
+                    next[row.date] = {
+                        ...row,
+                        inserted_at: insertedAt,
+                    };
+                }
+                return next;
+            });
+        },
+        [userId]
+    );
+
+    const backfillCurrentMonth = useCallback(
+        async (statsMap: Record<string, DailyStat>) => {
+            if (!userId) return;
+
+            const isCurrentMonth =
+                month.getUTCFullYear() === today.getUTCFullYear() &&
+                month.getUTCMonth() === today.getUTCMonth();
+            if (!isCurrentMonth) return;
+
+            const todayStr = formatDateCN(today);
+            const monthStart = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
+            const monthEnd = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0));
+            const daysInCurrentMonth = monthEnd.getUTCDate();
+            const candidates: string[] = [];
+
+            for (let day = 1; day <= daysInCurrentMonth; day += 1) {
+                const dateStr = formatDateCN(new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), day)));
+                if (dateStr > todayStr) break;
+
+                const stat = statsMap[dateStr] ?? null;
+                const isFinal = isDailyStatFinal(stat, dateStr);
+                const backfillKey = `${userId}:${dateStr}`;
+                if (isFinal || backfilledDatesRef.current.has(backfillKey)) continue;
+
+                candidates.push(dateStr);
+                backfilledDatesRef.current.add(backfillKey);
+            }
+
+            if (!candidates.length) return;
+
+            await Promise.allSettled(candidates.map((dateStr) => backfillDailyStat(dateStr)));
+        },
+        [backfillDailyStat, month, today, userId]
+    );
+
     // 读取当月统计
     useEffect(() => {
         if (!userId) return;
@@ -75,7 +162,7 @@ export default function StatsPage() {
 
         supabase
             .from("daily_user_stats")
-            .select("user_id, date, questions_reviewed, question_time_spent, quizzes, cards_reviewed, card_time_spent, decks")
+            .select("user_id, date, inserted_at, questions_reviewed, question_time_spent, quizzes, cards_reviewed, card_time_spent, decks")
             .eq("user_id", userId)
             .gte("date", formatDateCN(start))
             .lt("date", formatDateCN(end))
@@ -91,33 +178,10 @@ export default function StatsPage() {
                     map[(row as DailyStat).date] = row as DailyStat;
                 });
                 setMonthStats(map);
-                // 当前月且缺失昨天记录时尝试补数据
-                const isCurrentMonth =
-                    month.getUTCFullYear() === today.getUTCFullYear() &&
-                    month.getUTCMonth() === today.getUTCMonth();
-                if (isCurrentMonth) {
-                    const yesterday = new Date();
-                    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-                    const yesterdayStr = formatDateCN(yesterday);
-                    const hasYesterday = Boolean(map[yesterdayStr]);
-                    const monthKey = `${month.getUTCFullYear()}-${month.getUTCMonth() + 1}`;
-                    if (!hasYesterday && !missingPatchMonthsRef.current.has(monthKey)) {
-                        missingPatchMonthsRef.current.add(monthKey);
-                        supabase
-                            .rpc("compute_missing_daily_user_stats", { p_days: 1 })
-                            .then(({ error: missErr }) => {
-                                if (missErr) {
-                                    console.error("补齐昨天统计失败", missErr);
-                                } else {
-                                    // 重新加载当月数据
-                                    setMonth((prev) => new Date(prev)); // trigger effect
-                                }
-                            });
-                    }
-                }
                 setMonthLoading(false);
-            });
-    }, [userId, month]);
+                void backfillCurrentMonth(map);
+        });
+    }, [backfillCurrentMonth, userId, month]);
 
     const mergedStats = useMemo(() => {
         const merged = { ...monthStats };
@@ -129,7 +193,9 @@ export default function StatsPage() {
 
     const todayStr = useMemo(() => formatDateCN(today), [today]);
     const isFutureSelected = selectedDate > todayStr;
+    const selectedTableStat = monthStats[selectedDate] ?? null;
     const selectedStat = isFutureSelected ? null : mergedStats[selectedDate] ?? null;
+    const selectedStatFinal = isDailyStatFinal(selectedTableStat, selectedDate);
 
     const fetchNames = useCallback(
         async (ids: string[], type: "deck" | "quiz") => {
@@ -385,6 +451,13 @@ function renderMap(
                         <div>
                             <div className="text-sm text-slate-500 dark:text-slate-400">日期</div>
                             <div className="text-xl font-semibold text-slate-900 dark:text-slate-100">{selectedDate}</div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {selectedTableStat
+                                    ? selectedStatFinal
+                                        ? "最终统计"
+                                        : "统计回补中"
+                                    : "暂无统计记录"}
+                            </div>
                         </div>
                         {isSameDayCN(selectedDate, today) && (
                             <Button
