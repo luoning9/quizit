@@ -1,3 +1,10 @@
+## 数据模型约束
+
+- deck 的 `title` / path 是按 `owner_id` 命名空间唯一的。
+- 同一个用户下，deck path 不能重复。
+- 不同用户之间，deck path 可以重复。
+- 因此，`title` 不能当成全局唯一键，只能当成“当前用户空间内的路径标识”。
+
 ## 生成历史知识点关系图（DOT）
 
 历史知识点关系图由脚本 `local/gen_deck_dot_images.py` 生成。脚本会按 deck 中每张卡片的知识点，生成对应的 GraphViz `.dot` 内容，并上传到卡片资源 `back.dot`。

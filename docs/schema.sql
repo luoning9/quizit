@@ -118,8 +118,8 @@ as $$
     from user_card_stats_view v
     join public.cards c on c.id = v.card_id
     cross join params p
-    where v.deck_name = p.path
-       or v.deck_name ilike p.path || '/%'
+    where v.access_title = p.path
+       or v.access_title ilike p.path || '/%'
     order by random()
     limit (select lim from params);
 $$;
@@ -132,7 +132,8 @@ with
     base as (
         select
             d.id as deck_id,
-            d.title,
+            d.title as deck_title,
+            d.access_title,
             d.items,
             COALESCE(jsonb_array_length(d.items -> 'items'::text), 0) as item_count
         from
@@ -172,7 +173,7 @@ paths as (
     b.deck_id,
     b.item_count,
     COALESCE(e.ease_sum, 0::numeric) as ease_sum,
-    regexp_split_to_array(b.title, '/'::text) as parts
+    regexp_split_to_array(b.access_title, '/'::text) as parts
     from
     base b
     left join deck_ease e on e.deck_id = b.deck_id
@@ -195,7 +196,7 @@ select
         from
             user_accessible_decks d
         where
-            d.title = p.path
+            d.access_title = p.path
         limit 1
     ) as deck_id,
   count(distinct deck_id) as deck_count,
@@ -208,7 +209,7 @@ select
       from
         user_accessible_decks d
       where
-        d.title = p.path
+        d.access_title = p.path
     )
   ) as is_deck
 from
@@ -219,6 +220,8 @@ order by
     path;
 
 
+-- Deck titles are owner-scoped paths: the same title may exist for different owners.
+-- Uniqueness is enforced within a single user's namespace, not globally across all decks.
 create table public.decks (
                               id uuid not null default gen_random_uuid (),
                               owner_id uuid not null default auth.uid(),
@@ -255,8 +258,13 @@ where owner_id = auth.uid()
   and is_deleted = false;
 
 create or replace view public.user_accessible_decks as
-select *
-from public.decks
+select
+    d.*,
+    case
+        when d.owner_id = auth.uid() then d.title
+        else '@'::text || left(md5(d.owner_id::text), 8) || '/'::text || d.title
+    end as access_title
+from public.decks d
 where is_deleted = false
   and (
     owner_id = auth.uid()
@@ -389,8 +397,8 @@ WITH base AS (
     FROM public.user_card_stats_view u
     WHERE (
             COALESCE(_folder_path, '') = ''
-         OR u.deck_name = _folder_path
-         OR u.deck_name LIKE _folder_path || '/%'
+         OR u.access_title = _folder_path
+         OR u.access_title LIKE _folder_path || '/%'
     )
 ),
 due_cards AS (
@@ -398,7 +406,7 @@ due_cards AS (
         row_number() OVER (ORDER BY COALESCE(next_due_at, now()) ASC) AS seq,
         card_id,
         deck_id,
-        deck_name AS deck_title,
+        deck_title,
         deck_description
     FROM base
     WHERE learned
@@ -411,7 +419,7 @@ new_cards AS (
         row_number() OVER (ORDER BY deck_created_at ASC) AS seq,
         card_id,
         deck_id,
-        deck_name AS deck_title,
+        deck_title,
         deck_description
     FROM base
     WHERE learned = FALSE
@@ -425,7 +433,7 @@ fallback_cards AS (
         ) + (_limit * 4) AS seq,
         card_id,
         deck_id,
-        deck_name AS deck_title,
+        deck_title,
         deck_description
     FROM base
     ORDER BY coalesce(ease_factor, 0) ASC, deck_created_at DESC
@@ -468,7 +476,9 @@ create or replace view public.user_card_stats_view as
 with deck_cards as (
     select
         d.id as deck_id,
-        d.title as deck_name,
+        d.title as deck_title,
+        d.access_title,
+        d.access_title as deck_name,
         d.description as deck_description,
         d.created_at as deck_created_at,
         (elem->>'card_id')::uuid as card_id
@@ -479,6 +489,8 @@ select
   dc.card_id,
   dc.deck_id,
   dc.deck_name,
+  dc.deck_title,
+  dc.access_title,
   dc.deck_created_at,
   c.created_at as card_created_at,
   cs.id is not null as learned,
@@ -498,7 +510,9 @@ with deck_base as (
     select
         d.id as deck_id,
         d.owner_id = auth.uid() as is_owned,
-        d.title as deck_name,
+        d.title as deck_title,
+        d.access_title,
+        d.access_title as deck_name,
         d.created_at as deck_created_at,
         d.description as deck_description
     from public.user_accessible_decks d
@@ -516,6 +530,8 @@ with deck_base as (
 select
     b.deck_id,
     b.deck_name,
+    b.deck_title,
+    b.access_title,
     b.deck_description,
     b.deck_created_at,
     coalesce(s.item_count, 0) as item_count,
@@ -536,11 +552,13 @@ paths as (
     select
         b.deck_id,
         b.deck_name,
+        b.deck_title,
+        b.access_title,
         b.item_count,
         b.learned_count,
         b.due_count,
         b.ease_sum,
-        regexp_split_to_array(b.deck_name, '/'::text) as parts
+        regexp_split_to_array(b.access_title, '/'::text) as parts
     from deck_base b
 ),
 prefixes as (
@@ -558,7 +576,7 @@ select
     path,
     (
         select id from public.user_accessible_decks d
-        where d.title = p.path
+        where d.access_title = p.path
         limit 1
     ) as deck_id,
     count(distinct deck_id) as deck_count,
@@ -568,7 +586,7 @@ select
     sum(ease_sum) as total_ease_factor,
     exists (
         select 1 from public.user_accessible_decks d
-        where d.title = p.path
+        where d.access_title = p.path
     ) as is_deck
 from prefixes p
 group by path

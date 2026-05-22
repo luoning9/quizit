@@ -273,6 +273,25 @@ const DeckEditPage: React.FC = () => {
         if (!deckId) return false;
         setSaveMetaMessage(null);
         try {
+            if (typeof partial.title === "string") {
+                const nextTitle = partial.title.trim();
+                if (!nextTitle) {
+                    setSaveMetaMessage("标题不能为空。");
+                    return false;
+                }
+                if (nextTitle.startsWith("@")) {
+                    setSaveMetaMessage("标题不能以 @ 开头。");
+                    return false;
+                }
+                if (nextTitle !== (deck?.title ?? "")) {
+                    const occupied = await theDeckService.isOwnedDeckPathOccupied(nextTitle, deckId);
+                    if (occupied) {
+                        setSaveMetaMessage("标题路径已被当前用户占用，请修改后再保存。");
+                        return false;
+                    }
+                }
+                partial = { ...partial, title: nextTitle };
+            }
             await theDeckService.updateDeck(deckId, partial);
         } catch (error) {
             console.error("update deck meta error", error);

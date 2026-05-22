@@ -3,7 +3,7 @@ import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import {Eye, FileQuestion, Folder, Layers, NotebookPen, PlusCircle, Trash2} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
-import { loadDeckTree, isDeckPathOccupiedSync, isRealDeckSync, type DeckTreeNode } from "../../lib/deckTree";
+import { loadDeckTree, type DeckTreeNode } from "../../lib/deckTree";
 import { compareDeckSegments } from "../../lib/deckSort";
 import {useLocation, useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 import {ConfirmDialog} from "../components/ui/ConfirmDialog";
@@ -27,6 +27,8 @@ type NavContext = {
 const EMPTY_TREE: DeckTreeNode = {
     name: "",
     fullPath: "",
+    deckTitle: "",
+    accessTitle: "",
     children: [],
     deckCount: 0,
     totalItems: 0,
@@ -39,18 +41,55 @@ const EMPTY_TREE: DeckTreeNode = {
     isOwned: false,
 };
 
+const ACCESS_PREFIX_RE = /^@[0-9a-f]{8}\//i;
+
+function normalizePath(path: string): string {
+    const trimmed = path.trim();
+    if (!trimmed) return "";
+    return trimmed.replace(ACCESS_PREFIX_RE, "");
+}
+
+function getDeckLabel(node: DeckTreeNode): string {
+    if (node.isDeck && node.deckTitle) return node.deckTitle;
+    return node.name;
+}
+
 // 根据路径查找目录节点
 function findNodeByPath(root: DeckTreeNode, path: string): DeckTreeNode {
-    if (!path) return root;
-    const parts = path.split("/").filter(Boolean);
+    const target = path.trim();
+    if (!target) return root;
+
+    const parts = target.split("/").filter(Boolean);
     let current = root;
 
     for (const seg of parts) {
         const next = current.children.find((c) => c.name === seg);
-        if (!next) return root;
+        if (!next) break;
         current = next;
     }
-    return current;
+
+    if (current.fullPath === target || current.accessTitle === target || current.deckTitle === target) {
+        return current;
+    }
+
+    const normalizedTarget = normalizePath(target);
+    const stack: DeckTreeNode[] = [root];
+    while (stack.length) {
+        const node = stack.pop()!;
+        if (
+            node.fullPath === target ||
+            node.accessTitle === target ||
+            node.deckTitle === target ||
+            normalizePath(node.fullPath) === normalizedTarget ||
+            normalizePath(node.accessTitle ?? "") === normalizedTarget ||
+            normalizePath(node.deckTitle ?? "") === normalizedTarget
+        ) {
+            return node;
+        }
+        stack.push(...node.children);
+    }
+
+    return root;
 }
 
 function calcProgress(node: DeckTreeNode): number {
@@ -64,7 +103,9 @@ function truncateDeckName(name: string, maxChars: number): string {
 }
 
 function countDirectQuizzesForDeck(quizzes: QuizTemplate[], deckPath: string): number {
-    return quizzes.filter((quiz) => (quiz.deck_name ?? "") === deckPath).length;
+    const target = normalizePath(deckPath);
+    if (!target) return 0;
+    return quizzes.filter((quiz) => normalizePath(quiz.deck_name ?? "") === target).length;
 }
 
 export function MainSelectPage() {
@@ -173,29 +214,39 @@ export function MainSelectPage() {
     }, [tree.dueCount, tree.recentUnlearnedCount, setNavDueCount, setNavRecentNewCount]);
     const currentNode = useMemo(() => findNodeByPath(tree, selectedPath), [tree, selectedPath]);
 
+    useEffect(() => {
+        if (!currentNode.fullPath) return;
+        if (currentNode.fullPath === selectedPath) return;
+        setSelectedPath(currentNode.fullPath);
+    }, [currentNode.fullPath, selectedPath]);
+
     const childNodes = useMemo(() => currentNode.children
         .slice()
         .sort((a, b) => compareDeckSegments(a.name, b.name)), [currentNode]);
+    const currentPathIsPublic = selectedPath.trim().startsWith("@");
     const quizzesInCurrentDir = useMemo(
         () =>
             quizTemplates
                 .filter((t) => {
-                    const path = t.deck_name ?? "";
-                    const hasPath = selectedPath && selectedPath.trim().length > 0;
-                    const prefix = hasPath ? `${selectedPath}/` : "";
+                    const path = normalizePath(t.deck_name ?? "");
+                    const currentPath = normalizePath(selectedPath);
+                    const hasPath = currentPath.length > 0;
+                    const prefix = hasPath ? `${currentPath}/` : "";
+                    const quizNode = findNodeByPath(tree, t.deck_name ?? "");
 
                     if (hasPath) {
-                        if (!(path === selectedPath || path.startsWith(prefix))) return false;
+                        if (!(path === currentPath || path.startsWith(prefix))) return false;
                     }
 
                     const isDirectChild = hasPath
                         ? path.startsWith(prefix) && !path.slice(prefix.length).includes("/")
                         : !path.includes("/");
-                    const isRealDeckFlag = isRealDeckSync(path);
+                    const isRealDeckFlag = quizNode.isDeck;
+                    const isPathOccupied = quizNode.fullPath !== "";
 
                     return (
-                        !isDeckPathOccupiedSync(path) ||
-                        path === selectedPath ||
+                        !isPathOccupied ||
+                        path === currentPath ||
                         (isDirectChild && isRealDeckFlag)
                     );
                 })
@@ -243,7 +294,7 @@ export function MainSelectPage() {
                                 ) : (
                                     <Folder size={28} className="text-slate-300"/>
                                 )}
-                                <span>{seg.name}</span>
+                                <span>{node.fullPath ? getDeckLabel(node) : seg.name}</span>
                             </Button>
                         );
                     })}
@@ -318,7 +369,7 @@ export function MainSelectPage() {
 
                                                 {/* 名称 + 统计信息 同一行 */}
                                                 <span className="text-sm text-left">
-                                                    {truncateDeckName(node.name, 10)}
+                                                    {truncateDeckName(getDeckLabel(node), 10)}
                                                 </span>
                                                 <span className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">
                                                     {node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards
@@ -446,15 +497,17 @@ export function MainSelectPage() {
                 </section>
                 {isEditMode && (
                     <div className="flex justify-between gap-2">
-                        <Button
-                            variant="ghost"
-                            className="text-sm flex items-center gap-1"
-                            onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
-                            title="新建知识卡片组"
-                        >
-                            <Layers size={16} />
-                            <span>新建卡组</span>
-                        </Button>
+                        {!currentPathIsPublic && (
+                            <Button
+                                variant="ghost"
+                                className="text-sm flex items-center gap-1"
+                                onClick={() => navigate(`/decks/new?path=${encodeURIComponent(selectedPath)}`)}
+                                title="新建知识卡片组"
+                            >
+                                <Layers size={16} />
+                                <span>新建卡组</span>
+                            </Button>
+                        )}
                         {selectedPath && (
                             <Button
                                 variant="none"

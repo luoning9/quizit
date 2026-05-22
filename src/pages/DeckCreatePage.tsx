@@ -31,12 +31,21 @@ const DeckCreatePage: React.FC = () => {
         return parts.join("/");
     }, [initialPath]);
     const hasPrefix = initialPrefix ? normalizedTitle.startsWith(`${initialPrefix}/`) : true;
-    const titleValid = normalizedTitle.length > 0 && !normalizedTitle.endsWith("/") && hasPrefix;
+    const startsWithReservedPrefix = normalizedTitle.startsWith("@");
+    const titleValid =
+        normalizedTitle.length > 0 &&
+        !normalizedTitle.endsWith("/") &&
+        !startsWithReservedPrefix &&
+        hasPrefix;
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!normalizedTitle) {
             setError("标题不能为空。");
+            return;
+        }
+        if (startsWithReservedPrefix) {
+            setError("标题不能以 @ 开头。");
             return;
         }
         if (!hasPrefix) {

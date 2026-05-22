@@ -5,8 +5,11 @@ export type DeckItem = { card_id?: string; position?: number };
 
 export type DeckRow = {
     id: string;
+    owner_id?: string | null;
     title: string;
     description?: string | null;
+    is_public?: boolean | null;
+    access_title?: string | null;
     items?: { items?: DeckItem[] };
     created_at?: string | null;
     updated_at?: string | null;
@@ -16,6 +19,8 @@ export type DeckRow = {
 export type DeckStat = {
     deck_id: string;
     deck_name: string;
+    deck_title: string;
+    access_title: string;
     deck_created_at?: string | null;
     item_count: number;
     learned_count?: number;
@@ -66,7 +71,7 @@ export class DeckService {
     }
 
     async createIfNotExists(title: string, description?: string | null): Promise<DeckRow> {
-        const existing = await this.getDeckByTitle(title);
+        const existing = await this.getOwnedDeckByTitle(title);
         if (existing) return existing;
         return this.createDeck({ title, description: description ?? null });
     }
@@ -112,7 +117,7 @@ export class DeckService {
         return deck;
     }
 
-    async getDeckByTitle(title: string, _opts: ListOptions = {}): Promise<DeckRow | null> {
+    async getOwnedDeckByTitle(title: string, _opts: ListOptions = {}): Promise<DeckRow | null> {
         const { data, error } = await this.supabase
             .from("user_active_decks")
             .select("*")
@@ -122,13 +127,30 @@ export class DeckService {
         return (data as DeckRow) ?? null;
     }
 
-    async listDecksByPrefix(prefix: string, _opts: ListOptions = {}): Promise<DeckRow[]> {
-        const hasPrefix = Boolean(prefix && prefix.trim());
-        const query = this.supabase.from("user_active_decks").select("*");
-        if (hasPrefix) {
-            query.or(`title.eq.${prefix},title.ilike.${prefix}/%`);
+    async isOwnedDeckPathOccupied(title: string, excludeDeckId?: string): Promise<boolean> {
+        const trimmed = title.trim();
+        if (!trimmed) return false;
+        let query = this.supabase
+            .from("user_active_decks")
+            .select("id")
+            .eq("title", trimmed);
+        if (excludeDeckId) {
+            query = query.neq("id", excludeDeckId);
         }
-        const { data, error } = await query.order("title", { ascending: true });
+        const { data, error } = await query.limit(1);
+        if (error) throw error;
+        return Boolean((data ?? []).length);
+    }
+
+    async listAccessibleDecksByPrefix(prefix: string, _opts: ListOptions = {}): Promise<DeckRow[]> {
+        const hasPrefix = Boolean(prefix && prefix.trim());
+        const query = this.supabase.from("user_accessible_decks").select("*");
+        if (hasPrefix) {
+            query.or(
+                `title.eq.${prefix},title.ilike.${prefix}/%,access_title.eq.${prefix},access_title.ilike.${prefix}/%`
+            );
+        }
+        const { data, error } = await query.order("access_title", { ascending: true });
         if (error) throw error;
         return (data as DeckRow[]) ?? [];
     }
@@ -138,34 +160,12 @@ export class DeckService {
     async fetchDeckStats(): Promise<DeckStat[]> {
         const { data, error } = await this.supabase
             .from("user_deck_stats_view")
-            .select("deck_id, deck_name, item_count, learned_count, due_count, recent_unlearned_count, ease_sum, is_owned")
+            .select(
+                "deck_id, deck_name, deck_title, access_title, item_count, learned_count, due_count, recent_unlearned_count, ease_sum, is_owned"
+            )
             .order("deck_name", { ascending: true });
         if (error) throw error;
         return (data as DeckStat[]) ?? [];
-    }
-
-    async isRealDeck(path: string): Promise<boolean> {
-        const trimmed = path.trim();
-        if (!trimmed) return false;
-        const { data, error } = await this.supabase
-            .from("user_active_decks")
-            .select("id")
-            .eq("title", trimmed)
-            .maybeSingle();
-        if (error) throw error;
-        return Boolean(data?.id);
-    }
-
-    async isDeckPathOccupied(path: string): Promise<boolean> {
-        const trimmed = path.trim();
-        if (!trimmed) return false;
-        const { data, error } = await this.supabase
-            .from("user_active_decks")
-            .select("id")
-            .or(`title.eq.${trimmed},title.ilike.${trimmed}/%`)
-            .limit(1);
-        if (error) throw error;
-        return Boolean((data ?? []).length);
     }
 
     async addCards(deckId: string, cardIds: string[]): Promise<void> {

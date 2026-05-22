@@ -48,6 +48,8 @@ export async function isDeckPathOccupied(path: string): Promise<boolean> {
 export type DeckTreeNode = {
     name: string;
     fullPath: string;
+    deckTitle?: string;
+    accessTitle?: string;
     children: DeckTreeNode[];
     deckCount: number;
     totalItems: number;
@@ -76,6 +78,8 @@ export function buildDeckTree(
         isDeck: false,
         deckId: "",
         isOwned: false,
+        deckTitle: "",
+        accessTitle: "",
     };
     const nodeMap = new Map<string, DeckTreeNode>();
 
@@ -97,6 +101,8 @@ export function buildDeckTree(
             isDeck: false,
             deckId: "",
             isOwned: false,
+            deckTitle: "",
+            accessTitle: "",
         };
         parent.children.push(node);
         nodeMap.set(fullPath, node);
@@ -104,14 +110,13 @@ export function buildDeckTree(
     };
 
     for (const row of stats) {
-        if (!row.deck_name) continue;
-        const parts = row.deck_name.split("/").filter(Boolean);
+        const accessPath = (row.access_title ?? row.deck_name ?? "").trim();
+        if (!accessPath) continue;
+        const parts = accessPath.split("/").filter(Boolean);
         if (parts.length === 0) continue;
         let current = root;
-        let acc = "";
         const pathNodes: DeckTreeNode[] = [root];
         for (const part of parts) {
-            acc = acc ? `${acc}/${part}` : part;
             current = ensureChild(current, part);
             pathNodes.push(current);
         }
@@ -134,6 +139,8 @@ export function buildDeckTree(
         current.deckId = row.deck_id;
         current.isDeck = row.deck_id != null;
         current.isOwned = row.is_owned ?? false;
+        current.deckTitle = row.deck_title ?? row.deck_name ?? "";
+        current.accessTitle = accessPath;
     }
 
     return { root, nodeMap };

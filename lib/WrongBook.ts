@@ -30,7 +30,7 @@ export async function addCardToWrongBook(deckTitle: string, cardId: string) {
 export async function fetchWrongBookDeck(deckTitle: string) {
     const wrongDeckTitle = await resolveWrongBookTitle(deckTitle);
     try {
-        return await theDeckService.getDeckByTitle(wrongDeckTitle);
+        return await theDeckService.getOwnedDeckByTitle(wrongDeckTitle);
     } catch (err) {
         console.error("查询错题本 deck 失败", err);
         return null;

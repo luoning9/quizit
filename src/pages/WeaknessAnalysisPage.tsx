@@ -211,7 +211,7 @@ export default function WeaknessAnalysisPage() {
         const loadDecks = async () => {
             let decks: Array<{ id: string; title: string }>;
             try {
-                decks = await theDeckService.listDecksByPrefix(deckName);
+                decks = await theDeckService.listAccessibleDecksByPrefix(deckName);
             } catch (error) {
                 console.error("load related decks error", error);
                 return;
