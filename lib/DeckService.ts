@@ -49,7 +49,6 @@ type ListOptions = {
 
 export class DeckService {
     private lastDeckMutationAt = 0;
-    private deckByIdCache = new Map<string, DeckRow>();
     private supabase: SupabaseClient;
 
     constructor(supabase: SupabaseClient) {
@@ -64,9 +63,6 @@ export class DeckService {
             .single();
         if (error) throw error;
         this.lastDeckMutationAt = Date.now();
-        if (data?.id) {
-            this.deckByIdCache.set(data.id, data as DeckRow);
-        }
         return data as DeckRow;
     }
 
@@ -85,9 +81,6 @@ export class DeckService {
             .single();
         if (error) throw error;
         this.lastDeckMutationAt = Date.now();
-        if (data?.id) {
-            this.deckByIdCache.set(data.id, data as DeckRow);
-        }
         return data as DeckRow;
     }
 
@@ -98,23 +91,16 @@ export class DeckService {
             .eq("id", deckId);
         if (error) throw error;
         this.lastDeckMutationAt = Date.now();
-        this.deckByIdCache.delete(deckId);
     }
 
     async getOwnedDeckById(deckId: string): Promise<DeckRow | null> {
-        const cached = this.deckByIdCache.get(deckId);
-        if (cached) return cached;
         const { data, error } = await this.supabase
             .from("user_active_decks")
             .select("*")
             .eq("id", deckId)
             .maybeSingle();
         if (error) throw error;
-        const deck = (data as DeckRow) ?? null;
-        if (deck?.id) {
-            this.deckByIdCache.set(deck.id, deck);
-        }
-        return deck;
+        return (data as DeckRow) ?? null;
     }
 
     async getOwnedDeckByTitle(title: string, _opts: ListOptions = {}): Promise<DeckRow | null> {
@@ -125,6 +111,15 @@ export class DeckService {
             .maybeSingle();
         if (error) throw error;
         return (data as DeckRow) ?? null;
+    }
+
+    async fetchAccessibleDecks(): Promise<DeckRow[]> {
+        const { data, error } = await this.supabase
+            .from("user_accessible_decks")
+            .select("id, title, access_title, owner_id, is_public, description")
+            .order("access_title", { ascending: true });
+        if (error) throw error;
+        return (data as DeckRow[]) ?? [];
     }
 
     async isOwnedDeckPathOccupied(title: string, excludeDeckId?: string): Promise<boolean> {

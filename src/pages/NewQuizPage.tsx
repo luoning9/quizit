@@ -31,7 +31,7 @@ interface AiDialogProps {
     setDifficulty: (v: "easy" | "medium" | "hard") => void;
     questionTypes: QuestionType[];
     setQuestionTypes: Dispatch<SetStateAction<QuestionType[]>>;
-    path: string;
+    accessPath: string;
     onGenerate: () => void;
     onClose: () => void;
     loading?: boolean;
@@ -47,7 +47,7 @@ function AiDialog({
                       setDifficulty,
                       questionTypes,
                       setQuestionTypes,
-                      path,
+                      accessPath,
                       onGenerate,
                       onClose,
                       loading,
@@ -176,12 +176,12 @@ function AiDialog({
                             <div className="text-sm text-slate-700 dark:text-slate-200 mb-1">
                                 测验内容
                             </div>
-                            <input
-                                type="text"
-                                value={path}
-                                readOnly
-                                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                            />
+                        <input
+                            type="text"
+                            value={accessPath}
+                            readOnly
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+                        />
                         </div>
                     </div>
 
@@ -278,13 +278,21 @@ function parseItems(text: string): DraftItem[] {
     }
 }
 
+function getParentPath(path: string): string {
+    return path.split("/").slice(0, -1).join("/");
+}
+
+function getLeafPath(path: string): string {
+    return path.split("/").filter(Boolean).pop() ?? "";
+}
+
 export default function NewQuizPage() {
     const [searchParams] = useSearchParams();
-    const path = searchParams.get("path") || "";
-    const deckName = searchParams.has("is_deck") ? path.split("/").slice(0, -1).join("/") : path;
+    const accessPath = searchParams.get("path") || "";
+    const quizDeckPath = searchParams.has("is_deck") ? getParentPath(accessPath) : accessPath;
     const navigate = useNavigate();
 
-    const [title, setTitle] = useState(path ? `${path.split("/").filter(Boolean).pop() ?? ""} 测验` : "");
+    const [title, setTitle] = useState(accessPath ? `${getLeafPath(accessPath)} 测验` : "");
     const [description, setDescription] = useState("");
     const [mode] = useState<Mode>("mixed");
     const [itemsText, setItemsText] = useState("");
@@ -356,7 +364,7 @@ export default function NewQuizPage() {
             }));
 
             const config = {
-                source_path: path,
+                source_path: accessPath,
                 question_count: itemsForTemplate.length,
                 shuffle: true,
                 created_from: "manual",
@@ -367,7 +375,7 @@ export default function NewQuizPage() {
                 .insert({
                     title: trimmedTitle,
                     description: description.trim() || null,
-                    deck_name: deckName || null,
+                    deck_name: quizDeckPath || null,
                     mode,
                     items: {items: itemsForTemplate},
                     config,
@@ -400,7 +408,7 @@ export default function NewQuizPage() {
         try {
             // 先获取卡片内容
             const {data: cards, error: cardsError} = await supabase.rpc("select_cards_by_path", {
-                _path: path,
+                _path: accessPath,
                 _limit: countNum * 3,
                 _mode: "random",
             });
@@ -484,7 +492,7 @@ export default function NewQuizPage() {
                         <label className="text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                             标题 <span className="text-rose-500">*</span>
                         </label>
-                        <label className="bg-slate-800">{`${deckName}/`}</label>
+                        <label className="bg-slate-800">{quizDeckPath ? `${quizDeckPath}/` : ""}</label>
                         <input
                             type="text"
                             className="w-full rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/70 dark:border-slate-700 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
@@ -516,7 +524,7 @@ export default function NewQuizPage() {
                             type="button"
                             className="text-sm"
                             onClick={() => setAiOpen(true)}
-                            disabled={aiLoading || !path}
+                            disabled={aiLoading || !accessPath}
                         >
                             AI 生成…
                         </Button>
@@ -568,7 +576,7 @@ export default function NewQuizPage() {
                 setDifficulty={setAiDifficulty}
                 questionTypes={aiQuestionTypes}
                 setQuestionTypes={setAiQuestionTypes}
-                path={path}
+                accessPath={accessPath}
                 onGenerate={handleAiGenerate}
                 onClose={() => setAiOpen(false)}
                 loading={aiLoading}

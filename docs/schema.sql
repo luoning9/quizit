@@ -316,12 +316,13 @@ select
     qt.title,
     qt.description,
     qt.mode,
-    qt.deck_name,
+    qt.deck_path as deck_name,
     COALESCE(jsonb_array_length(qt.items -> 'items'::text), 0) as item_count,
     qt.created_at,
     COALESCE(qs.attempt_count, 0::bigint) as attempt_count,
     qs.last_attempt_at,
-    qs.last_score
+    qs.last_score,
+    qt.deck_path as deck_path
 from
     user_active_quizzes qt
         left join (
@@ -377,7 +378,9 @@ select * from public.quizzes;
 
 -- 当前用户的未删除测验模板
 create or replace view public.user_active_quizzes as
-select *
+select
+    *,
+    deck_name as deck_path
 from public.quizzes
 where owner_id = auth.uid()
   and is_deleted = false;

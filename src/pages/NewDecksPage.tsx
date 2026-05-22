@@ -20,7 +20,7 @@ export default function NewDecksPage() {
       const { data, error } = await supabase
         .from("user_deck_stats_view")
         .select(
-          "deck_id, deck_name, deck_created_at, item_count, learned_count, due_count, recent_unlearned_count"
+          "deck_id, deck_title, access_title, deck_created_at, item_count, learned_count, due_count, recent_unlearned_count"
         )
         .gt("recent_unlearned_count", 0)
         .order("deck_created_at", { ascending: false });
@@ -37,7 +37,7 @@ export default function NewDecksPage() {
   }, []);
 
   function handleLearn(deck: DeckListItem) {
-    navigate(`/decks/${encodeURIComponent(deck.deck_name)}/practice`);
+    navigate(`/decks/${encodeURIComponent(deck.access_title)}/practice`);
   }
 
   function handleView(deck: DeckListItem) {

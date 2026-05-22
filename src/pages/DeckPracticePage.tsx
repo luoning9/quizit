@@ -54,7 +54,8 @@ type DeckCardRow = {
 type UserCardStatsViewRow = {
     card_id: string;
     deck_id: string;
-    deck_name: string;
+    deck_title: string;
+    access_title: string;
     deck_description: string | null;
 };
 
@@ -641,8 +642,8 @@ export function DeckPracticePage() {
                 if (requestedCardIds.length > 0) {
                     const { data: statRows, error: statsError } = await supabase
                         .from("user_card_stats_view")
-                        .select("card_id, deck_id, deck_name, deck_description")
-                        .eq("deck_name", decodedName)
+                        .select("card_id, deck_id, deck_title, access_title, deck_description")
+                        .eq("access_title", decodedName)
                         .in("card_id", requestedCardIds);
 
                     if (statsError) {
@@ -696,7 +697,7 @@ export function DeckPracticePage() {
                             return {
                                 card_id: cardId,
                                 deck_id: stat.deck_id,
-                                deck_title: stat.deck_name,
+                                deck_title: stat.deck_title,
                                 deck_description: stat.deck_description ?? null,
                                 front: card.front,
                                 back: card.back,

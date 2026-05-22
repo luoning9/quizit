@@ -369,7 +369,7 @@ export interface QuizTemplate {
     id: string;
     title: string;
     description: string | null;
-    deck_name: string;
+    deck_path: string;
     item_ids: string [];
 }
 export interface QuizItemResult {

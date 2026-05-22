@@ -44,9 +44,9 @@ export default function WeaknessAnalysisPage() {
     const { quizId } = useParams<{ quizId?: string }>();
     const [searchParams] = useSearchParams();
     const [quizTitle, setQuizTitle] = useState<string | null>(null);
-    const [deckName, setDeckName] = useState<string | null>(null);
+    const [deckPath, setDeckPath] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [relatedDecks, setRelatedDecks] = useState<Array<{ id: string; title: string }>>([]);
+    const [relatedDecks, setRelatedDecks] = useState<Array<{ id: string; title: string; access_title?: string | null }>>([]);
     const [selectedDeckIds, setSelectedDeckIds] = useState<Set<string>>(new Set());
     const [analysisLoading, setAnalysisLoading] = useState(false);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -186,7 +186,7 @@ export default function WeaknessAnalysisPage() {
             setLoading(true);
             const { data, error } = await supabase
                 .from("user_active_quizzes")
-                .select("title, deck_name")
+                .select("title, deck_path")
                 .eq("id", quizId)
                 .maybeSingle();
             if (!active) return;
@@ -196,7 +196,7 @@ export default function WeaknessAnalysisPage() {
                 return;
             }
             setQuizTitle(data?.title ?? null);
-            setDeckName(data?.deck_name ?? null);
+            setDeckPath(data?.deck_path ?? null);
             setLoading(false);
         };
         void load();
@@ -206,12 +206,12 @@ export default function WeaknessAnalysisPage() {
     }, [quizId]);
 
     useEffect(() => {
-        if (!deckName) return;
+        if (!deckPath) return;
         let active = true;
         const loadDecks = async () => {
-            let decks: Array<{ id: string; title: string }>;
+            let decks: Array<{ id: string; title: string; access_title?: string | null }>;
             try {
-                decks = await theDeckService.listAccessibleDecksByPrefix(deckName);
+                decks = await theDeckService.listAccessibleDecksByPrefix(deckPath);
             } catch (error) {
                 console.error("load related decks error", error);
                 return;
@@ -221,7 +221,7 @@ export default function WeaknessAnalysisPage() {
             filteredDecks.sort((a, b) => compareDeckTitlesByPath(a.title, b.title));
             setRelatedDecks(filteredDecks);
             const defaultSelected = new Set<string>();
-            const exact = filteredDecks.find((deck) => deck.title === deckName);
+            const exact = filteredDecks.find((deck) => deck.access_title === deckPath || deck.title === deckPath);
             if (exact) defaultSelected.add(exact.id);
             setSelectedDeckIds(defaultSelected);
         };
@@ -229,7 +229,7 @@ export default function WeaknessAnalysisPage() {
         return () => {
             active = false;
         };
-    }, [deckName]);
+    }, [deckPath]);
 
     useEffect(() => {
         if (!selectedIds.length) {
@@ -383,7 +383,7 @@ export default function WeaknessAnalysisPage() {
                     <Button
                         variant="iconRound"
                         className="text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-100 dark:hover:bg-emerald-700"
-                        onClick={() => navigate(`/quizzes?path=${deckName ?? ""}`)}
+                        onClick={() => navigate(`/quizzes?path=${deckPath ?? ""}`)}
                         title="返回测验列表"
                     >
                         <CornerUpLeft className="w-6 h-6" />

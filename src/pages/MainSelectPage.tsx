@@ -3,16 +3,21 @@ import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
 import {Eye, FileQuestion, Folder, Layers, NotebookPen, PlusCircle, Trash2} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
-import { loadDeckTree, type DeckTreeNode } from "../../lib/deckTree";
+import {
+    applyDeckStatsToTree,
+    loadDeckStats,
+    loadDeckTreeStructure,
+    type DeckTreeNode,
+} from "../../lib/deckTree";
 import { compareDeckSegments } from "../../lib/deckSort";
-import {useLocation, useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
+import {useNavigate, useOutletContext, useSearchParams} from "react-router-dom";
 import {ConfirmDialog} from "../components/ui/ConfirmDialog";
 
 interface QuizTemplate {
     id: string;
     title: string;
     description: string | null;
-    deck_name: string | null;
+    deck_path: string | null;
     item_count: number;
     attempt_count: number;
     last_score: number | null;
@@ -28,6 +33,7 @@ const EMPTY_TREE: DeckTreeNode = {
     name: "",
     fullPath: "",
     deckTitle: "",
+    deckDescription: "",
     accessTitle: "",
     children: [],
     deckCount: 0,
@@ -51,6 +57,10 @@ function normalizePath(path: string): string {
 
 function getDeckLabel(node: DeckTreeNode): string {
     if (node.isDeck && node.deckTitle) return node.deckTitle;
+    return node.name;
+}
+
+function getListLabel(node: DeckTreeNode): string {
     return node.name;
 }
 
@@ -102,12 +112,6 @@ function truncateDeckName(name: string, maxChars: number): string {
     return `${name.slice(0, maxChars)}…`;
 }
 
-function countDirectQuizzesForDeck(quizzes: QuizTemplate[], deckPath: string): number {
-    const target = normalizePath(deckPath);
-    if (!target) return 0;
-    return quizzes.filter((quiz) => normalizePath(quiz.deck_name ?? "") === target).length;
-}
-
 export function MainSelectPage() {
     const isEditMode =
         typeof window !== "undefined" &&
@@ -117,12 +121,20 @@ export function MainSelectPage() {
     const initialPath = searchParams.get("path") || "";
 
     const navigate = useNavigate();
-    const location = useLocation();
     const {setNavDueCount, setNavRecentNewCount} = useOutletContext<NavContext>();
     const [deckTree, setDeckTree] = useState<DeckTreeNode | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedPath, setSelectedPath] = useState(initialPath);
     const [quizTemplates, setQuizTemplates] = useState<QuizTemplate[]>([]);
+    const quizCountByPath = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const quiz of quizTemplates) {
+            const key = normalizePath(quiz.deck_path ?? "");
+            if (!key) continue;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        return counts;
+    }, [quizTemplates]);
     const [hoveredQuizId, setHoveredQuizId] = useState<string | null>(null);
     const [quizIdPendingDelete, setQuizIdPendingDelete] = useState<string | null>(null);
     const [deletingQuiz, setDeletingQuiz] = useState(false);
@@ -171,7 +183,7 @@ export function MainSelectPage() {
                     id,
                     title,
                     description,
-                    deck_name,
+                    deck_path,
                     item_count,
                     attempt_count,
                     last_attempt_at,
@@ -189,19 +201,29 @@ export function MainSelectPage() {
     }, []);
 
     useEffect(() => {
+        let cancelled = false;
         async function loadFolderStats() {
             setLoading(true);
             try {
-                const treeResult = await loadDeckTree();
-                setDeckTree(treeResult.root);
+                const tree = await loadDeckTreeStructure();
+                if (cancelled) return;
+                setDeckTree(tree);
+                setLoading(false);
+                const stats = await loadDeckStats();
+                if (cancelled) return;
+                setDeckTree((prev) => (prev ? applyDeckStatsToTree(prev, stats) : prev));
             } catch (err) {
+                if (cancelled) return;
                 console.error("Error building deck tree:", err);
+                setLoading(false);
             }
-            setLoading(false);
         }
 
-        loadFolderStats();
-    }, [location.key]);
+        void loadFolderStats();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const tree = deckTree ?? EMPTY_TREE;
     useEffect(() => {
@@ -223,37 +245,37 @@ export function MainSelectPage() {
     const childNodes = useMemo(() => currentNode.children
         .slice()
         .sort((a, b) => compareDeckSegments(a.name, b.name)), [currentNode]);
-    const currentPathIsPublic = selectedPath.trim().startsWith("@");
+    const currentPathIsPublic = currentNode.accessTitle?.startsWith("@") ?? false;
     const quizzesInCurrentDir = useMemo(
         () =>
             quizTemplates
                 .filter((t) => {
-                    const path = normalizePath(t.deck_name ?? "");
+                    const deckPath = normalizePath(t.deck_path ?? "");
                     const currentPath = normalizePath(selectedPath);
                     const hasPath = currentPath.length > 0;
                     const prefix = hasPath ? `${currentPath}/` : "";
-                    const quizNode = findNodeByPath(tree, t.deck_name ?? "");
+                    const quizNode = findNodeByPath(tree, t.deck_path ?? "");
 
                     if (hasPath) {
-                        if (!(path === currentPath || path.startsWith(prefix))) return false;
+                        if (!(deckPath === currentPath || deckPath.startsWith(prefix))) return false;
                     }
 
                     const isDirectChild = hasPath
-                        ? path.startsWith(prefix) && !path.slice(prefix.length).includes("/")
-                        : !path.includes("/");
+                        ? deckPath.startsWith(prefix) && !deckPath.slice(prefix.length).includes("/")
+                        : !deckPath.includes("/");
                     const isRealDeckFlag = quizNode.isDeck;
                     const isPathOccupied = quizNode.fullPath !== "";
 
                     return (
                         !isPathOccupied ||
-                        path === currentPath ||
+                        deckPath === currentPath ||
                         (isDirectChild && isRealDeckFlag)
                     );
                 })
                 .map((t) => ({
                     id: t.id,
                     title: t.title,
-                    deckPath: t.deck_name ?? "",
+                    deckPath: t.deck_path ?? "",
                     description: t.description ?? "",
                     itemCount: t.item_count ?? "",
                     attemptCount: t.attempt_count ?? 0,
@@ -302,7 +324,16 @@ export function MainSelectPage() {
                 {/* 右边：当前目录状态 */}
                 <div className="flex items-stretch gap-3 shrink-0 ml-6">
                     {currentNode?.isDeck && currentNode.deckId && (
-                        <DeckStatus deckId={currentNode.deckId} isOwned={currentNode.isOwned} className="h-full" />
+                        <DeckStatus
+                            deckId={currentNode.deckId}
+                            isOwned={currentNode.isOwned}
+                            totalItems={currentNode.totalItems}
+                            progress={calcProgress(currentNode)}
+                            recentUnlearned={currentNode.recentUnlearnedCount}
+                            dueCount={currentNode.dueCount}
+                            deckDescription={currentNode.deckDescription ?? ""}
+                            className="h-full"
+                        />
                     )}
                     {currentNode && (
                         <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60 h-full">
@@ -345,7 +376,7 @@ export function MainSelectPage() {
                     className="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-4 shadow-sm dark:border-slate-600/80 dark:bg-slate-900/60">
 
                     {loading ? (
-                        <div className="text-xs text-muted">正在载入目录统计…</div>) : childNodes.length === 0 ? (
+                        <div className="text-xs text-muted">正在载入目录结构…</div>) : childNodes.length === 0 ? (
                         <div className="text-xs text-muted">这个目录下没有子目录。</div>) : (
                         <div className="flex flex-col gap-2">
                             {childNodes.map((node) => (
@@ -369,14 +400,14 @@ export function MainSelectPage() {
 
                                                 {/* 名称 + 统计信息 同一行 */}
                                                 <span className="text-sm text-left">
-                                                    {truncateDeckName(getDeckLabel(node), 10)}
+                                                    {truncateDeckName(getListLabel(node), 10)}
                                                 </span>
                                                 <span className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">
                                                     {node.deckCount ?? 0} decks · {node.totalItems ?? 0} cards
                                                     {node.isDeck && (
-                                                        countDirectQuizzesForDeck(quizTemplates, node.fullPath) > 0 ? (
+                                                        (quizCountByPath.get(normalizePath(node.fullPath)) ?? 0) > 0 ? (
                                                             <span className="mt-1 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-200">
-                                                                {countDirectQuizzesForDeck(quizTemplates, node.fullPath)} quizzes
+                                                                {quizCountByPath.get(normalizePath(node.fullPath))} quizzes
                                                             </span>
                                                         ) : (
                                                             <span className="block mt-0.5">

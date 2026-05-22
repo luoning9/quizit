@@ -27,9 +27,17 @@ type TemplateStats = {
     id: string;
     title: string;
     description: string | null;
-    deck_name: string;
+    deck_path: string;
     attempt_count: number;
     last_score: number | null;
+};
+
+type TemplateActiveRow = {
+    id: string;
+    title: string;
+    description: string | null;
+    deck_path: string | null;
+    config: Record<string, unknown> | null;
 };
 
 type TemplateConfigRow = {
@@ -137,8 +145,8 @@ export default function QuizResultPage() {
 
             const templatePromise = quizId
                 ? supabase
-                    .from("user_quiz_stats_view")
-                    .select("id, title, description, deck_name, attempt_count, last_score")
+                    .from("user_active_quizzes")
+                    .select("id, title, description, deck_path, config")
                     .eq("id", quizId)
                     .maybeSingle()
                 : Promise.resolve({data: null, error: null});
@@ -166,7 +174,16 @@ export default function QuizResultPage() {
                 console.error("加载测验结果失败", runErr);
             }
             if (tmpl) {
-                setTemplateStats(tmpl as TemplateStats);
+                const typed = tmpl as TemplateActiveRow;
+                setTemplateStats({
+                    id: typed.id,
+                    title: typed.title,
+                    description: typed.description,
+                    deck_path: typed.deck_path ?? "",
+                    attempt_count: 0,
+                    last_score: null,
+                });
+                setTemplateConfig(typed.config ?? null);
             }
             if (run) {
                 const tplRaw = (run as any)?.template;
@@ -193,6 +210,18 @@ export default function QuizResultPage() {
 
                 if (!runsErr && runsData) {
                     setUserRuns(runsData as UserRunSummary[]);
+                    setTemplateStats((prev) =>
+                        prev
+                            ? {
+                                ...prev,
+                                attempt_count: runsData.length,
+                                last_score:
+                                    typeof runsData[0]?.score === "number"
+                                        ? runsData[0]!.score
+                                        : null,
+                            }
+                            : prev
+                    );
                 }
                 setRunsLoading(false);
             }
@@ -344,16 +373,11 @@ export default function QuizResultPage() {
             result?.template_id ??
             quizId ??
             null;
-        if (!targetTemplateId) {
-            setTemplateConfig(null);
-            return;
-        }
+        if (!targetTemplateId || templateConfig) return;
 
         let active = true;
 
         async function loadTemplateConfig() {
-            // TODO: expose quizzes.config on user_quiz_stats_view so QuizResultPage
-            // can reuse the initial template query instead of issuing this extra read.
             const { data, error } = await supabase
                 .from("user_active_quizzes")
                 .select("config")
@@ -374,7 +398,7 @@ export default function QuizResultPage() {
         return () => {
             active = false;
         };
-    }, [templateStats?.id, result?.template?.id, result?.template_id, quizId]);
+    }, [templateStats?.id, result?.template?.id, result?.template_id, quizId, templateConfig]);
 
     // 点击外部取消标题编辑
     useEffect(() => {
@@ -425,7 +449,7 @@ export default function QuizResultPage() {
     const correct = result?.correct_items ?? 0;
     const total = result?.total_items ?? 0;
     const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
-    const deckPath = templateStats?.deck_name ?? "";
+    const deckPath = templateStats?.deck_path ?? "";
     const sourceCardIds = useMemo(() => {
         const raw = templateConfig?.source_card_ids;
         return Array.isArray(raw)
@@ -470,7 +494,7 @@ export default function QuizResultPage() {
             console.error("delete template error", delErr);
             return;
         }
-        navigate(`/quizzes?path=${templateStats?.deck_name ?? ""}`);
+        navigate(`/quizzes?path=${templateStats?.deck_path ?? ""}`);
         //window.location.href = "/quizzes";
     }
 
@@ -496,7 +520,7 @@ export default function QuizResultPage() {
             alert("更新路径失败，请稍后再试");
             return;
         }
-        setTemplateStats((prev) => (prev ? { ...prev, deck_name: next } : prev));
+        setTemplateStats((prev) => (prev ? { ...prev, deck_path: next } : prev));
         setEditingDeckName(false);
     }
 

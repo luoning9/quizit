@@ -1,29 +1,46 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabaseClient";
 import { Eye, Link } from "lucide-react";
 
 interface DeckStatusProps {
     deckId: string;
     isOwned?: boolean;
+    totalItems?: number;
+    progress?: number;
+    recentUnlearned?: number;
+    dueCount?: number;
+    deckDescription?: string | null;
     className?: string;
 }
 
-interface DeckInfo {
-    totalItems: number;
-    progress: number;
-    recentUnlearned: number;
-    dueCount: number;
-    deckName: string;
-}
+const getHttpUrl = (raw: string | null | undefined): string | null => {
+    const trimmed = raw?.trim();
+    if (!trimmed) return null;
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol === "http:" || url.protocol === "https:") {
+            return url.toString();
+        }
+    } catch {
+        // ignore invalid URLs
+    }
+    return null;
+};
 
-export function DeckStatus({ deckId, isOwned = false, className = "" }: DeckStatusProps) {
-    const [info, setInfo] = useState<DeckInfo | null>(null);
-    const [descriptionUrl, setDescriptionUrl] = useState<string | null>(null);
+export function DeckStatus({
+    deckId,
+    isOwned = false,
+    totalItems = 0,
+    progress = 0,
+    recentUnlearned = 0,
+    dueCount = 0,
+    deckDescription = null,
+    className = "",
+}: DeckStatusProps) {
     const isEditMode =
         typeof window !== "undefined" &&
         localStorage.getItem("mode") === "edit";
     const navigate = useNavigate();
+    const descriptionUrl = getHttpUrl(deckDescription);
 
     const openDeckApp = () => {
         if (!descriptionUrl) return;
@@ -32,56 +49,6 @@ export function DeckStatus({ deckId, isOwned = false, className = "" }: DeckStat
             newWindow.opener = null;
         }
     };
-
-    const getHttpUrl = (raw: string | null | undefined): string | null => {
-        const trimmed = raw?.trim();
-        if (!trimmed) return null;
-        try {
-            const url = new URL(trimmed);
-            if (url.protocol === "http:" || url.protocol === "https:") {
-                return url.toString();
-            }
-        } catch {
-            // ignore invalid URLs
-        }
-        return null;
-    };
-
-    useEffect(() => {
-        async function load() {
-            if (!deckId) return;
-            const { data, error } = await supabase
-                .from("user_deck_stats_view")
-                .select("deck_name, deck_description, item_count, ease_sum, recent_unlearned_count, due_count")
-                .eq("deck_id", deckId)
-                .maybeSingle();
-
-            if (error || !data) {
-                console.error("load deck status error", error);
-                setInfo(null);
-                setDescriptionUrl(null);
-                return;
-            }
-
-            const totalItems = Number(data.item_count ?? 0);
-            const easeSum = Number(data.ease_sum ?? 0);
-            const progress = totalItems > 0
-                ? Math.round((easeSum / (totalItems * 4)) * 100)
-                : 0;
-            const recent = Number(data.recent_unlearned_count ?? 0);
-            const dueCount = Number(data.due_count ?? 0);
-
-            setInfo({
-                totalItems,
-                progress,
-                recentUnlearned: recent,
-                dueCount,
-                deckName: data.deck_name ?? "",
-            });
-            setDescriptionUrl(getHttpUrl(data.deck_description));
-        }
-        load();
-    }, [deckId]);
 
     if (!deckId) return null;
 
@@ -93,14 +60,13 @@ export function DeckStatus({ deckId, isOwned = false, className = "" }: DeckStat
             ].join(" ")}
         >
             <div className="flex items-center justify-between gap-2">
-                {info ? (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 space-y-0.5">
-                        <div>新卡片 {info.recentUnlearned}</div>
-                        <div>待复习 {info.dueCount}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-0.5">
+                    <div>新卡片 {recentUnlearned}</div>
+                    <div>待复习 {dueCount}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                        {totalItems} cards · {progress}%
                     </div>
-                ) : (
-                    <div className="text-sm text-slate-500 dark:text-slate-400">加载中…</div>
-                )}
+                </div>
                 <div className="flex items-center gap-2">
                     {descriptionUrl && (
                         <button

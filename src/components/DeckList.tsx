@@ -3,7 +3,8 @@ import { Button } from "./ui/Button";
 
 export type DeckListItem = {
   deck_id: string;
-  deck_name: string;
+  deck_title: string;
+  access_title: string;
   deck_created_at: string | null;
   item_count: number;
   learned_count: number | null;
@@ -49,7 +50,7 @@ export function DeckList({
           >
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <div className="text-base font-semibold">{deck.deck_name}</div>
+                <div className="text-base font-semibold">{deck.deck_title}</div>
                 {recentBadge > 0 && (
                   <div className="h-6 min-w-6 px-2 rounded-full text-xs flex items-center justify-center bg-amber-400 text-slate-900 font-semibold">
                     {recentBadge >= 100 ? "99+" : recentBadge}

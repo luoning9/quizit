@@ -83,12 +83,11 @@ function QuizRunPage() {
             setLoadingError(null);
             setFrontMediaMap({});
 
-            // 1. 读取 quizzes（旧名 quiz_templates）
+            // 1. 读取当前用户的测验模板
             const {data: tmpl, error: tmplError} = await supabase
-                .from("quizzes")
-                .select("id, title, description, deck_name, items")
+                .from("user_active_quizzes")
+                .select("id, title, description, deck_path, items")
                 .eq("id", templateId)
-                .eq("is_deleted", false)
                 .maybeSingle();
 
             if (tmplError || !tmpl) {
@@ -105,9 +104,10 @@ function QuizRunPage() {
                 id: tmpl.id,
                 title: tmpl.title,
                 description: tmpl.description,
-                deck_name: tmpl.deck_name ?? '',
+                deck_path: tmpl.deck_path ?? '',
                 item_ids: orderedItems.map((it: { card_id: string; position: number }) => it.card_id) ?? [],
             };
+            const quizDeckPath = typedTemplate.deck_path ?? "";
             setTemplate(typedTemplate);
             //console.log(typedTemplate);
 
@@ -119,8 +119,8 @@ function QuizRunPage() {
 
             // 1.25 读取错题本信息（如存在）
             try {
-                if (typedTemplate.deck_name) {
-                    const wrongDeck = await fetchWrongBookDeck(typedTemplate.deck_name);
+                if (quizDeckPath) {
+                    const wrongDeck = await fetchWrongBookDeck(quizDeckPath);
                     const wrongItems =
                         (wrongDeck as { items?: { items?: Array<{ card_id?: string }> } } | null)?.items?.items ?? [];
                     const wrongBookCardSet = new Set(
@@ -613,9 +613,10 @@ function QuizRunPage() {
     }
 
     // ===== 5. 正常做题界面 =====
+    const deckPath = template?.deck_path ?? "";
 
     const handleExitConfirm = () => {
-        const pathParam = template?.deck_name ? `?path=${encodeURIComponent(template.deck_name)}` : "";
+        const pathParam = deckPath ? `?path=${encodeURIComponent(deckPath)}` : "";
         setShowExitConfirm(false);
         navigate(`/quizzes${pathParam}`);
     };
@@ -743,7 +744,7 @@ function QuizRunPage() {
                                             next.add(currentQuestion.cardId);
                                             return next;
                                         });
-                                        void addCardToWrongBook(template?.deck_name ?? "", currentQuestion.cardId);
+                                        void addCardToWrongBook(deckPath, currentQuestion.cardId);
                                     }
                                     handleNextQuestion();
                                 }}
