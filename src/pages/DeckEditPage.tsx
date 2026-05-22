@@ -188,7 +188,7 @@ const DeckEditPage: React.FC = () => {
 
             let deckData;
             try {
-                deckData = await theDeckService.getDeckById(currentDeckId);
+                deckData = await theDeckService.getOwnedDeckById(currentDeckId);
             } catch (err) {
                 console.error("load deck error", err);
                 setError("加载 deck 失败");

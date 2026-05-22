@@ -36,6 +36,7 @@ const EMPTY_TREE: DeckTreeNode = {
     recentUnlearnedCount: 0,
     isDeck: false,
     deckId: "",
+    isOwned: false,
 };
 
 // 根据路径查找目录节点
@@ -250,7 +251,7 @@ export function MainSelectPage() {
                 {/* 右边：当前目录状态 */}
                 <div className="flex items-stretch gap-3 shrink-0 ml-6">
                     {currentNode?.isDeck && currentNode.deckId && (
-                        <DeckStatus deckId={currentNode.deckId} className="h-full" />
+                        <DeckStatus deckId={currentNode.deckId} isOwned={currentNode.isOwned} className="h-full" />
                     )}
                     {currentNode && (
                         <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/60 h-full">
@@ -345,7 +346,7 @@ export function MainSelectPage() {
                                         </div>
                                     </button>
                                     <div className="flex items-center gap-1 mr-3">
-                                        {isEditMode && node.isDeck && (
+                                        {isEditMode && node.isDeck && node.isOwned && (
                                             <Button
                                                 variant="iconView"
                                                 className="deck-row-action"

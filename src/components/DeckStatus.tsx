@@ -5,6 +5,7 @@ import { Eye, Link } from "lucide-react";
 
 interface DeckStatusProps {
     deckId: string;
+    isOwned?: boolean;
     className?: string;
 }
 
@@ -16,7 +17,7 @@ interface DeckInfo {
     deckName: string;
 }
 
-export function DeckStatus({ deckId, className = "" }: DeckStatusProps) {
+export function DeckStatus({ deckId, isOwned = false, className = "" }: DeckStatusProps) {
     const [info, setInfo] = useState<DeckInfo | null>(null);
     const [descriptionUrl, setDescriptionUrl] = useState<string | null>(null);
     const isEditMode =
@@ -111,7 +112,7 @@ export function DeckStatus({ deckId, className = "" }: DeckStatusProps) {
                             <Link className="w-4 h-4" />
                         </button>
                     )}
-                    {isEditMode && (
+                    {isEditMode && isOwned && (
                         <button
                             type="button"
                             className="p-2 rounded-full text-emerald-600 hover:text-white hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-emerald-50 dark:hover:bg-emerald-700"

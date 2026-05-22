@@ -57,6 +57,7 @@ export type DeckTreeNode = {
     recentUnlearnedCount: number;
     isDeck: boolean;
     deckId: string;
+    isOwned: boolean;
 };
 
 export function buildDeckTree(
@@ -74,6 +75,7 @@ export function buildDeckTree(
         recentUnlearnedCount: 0,
         isDeck: false,
         deckId: "",
+        isOwned: false,
     };
     const nodeMap = new Map<string, DeckTreeNode>();
 
@@ -94,6 +96,7 @@ export function buildDeckTree(
             recentUnlearnedCount: 0,
             isDeck: false,
             deckId: "",
+            isOwned: false,
         };
         parent.children.push(node);
         nodeMap.set(fullPath, node);
@@ -130,6 +133,7 @@ export function buildDeckTree(
 
         current.deckId = row.deck_id;
         current.isDeck = row.deck_id != null;
+        current.isOwned = row.is_owned ?? false;
     }
 
     return { root, nodeMap };

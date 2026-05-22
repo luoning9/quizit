@@ -22,6 +22,7 @@ export type DeckStat = {
     due_count?: number;
     recent_unlearned_count?: number;
     ease_sum: number;
+    is_owned: boolean;
 };
 
 export type CreateDeckInput = {
@@ -95,7 +96,7 @@ export class DeckService {
         this.deckByIdCache.delete(deckId);
     }
 
-    async getDeckById(deckId: string): Promise<DeckRow | null> {
+    async getOwnedDeckById(deckId: string): Promise<DeckRow | null> {
         const cached = this.deckByIdCache.get(deckId);
         if (cached) return cached;
         const { data, error } = await this.supabase
@@ -137,7 +138,7 @@ export class DeckService {
     async fetchDeckStats(): Promise<DeckStat[]> {
         const { data, error } = await this.supabase
             .from("user_deck_stats_view")
-            .select("deck_id, deck_name, item_count, learned_count, due_count, recent_unlearned_count, ease_sum")
+            .select("deck_id, deck_name, item_count, learned_count, due_count, recent_unlearned_count, ease_sum, is_owned")
             .order("deck_name", { ascending: true });
         if (error) throw error;
         return (data as DeckStat[]) ?? [];
@@ -169,7 +170,7 @@ export class DeckService {
 
     async addCards(deckId: string, cardIds: string[]): Promise<void> {
         if (!cardIds.length) return;
-        const deck = await this.getDeckById(deckId);
+        const deck = await this.getOwnedDeckById(deckId);
         if (!deck) return;
         const items = (deck.items?.items ?? []).slice();
         const existing = new Set(items.map((it) => it.card_id).filter(Boolean) as string[]);
@@ -184,7 +185,7 @@ export class DeckService {
 
     async removeCards(deckId: string, cardIds: string[]): Promise<void> {
         if (!cardIds.length) return;
-        const deck = await this.getDeckById(deckId);
+        const deck = await this.getOwnedDeckById(deckId);
         if (!deck) return;
         const removeSet = new Set(cardIds);
         const items = (deck.items?.items ?? []).filter((it) => !it.card_id || !removeSet.has(it.card_id));

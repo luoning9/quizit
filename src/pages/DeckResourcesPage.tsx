@@ -215,7 +215,7 @@ export default function DeckResourcesPage() {
 
             let deckData: DeckRow | null = null;
             try {
-                deckData = await theDeckService.getDeckById(currentDeckId);
+                deckData = await theDeckService.getOwnedDeckById(currentDeckId);
                 if (!deckData) {
                     setError("加载 deck 失败");
                     setLoading(false);

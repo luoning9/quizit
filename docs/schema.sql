@@ -136,7 +136,7 @@ with
             d.items,
             COALESCE(jsonb_array_length(d.items -> 'items'::text), 0) as item_count
         from
-            user_active_decks d
+            user_accessible_decks d
     ),
         deck_cards as (
         select
@@ -193,7 +193,7 @@ select
         select
             d.id
         from
-            user_active_decks d
+            user_accessible_decks d
         where
             d.title = p.path
         limit 1
@@ -206,7 +206,7 @@ select
       select
         1
       from
-        user_active_decks d
+        user_accessible_decks d
       where
         d.title = p.path
     )
@@ -240,11 +240,28 @@ create index IF not exists idx_decks_owner on public.decks using btree (owner_id
 
 create index IF not exists idx_decks_tags on public.decks using gin (tags) TABLESPACE pg_default;
 
+create index IF not exists idx_decks_public_active on public.decks using btree (updated_at desc) TABLESPACE pg_default
+where is_public = true
+  and is_deleted = false;
+
+create index IF not exists idx_decks_public_active_title on public.decks using btree (title) TABLESPACE pg_default
+where is_public = true
+  and is_deleted = false;
+
 create or replace view public.user_active_decks as
 select *
 from public.decks
 where owner_id = auth.uid()
   and is_deleted = false;
+
+create or replace view public.user_accessible_decks as
+select *
+from public.decks
+where is_deleted = false
+  and (
+    owner_id = auth.uid()
+    or is_public = true
+  );
 
 create table public.profiles (
                                  id uuid not null,
@@ -455,7 +472,7 @@ with deck_cards as (
         d.description as deck_description,
         d.created_at as deck_created_at,
         (elem->>'card_id')::uuid as card_id
-    from public.user_active_decks d
+    from public.user_accessible_decks d
     cross join lateral jsonb_array_elements(d.items->'items') elem
 )
 select
@@ -480,10 +497,11 @@ create or replace view public.user_deck_stats_view as
 with deck_base as (
     select
         d.id as deck_id,
+        d.owner_id = auth.uid() as is_owned,
         d.title as deck_name,
         d.created_at as deck_created_at,
         d.description as deck_description
-    from public.user_active_decks d
+    from public.user_accessible_decks d
 ), card_stats as (
     select
         deck_id,
@@ -504,7 +522,8 @@ select
     coalesce(s.learned_count, 0) as learned_count,
     coalesce(s.due_count, 0) as due_count,
     coalesce(s.ease_sum, 0) as ease_sum,
-    coalesce(s.recent_unlearned_count, 0) as recent_unlearned_count
+    coalesce(s.recent_unlearned_count, 0) as recent_unlearned_count,
+    b.is_owned
 from deck_base b
 left join card_stats s on s.deck_id = b.deck_id;
 
@@ -538,8 +557,8 @@ prefixes as (
 select
     path,
     (
-        select id from decks d
-        where d.title = p.path and d.owner_id = auth.uid()
+        select id from public.user_accessible_decks d
+        where d.title = p.path
         limit 1
     ) as deck_id,
     count(distinct deck_id) as deck_count,
@@ -548,8 +567,8 @@ select
     sum(due_count) as total_due,
     sum(ease_sum) as total_ease_factor,
     exists (
-        select 1 from decks d
-        where d.title = p.path and d.owner_id = auth.uid()
+        select 1 from public.user_accessible_decks d
+        where d.title = p.path
     ) as is_deck
 from prefixes p
 group by path
