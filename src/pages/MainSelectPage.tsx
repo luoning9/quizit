@@ -1,10 +1,11 @@
 import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabaseClient";
 import {Button} from "../components/ui/Button";
-import {Eye, FileQuestion, Folder, Layers, NotebookPen, PlusCircle, Trash2} from "lucide-react";
+import {Eye, FileQuestion, Folder, Globe, Layers, NotebookPen, PlusCircle, Trash2} from "lucide-react";
 import {DeckStatus} from "../components/DeckStatus";
 import {
     applyDeckStatsToTree,
+    findDeckTreeNode,
     loadDeckStats,
     loadDeckTreeStructure,
     type DeckTreeNode,
@@ -64,44 +65,6 @@ function getListLabel(node: DeckTreeNode): string {
     return node.name;
 }
 
-// 根据路径查找目录节点
-function findNodeByPath(root: DeckTreeNode, path: string): DeckTreeNode {
-    const target = path.trim();
-    if (!target) return root;
-
-    const parts = target.split("/").filter(Boolean);
-    let current = root;
-
-    for (const seg of parts) {
-        const next = current.children.find((c) => c.name === seg);
-        if (!next) break;
-        current = next;
-    }
-
-    if (current.fullPath === target || current.accessTitle === target || current.deckTitle === target) {
-        return current;
-    }
-
-    const normalizedTarget = normalizePath(target);
-    const stack: DeckTreeNode[] = [root];
-    while (stack.length) {
-        const node = stack.pop()!;
-        if (
-            node.fullPath === target ||
-            node.accessTitle === target ||
-            node.deckTitle === target ||
-            normalizePath(node.fullPath) === normalizedTarget ||
-            normalizePath(node.accessTitle ?? "") === normalizedTarget ||
-            normalizePath(node.deckTitle ?? "") === normalizedTarget
-        ) {
-            return node;
-        }
-        stack.push(...node.children);
-    }
-
-    return root;
-}
-
 function calcProgress(node: DeckTreeNode): number {
     if (!node || node.totalItems === 0) return 0;
     return Math.round((node.totalEaseFactor / (node.totalItems * 4)) * 100);
@@ -110,6 +73,10 @@ function calcProgress(node: DeckTreeNode): number {
 function truncateDeckName(name: string, maxChars: number): string {
     if (name.length <= maxChars) return name;
     return `${name.slice(0, maxChars)}…`;
+}
+
+function isPublicBreadcrumbSegment(name: string): boolean {
+    return name.startsWith("@");
 }
 
 export function MainSelectPage() {
@@ -234,13 +201,14 @@ export function MainSelectPage() {
             setNavRecentNewCount(tree.recentUnlearnedCount ?? 0);
         }
     }, [tree.dueCount, tree.recentUnlearnedCount, setNavDueCount, setNavRecentNewCount]);
-    const currentNode = useMemo(() => findNodeByPath(tree, selectedPath), [tree, selectedPath]);
+    const currentNode = useMemo(() => findDeckTreeNode(tree, selectedPath) ?? tree, [tree, selectedPath]);
+    const currentAccessPath = currentNode.accessTitle ?? currentNode.fullPath;
 
     useEffect(() => {
-        if (!currentNode.fullPath) return;
-        if (currentNode.fullPath === selectedPath) return;
-        setSelectedPath(currentNode.fullPath);
-    }, [currentNode.fullPath, selectedPath]);
+        if (!currentAccessPath) return;
+        if (currentAccessPath === selectedPath) return;
+        setSelectedPath(currentAccessPath);
+    }, [currentAccessPath, selectedPath]);
 
     const childNodes = useMemo(() => currentNode.children
         .slice()
@@ -254,7 +222,7 @@ export function MainSelectPage() {
                     const currentPath = normalizePath(selectedPath);
                     const hasPath = currentPath.length > 0;
                     const prefix = hasPath ? `${currentPath}/` : "";
-                    const quizNode = findNodeByPath(tree, t.deck_path ?? "");
+                    const quizNode = findDeckTreeNode(tree, t.deck_path ?? "") ?? tree;
 
                     if (hasPath) {
                         if (!(deckPath === currentPath || deckPath.startsWith(prefix))) return false;
@@ -285,7 +253,7 @@ export function MainSelectPage() {
         [quizTemplates, selectedPath, deckTree]
     );
 
-    const breadcrumbSegments = selectedPath ? selectedPath.split("/").filter(Boolean).map((seg, idx, arr) => ({
+    const breadcrumbSegments = currentNode.fullPath ? currentNode.fullPath.split("/").filter(Boolean).map((seg, idx, arr) => ({
         name: seg, fullPath: arr.slice(0, idx + 1).join("/"),
     })) : [];
 
@@ -300,23 +268,26 @@ export function MainSelectPage() {
                 <div className="flex items-center flex-wrap gap-3">
                     {breadcrumbButtons.map((seg) => {
                         //const isActive = selectedPath === seg.fullPath;
-                        const node = findNodeByPath(tree, seg.fullPath);
+                        const node = findDeckTreeNode(tree, seg.fullPath) ?? tree;
                         const isDeck = node?.isDeck ?? false;
+                        const isPublicNode = isPublicBreadcrumbSegment(seg.name);
 
                         return (
                             <Button variant="outline"
                                     key={seg.fullPath || "__root__"}
                                     type="button"
-                                    onClick={() => setSelectedPath(seg.fullPath)}
+                                    onClick={() => setSelectedPath(node.accessTitle ?? seg.fullPath)}
                                     className="px-4 py-2.5 text-xl gap-1"
 
                             >
-                                {isDeck ? (
+                                {isPublicNode ? (
+                                    <Globe size={26} className="text-sky-400"/>
+                                ) : isDeck ? (
                                     <Layers size={28} className="text-amber-300"/>
                                 ) : (
                                     <Folder size={28} className="text-slate-300"/>
                                 )}
-                                <span>{node.fullPath ? getDeckLabel(node) : seg.name}</span>
+                                <span>{node.fullPath ? getDeckLabel(node).replace(/^@/, "") : seg.name}</span>
                             </Button>
                         );
                     })}
@@ -385,7 +356,7 @@ export function MainSelectPage() {
                                     className="deck-row flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100"
                                 >
                                     <button
-                                        onClick={() => setSelectedPath(node.fullPath)}
+                                        onClick={() => setSelectedPath(node.accessTitle ?? node.fullPath)}
                                         className="deck-row-main flex flex-1 items-center justify-start px-3 py-2 rounded-xl transition-colors"
                                     >
                                         <div className="w-10">
@@ -399,7 +370,7 @@ export function MainSelectPage() {
                                             <div className="grid grid-cols-[3fr_2fr_1fr] items-center gap-2 w-full">
 
                                                 {/* 名称 + 统计信息 同一行 */}
-                                                <span className="text-sm text-left">
+                                        <span className="text-sm text-left">
                                                     {truncateDeckName(getListLabel(node), 10)}
                                                 </span>
                                                 <span className="ml-2 text-[11px] text-slate-500 dark:text-slate-400">
@@ -443,7 +414,7 @@ export function MainSelectPage() {
                                             <Button
                                                 variant="iconLearn"
                                                 className="deck-row-action"
-                                                onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
+                                                onClick={() => navigate(`/decks/${encodeURIComponent(node.accessTitle ?? node.fullPath)}/practice`)}
                                                 aria-label="学习"
                                                 title="学习"
                                             >
@@ -454,7 +425,7 @@ export function MainSelectPage() {
                                             <Button
                                                 variant="iconLearn"
                                                 className="deck-row-action border border-dashed border-emerald-400/70 dark:border-emerald-400/50"
-                                                onClick={() => navigate(`/decks/${encodeURIComponent(node.fullPath)}/practice`)}
+                                                onClick={() => navigate(`/decks/${encodeURIComponent(node.accessTitle ?? node.fullPath)}/practice`)}
                                                 aria-label="学习目录"
                                                 title="学习目录"
                                             >

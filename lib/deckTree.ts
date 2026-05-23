@@ -19,13 +19,13 @@ export type DeckTreeNode = {
     isOwned: boolean;
 };
 
-function createDeckTreeNode(name: string, fullPath: string): DeckTreeNode {
+function createDeckTreeNode(name: string, fullPath: string, accessTitle = fullPath): DeckTreeNode {
     return {
         name,
         fullPath,
         deckTitle: "",
         deckDescription: "",
-        accessTitle: fullPath,
+        accessTitle,
         children: [],
         deckCount: 0,
         totalItems: 0,
@@ -40,7 +40,7 @@ function createDeckTreeNode(name: string, fullPath: string): DeckTreeNode {
 }
 
 function createRootNode(): DeckTreeNode {
-    return createDeckTreeNode("", "");
+    return createDeckTreeNode("", "", "");
 }
 
 function splitPath(path: string): string[] {
@@ -49,6 +49,39 @@ function splitPath(path: string): string[] {
         .split("/")
         .map((part) => part.trim())
         .filter(Boolean);
+}
+
+function isPublicAccessPath(path: string): boolean {
+    return /^@[0-9a-f]{8}\//i.test(path.trim());
+}
+
+function buildDisplayPathSegments(accessPath: string): Array<{ displayPart: string; accessPrefix: string }> {
+    const parts = splitPath(accessPath);
+    if (!parts.length) return [];
+
+    const isPublic = isPublicAccessPath(accessPath);
+    if (!isPublic || parts.length < 2) {
+        return parts.map((part, idx) => ({
+            displayPart: part,
+            accessPrefix: parts.slice(0, idx + 1).join("/"),
+        }));
+    }
+
+    const segments: Array<{ displayPart: string; accessPrefix: string }> = [
+        {
+            displayPart: `@${parts[1]}`,
+            accessPrefix: parts.slice(0, 2).join("/"),
+        },
+    ];
+
+    for (let i = 2; i < parts.length; i += 1) {
+        segments.push({
+            displayPart: parts[i],
+            accessPrefix: parts.slice(0, i + 1).join("/"),
+        });
+    }
+
+    return segments;
 }
 
 function normalizeAccessPrefix(path: string): string {
@@ -70,20 +103,7 @@ function findNodeByPath(root: DeckTreeNode, path: string): DeckTreeNode | null {
     const target = path.trim();
     if (!target) return root;
 
-    const parts = splitPath(target);
-    let current = root;
-
-    for (const seg of parts) {
-        const next = current.children.find((child) => child.name === seg);
-        if (!next) break;
-        current = next;
-    }
-
     const normalizedTarget = normalizeAccessPrefix(target);
-    if (matchesNodePath(current, target, normalizedTarget)) {
-        return current;
-    }
-
     const stack: DeckTreeNode[] = [root];
     while (stack.length) {
         const node = stack.pop()!;
@@ -155,20 +175,23 @@ function appendDeckPath(
     deck: DeckRow,
     currentUserId: string | null
 ) {
-    const parts = splitPath(accessPath);
+    const parts = buildDisplayPathSegments(accessPath);
     if (!parts.length) return;
 
     let current = root;
     let currentPath = "";
+    let currentAccessPath = "";
     const pathNodes: DeckTreeNode[] = [root];
 
     for (const part of parts) {
-        currentPath = currentPath ? `${currentPath}/${part}` : part;
-        let next = current.children.find((child) => child.name === part);
+        currentPath = currentPath ? `${currentPath}/${part.displayPart}` : part.displayPart;
+        currentAccessPath = part.accessPrefix;
+        let next = current.children.find((child) => child.name === part.displayPart);
         if (!next) {
-            next = createDeckTreeNode(part, currentPath);
+            next = createDeckTreeNode(part.displayPart, currentPath, currentAccessPath);
             current.children.push(next);
             nodeMap.set(currentPath, next);
+            nodeMap.set(currentAccessPath, next);
         }
         current = next;
         pathNodes.push(current);
@@ -201,11 +224,13 @@ function appendStatPath(
     const pathNodes: DeckTreeNode[] = [root];
     let currentPath = "";
 
-    for (const part of parts) {
-        currentPath = currentPath ? `${currentPath}/${part}` : part;
+    for (const part of buildDisplayPathSegments(accessPath)) {
+        currentPath = currentPath ? `${currentPath}/${part.displayPart}` : part.displayPart;
         const node = nodeMap.get(currentPath);
-        if (!node) return;
-        pathNodes.push(node);
+        const accessNode = nodeMap.get(part.accessPrefix);
+        const resolvedNode = node ?? accessNode;
+        if (!resolvedNode) return;
+        pathNodes.push(resolvedNode);
     }
 
     const items = row.item_count ?? 0;
@@ -271,9 +296,13 @@ export function applyDeckStatsToTree(root: DeckTreeNode, stats: DeckStat[]): Dec
     return cloned.root;
 }
 
+export function findDeckTreeNode(root: DeckTreeNode, path: string): DeckTreeNode | null {
+    return findNodeByPath(root, path);
+}
+
 export async function isRealDeck(path: string): Promise<boolean> {
     const root = await loadDeckTreeStructure();
-    const node = findNodeByPath(root, path);
+    const node = findDeckTreeNode(root, path);
     return Boolean(node?.isDeck);
 }
 
