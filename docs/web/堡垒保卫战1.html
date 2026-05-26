@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>森林守卫战 - 资产跨局累积版</title>
+    <style>
+        :root {
+            --bg-main: #011a10;
+            --bg-panel-30: rgba(0, 0, 0, 0.3);
+            --bg-panel-50: rgba(0, 0, 0, 0.5);
+            --bg-panel-60: rgba(0, 0, 0, 0.6);
+            --bg-soft: rgba(255, 255, 255, 0.1);
+            --emerald-300: #6ee7b7;
+            --emerald-400: #34d399;
+            --emerald-500: #10b981;
+            --emerald-600: #059669;
+            --amber-400: #fbbf24;
+            --amber-500: #f59e0b;
+            --cyan-300: #67e8f9;
+            --purple-300: #d8b4fe;
+            --purple-600: #9333ea;
+            --rose-300: #fda4af;
+            --rose-500: #f43f5e;
+            --rose-600: #e11d48;
+            --white-5: rgba(255, 255, 255, 0.05);
+            --white-10: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: var(--bg-main);
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+            touch-action: none; user-select: none;
+            width: 100vw; height: 100vh;
+        }
+
+        button {
+            appearance: none;
+            border: 0;
+            background: none;
+            color: inherit;
+            font: inherit;
+        }
+
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        .ui-screen {
+            position: fixed; inset: 0; z-index: 50;
+            background: rgba(1, 26, 16, 0.96);
+            backdrop-filter: blur(25px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; padding: 2rem; transition: opacity 0.4s ease;
+        }
+        .hidden { display: none !important; }
+        .level-grid::-webkit-scrollbar { width: 4px; }
+        .level-grid::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+        .ui-overlay {
+            position: fixed; inset: 0; z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom)) 1rem;
+        }
+        .ui-element { pointer-events: auto; }
+        .locked { opacity: 0.25; filter: grayscale(1); pointer-events: none; }
+        
+        @keyframes boss-warn-text {
+            0%, 100% { transform: scale(1); color: #ff4444; opacity: 1; }
+            50% { transform: scale(1.1); color: #fff; opacity: 0.8; }
+        }
+        #boss-warning {
+            position: fixed; top: 40%; width: 100%; text-align: center;
+            font-size: 2.2rem; font-weight: 900; z-index: 40;
+            text-shadow: 0 0 20px #ff0000; pointer-events: none;
+            display: none; animation: boss-warn-text 0.4s infinite;
+        }
+        .active-level { border-color: #34d399 !important; background: rgba(16, 185, 129, 0.2) !important; box-shadow: 0 0 20px rgba(52, 211, 153, 0.4); }
+        
+        /* 资产显示动画 */
+        .wealth-tag { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(251, 191, 36, 0.3); padding: 0.5rem 1.2rem; border-radius: 99px; }
+
+        .hidden { display: none !important; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .fixed { position: fixed; }
+        .inset-0 { inset: 0; }
+        .top-24 { top: 6rem; }
+        .left-1\/2 { left: 50%; }
+        .-translate-x-1\/2 { transform: translateX(-50%); }
+        .w-full { width: 100%; }
+        .w-64 { width: 16rem; }
+        .w-40 { width: 10rem; }
+        .h-full { height: 100%; }
+        .h-2 { height: 0.5rem; }
+        .h-1 { height: 0.25rem; }
+        .flex { display: flex; }
+        .grid { display: grid; }
+        .flex-col { flex-direction: column; }
+        .flex-1 { flex: 1 1 0%; }
+        .flex-grow { flex-grow: 1; }
+        .items-center { align-items: center; }
+        .items-end { align-items: flex-end; }
+        .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        .gap-6 { gap: 1.5rem; }
+        .overflow-hidden { overflow: hidden; }
+        .overflow-y-auto { overflow-y: auto; }
+        .cursor-pointer { cursor: pointer; }
+        .aspect-square { aspect-ratio: 1 / 1; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .uppercase { text-transform: uppercase; }
+        .italic { font-style: italic; }
+        .font-black { font-weight: 900; }
+        .font-bold { font-weight: 700; }
+        .font-mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+        .text-white { color: #fff; }
+        .text-emerald-300 { color: var(--emerald-300); }
+        .text-emerald-400 { color: var(--emerald-400); }
+        .text-emerald-500 { color: var(--emerald-500); }
+        .text-amber-400 { color: var(--amber-400); }
+        .text-amber-500 { color: var(--amber-500); }
+        .text-cyan-300 { color: var(--cyan-300); }
+        .text-purple-300 { color: var(--purple-300); }
+        .text-rose-300 { color: var(--rose-300); }
+        .text-rose-500 { color: var(--rose-500); }
+        .text-emerald-300-soft { color: rgba(110, 231, 183, 0.6); }
+        .bg-emerald-600 { background: var(--emerald-600); }
+        .bg-emerald-500 { background: var(--emerald-500); }
+        .bg-rose-600 { background: var(--rose-600); }
+        .bg-purple-600 { background: var(--purple-600); }
+        .bg-white\/10 { background: var(--bg-soft); }
+        .bg-black\/30 { background: var(--bg-panel-30); }
+        .bg-black\/50 { background: var(--bg-panel-50); }
+        .bg-black\/60 { background: var(--bg-panel-60); }
+        .border { border-width: 1px; border-style: solid; }
+        .border-white\/5 { border-color: var(--white-5); }
+        .border-white\/10 { border-color: var(--white-10); }
+        .border-emerald-400\/30 { border-color: rgba(52, 211, 153, 0.3); }
+        .border-amber-500\/30 { border-color: rgba(245, 158, 11, 0.3); }
+        .border-rose-600\/40 { border-color: rgba(225, 29, 72, 0.4); }
+        .rounded { border-radius: 0.25rem; }
+        .rounded-2xl { border-radius: 1rem; }
+        .rounded-full { border-radius: 9999px; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .max-w-sm { max-width: 24rem; }
+        .max-w-3xl { max-width: 48rem; }
+        .max-w-btn { max-width: 90px; }
+        .w-full, .ui-screen, .ui-overlay { width: 100%; }
+        .p-0\.5 { padding: 0.125rem; }
+        .p-1 { padding: 0.25rem; }
+        .p-2 { padding: 0.5rem; }
+        .pr-3 { padding-right: 0.75rem; }
+        .pb-20 { padding-bottom: 5rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+        .px-10 { padding-left: 2.5rem; padding-right: 2.5rem; }
+        .px-16 { padding-left: 4rem; padding-right: 4rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+        .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-8 { margin-bottom: 2rem; }
+        .mb-10 { margin-bottom: 2.5rem; }
+        .mb-12 { margin-bottom: 3rem; }
+        .opacity-60 { opacity: 0.6; }
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+        .text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+        .text-7xl { font-size: 4.5rem; line-height: 1; }
+        .text-9xl { font-size: 8rem; line-height: 1; }
+        .text-\[8px\] { font-size: 8px; line-height: 1; }
+        .text-\[10px\] { font-size: 10px; line-height: 1; }
+        .tracking-tighter { letter-spacing: -0.05em; }
+        .tracking-widest { letter-spacing: 0.2em; }
+        .tracking-spaced { letter-spacing: 0.6em; }
+        .border-2 { border-width: 2px; }
+        .border-emerald-500\/40 { border-color: rgba(16, 185, 129, 0.4); }
+        .text-white\/10 { color: rgba(255, 255, 255, 0.1); }
+        .transition-all { transition: all 0.2s ease; }
+        .shadow-soft-emerald { box-shadow: 0 10px 40px rgba(5, 150, 105, 0.3); }
+        .backdrop-blur-md { backdrop-filter: blur(12px); }
+        .backdrop-blur-xl { backdrop-filter: blur(24px); }
+        .active\:scale-90:active { transform: scale(0.9); }
+        .active\:scale-95:active { transform: scale(0.95); }
+        .disabled\:opacity-30:disabled { opacity: 0.3; }
+
+        .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+        @media (min-width: 768px) {
+            .md\:grid-cols-10 { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+            .md\:gap-4 { gap: 1rem; }
+            .md\:text-9xl { font-size: 8rem; line-height: 1; }
+            .md\:w-96 { width: 24rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="boss-warning">⚠️ 警告：红帽大领主 降临 ⚠️</div>
+
+    <div id="game-container" class="relative w-full h-full">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 1. 主页 -->
+        <div id="screen-home" class="ui-screen text-center">
+            <div class="text-9xl mb-10">🌳</div>
+            <h1 class="text-7xl md:text-9xl font-black italic mb-2 tracking-tighter">SYLVAN</h1>
+            <p class="text-emerald-400 tracking-spaced font-bold text-lg mb-8">秘境守卫 · 资产永久累积</p>
+            
+            <div class="wealth-tag flex items-center gap-2 mb-10">
+                <span class="text-xl">✨ 总法力资产:</span>
+                <span id="home-wealth-display" class="text-2xl font-black text-amber-400 font-mono">---</span>
+            </div>
+
+            <div class="w-full max-w-sm">
+                <button id="main-start-btn" disabled onclick="showScreen('level-select')" class="w-full py-6 bg-emerald-600 rounded-full font-black text-3xl shadow-soft-emerald transition-all active:scale-95 disabled:opacity-30">
+                    <span id="loading-text">进入关卡列表</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. 关卡列表 -->
+        <div id="screen-level-select" class="ui-screen hidden">
+            <div class="w-full max-w-3xl flex flex-col h-full text-white">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <button onclick="showScreen('home')" class="text-emerald-500 text-sm font-bold">← 返回主页</button>
+                        <h2 class="text-4xl font-black italic">选择关卡</h2>
+                    </div>
+                    <div class="wealth-tag text-right">
+                        <div class="text-[10px] opacity-60 uppercase font-bold">我的法力储备</div>
+                        <div id="list-wealth-display" class="text-2xl font-black text-amber-400 font-mono">0</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-5 md:grid-cols-10 gap-3 overflow-y-auto pr-3 pb-20 flex-grow" id="grid-container"></div>
+            </div>
+        </div>
+
+        <!-- 3. 游戏界面 -->
+        <div id="game-ui" class="ui-overlay hidden text-white">
+            <div id="boss-ui" class="absolute top-24 left-1/2 -translate-x-1/2 w-64 md:w-96 hidden">
+                <div class="flex justify-between items-end px-2 mb-1">
+                    <span class="text-[10px] font-bold text-rose-500 tracking-widest">红帽大领主</span>
+                    <span id="shield-indicator" class="text-[8px] bg-purple-600 px-2 rounded hidden">晶能护盾</span>
+                </div>
+                <div class="h-2 bg-black/60 rounded-full border border-rose-600/40 p-0.5 overflow-hidden">
+                    <div id="boss-hp-bar" class="h-full bg-rose-600" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-start w-full">
+                <div class="flex flex-col gap-2">
+                    <div class="bg-black/50 backdrop-blur-xl p-2 px-5 rounded-2xl border border-emerald-400/30 ui-element">
+                        <div class="flex items-center gap-3">
+                            <span onclick="quitGame()" class="cursor-pointer">🔙</span>
+                            <div class="text-xs font-black text-emerald-300">STAGE <span id="cur-lvl">1</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 backdrop-blur-md p-1 px-3 rounded-full w-40 border border-white/5">
+                        <div id="hp-bar" class="h-1 bg-emerald-500 rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+                <!-- 游戏中的精华显示 -->
+                <div class="bg-black/50 backdrop-blur-xl p-2 px-5 rounded-2xl border border-amber-500/30 text-right">
+                    <div class="text-[10px] uppercase font-bold text-amber-500 opacity-60">当前精华</div>
+                    <div id="gold-val" class="text-2xl font-black text-amber-400 font-mono italic">0</div>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-2 md:gap-4 ui-element w-full">
+                <button onclick="upgrade('damage')" id="btn-damage" class="flex-1 max-w-btn bg-black/50 backdrop-blur-xl py-3 rounded-2xl border border-white/10 active:scale-90 disabled:opacity-30">
+                    <div class="text-xl">💠</div>
+                    <div class="text-[8px] opacity-60">强化</div>
+                    <div id="cost-damage" class="text-[10px] font-bold text-emerald-300">50</div>
+                </button>
+                <button onclick="upgrade('speed')" id="btn-speed" class="flex-1 max-w-btn bg-black/50 backdrop-blur-xl py-3 rounded-2xl border border-white/10 active:scale-90 disabled:opacity-30">
+                    <div class="text-xl">🌀</div>
+                    <div class="text-[8px] opacity-60">频率</div>
+                    <div id="cost-speed" class="text-[10px] font-bold text-cyan-300">80</div>
+                </button>
+                <button onclick="upgrade('tower')" id="btn-tower" class="flex-1 max-w-btn bg-black/50 backdrop-blur-xl py-3 rounded-2xl border border-white/10 active:scale-90 disabled:opacity-30">
+                    <div class="text-xl">✨</div>
+                    <div class="text-[8px] opacity-60">护卫</div>
+                    <div id="cost-tower" class="text-[10px] font-bold text-purple-300">200</div>
+                </button>
+                <button onclick="upgrade('heal')" id="btn-heal" class="flex-1 max-w-btn bg-black/50 backdrop-blur-xl py-3 rounded-2xl border border-white/10 active:scale-90 disabled:opacity-30">
+                    <div class="text-xl">🍄</div>
+                    <div class="text-[8px] opacity-60">修复</div>
+                    <div id="cost-heal" class="text-[10px] font-bold text-rose-300">150</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. 结算界面 -->
+        <div id="screen-result" class="ui-screen hidden">
+            <h2 id="res-title" class="text-7xl font-black italic mb-6">挑战成功</h2>
+            <p id="res-desc" class="text-xl text-emerald-300-soft mb-6 text-center"></p>
+            <div class="wealth-tag flex items-center gap-2 mb-12">
+                <span class="text-sm">剩余总资产:</span>
+                <span id="result-wealth-display" class="text-xl font-black text-amber-400 font-mono italic">0</span>
+            </div>
+            <div class="flex gap-6">
+                <button onclick="showScreen('level-select')" class="px-10 py-5 bg-white/10 rounded-full font-bold text-lg">关卡列表</button>
+                <button id="btn-next" onclick="nextStage()" class="px-16 py-5 bg-emerald-600 rounded-full font-black text-2xl">下一关卡</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameActive = false, score = 0, health = 100;
+        let unlockedLevel = 1, currentLevel = 1;
+        let globalGold = 0; // 核心：全局积分资产
+        
+        let clickDmg = 50, autoCount = 0, autoRate = 1200, lastAuto = 0;
+        let costs = { damage: 50, speed: 80, tower: 200, heal: 150 };
+        let enemies = [], bullets = [], trees = [], staticGrass = [];
+        let crystalPulse = 0, globalScale = 1;
+        let bossHasSpawned = false, bossDefeated = false;
+        const scenicBg = new Image();
+        let scenicBgReady = false;
+        const safeStorage = (() => {
+            try {
+                const probe = '__forest_guard_probe__';
+                localStorage.setItem(probe, '1');
+                localStorage.removeItem(probe);
+                return localStorage;
+            } catch (err) {
+                const mem = new Map();
+                return {
+                    getItem(key) { return mem.has(key) ? mem.get(key) : null; },
+                    setItem(key, value) { mem.set(key, String(value)); },
+                    removeItem(key) { mem.delete(key); }
+                };
+            }
+        })();
+        const CARTOON_BG_SVG = `
+            <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'>
+                <defs>
+                    <linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'>
+                        <stop offset='0%' stop-color='#8fe3ff'/>
+                        <stop offset='60%' stop-color='#b2f0ff'/>
+                        <stop offset='100%' stop-color='#d7fbff'/>
+                    </linearGradient>
+                    <linearGradient id='hillA' x1='0' y1='0' x2='0' y2='1'>
+                        <stop offset='0%' stop-color='#66d17a'/>
+                        <stop offset='100%' stop-color='#3aa85c'/>
+                    </linearGradient>
+                    <linearGradient id='hillB' x1='0' y1='0' x2='0' y2='1'>
+                        <stop offset='0%' stop-color='#4fc46d'/>
+                        <stop offset='100%' stop-color='#2c8f4d'/>
+                    </linearGradient>
+                </defs>
+                <rect width='1600' height='900' fill='url(#sky)'/>
+                <circle cx='1300' cy='140' r='78' fill='#ffe672'/>
+                <g fill='white' opacity='0.92'>
+                    <ellipse cx='260' cy='170' rx='90' ry='36'/>
+                    <ellipse cx='330' cy='170' rx='70' ry='28'/>
+                    <ellipse cx='980' cy='120' rx='105' ry='38'/>
+                    <ellipse cx='1060' cy='120' rx='75' ry='30'/>
+                    <ellipse cx='720' cy='210' rx='65' ry='24'/>
+                </g>
+                <path d='M0 560 C210 480 380 500 610 560 C810 610 980 600 1220 550 C1380 515 1500 525 1600 560 L1600 900 L0 900 Z' fill='url(#hillA)'/>
+                <path d='M0 660 C230 590 440 620 700 690 C930 745 1190 730 1600 655 L1600 900 L0 900 Z' fill='url(#hillB)'/>
+                <g>
+                    <rect x='180' y='570' width='18' height='70' fill='#704928'/>
+                    <circle cx='189' cy='552' r='34' fill='#2f9a50'/>
+                    <circle cx='165' cy='560' r='26' fill='#38ae5b'/>
+                    <circle cx='212' cy='562' r='24' fill='#3cb964'/>
+                </g>
+                <g>
+                    <rect x='480' y='600' width='16' height='66' fill='#704928'/>
+                    <circle cx='488' cy='584' r='30' fill='#309850'/>
+                    <circle cx='468' cy='592' r='22' fill='#37aa5c'/>
+                    <circle cx='510' cy='594' r='21' fill='#3fbf68'/>
+                </g>
+                <g>
+                    <rect x='1220' y='585' width='20' height='78' fill='#704928'/>
+                    <circle cx='1230' cy='563' r='36' fill='#2e9951'/>
+                    <circle cx='1204' cy='573' r='27' fill='#37ae5f'/>
+                    <circle cx='1258' cy='575' r='25' fill='#40c46c'/>
+                </g>
+            </svg>
+        `;
+        scenicBg.src = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(CARTOON_BG_SVG)}`;
+        scenicBg.onload = () => { scenicBgReady = true; };
+        scenicBg.onerror = () => { scenicBgReady = false; };
+
+        // --- 核心同步系统 (资产累积版) ---
+
+        function loadLocalProgress() {
+            unlockedLevel = parseInt(safeStorage.getItem('forest_guard_lvl'), 10) || 1;
+            globalGold = parseInt(safeStorage.getItem('forest_guard_gold'), 10) || 0;
+            updateWealthDisplays();
+            document.getElementById('loading-text').innerText = "进入关卡列表";
+            document.getElementById('main-start-btn').disabled = false;
+        }
+
+        async function saveProgress() {
+            // 本地存档
+            safeStorage.setItem('forest_guard_lvl', unlockedLevel);
+            safeStorage.setItem('forest_guard_gold', globalGold);
+        }
+
+        function updateWealthDisplays() {
+            document.getElementById('home-wealth-display').innerText = globalGold;
+            document.getElementById('list-wealth-display').innerText = globalGold;
+            document.getElementById('result-wealth-display').innerText = globalGold;
+            document.getElementById('gold-val').innerText = globalGold;
+        }
+
+        // --- 游戏逻辑 ---
+
+        window.showScreen = (id) => {
+            document.querySelectorAll('.ui-screen, .ui-overlay').forEach(s => s.classList.add('hidden'));
+            if (id === 'game') document.getElementById('game-ui').classList.remove('hidden');
+            else {
+                document.getElementById('screen-' + id).classList.remove('hidden');
+                if (id === 'level-select') renderLevelGrid();
+                updateWealthDisplays();
+            }
+        };
+
+        function renderLevelGrid() {
+            const container = document.getElementById('grid-container');
+            container.innerHTML = '';
+            for (let i = 1; i <= 100; i++) {
+                const btn = document.createElement('button');
+                const isBoss = i >= 50 && i % 10 === 0;
+                btn.className = `w-full aspect-square rounded-xl border-2 flex items-center justify-center font-black text-lg transition-all ${i <= unlockedLevel ? 'border-emerald-500/40 text-white cursor-pointer active:scale-90' : 'border-white/5 text-white/10 locked'}`;
+                if (i === unlockedLevel) btn.classList.add('active-level');
+                btn.innerHTML = isBoss ? `💀` : i;
+                btn.onclick = () => launchLevel(i);
+                container.appendChild(btn);
+            }
+        }
+
+        function launchLevel(n) {
+            currentLevel = n;
+            document.getElementById('cur-lvl').innerText = n;
+            gameActive = true;
+            bossHasSpawned = false; bossDefeated = false;
+            score = 0; health = 100;
+            // 关卡成长
+            clickDmg = 50 + (n-1)*15; 
+            autoCount = 0; autoRate = 1200;
+            costs = { damage: 50, speed: 80, tower: 200, heal: 150 };
+            enemies = []; bullets = [];
+            document.getElementById('boss-ui').classList.add('hidden');
+            updateGameUI();
+            window.showScreen('game');
+            startLevelLogic();
+        }
+
+        window.quitGame = async () => { 
+            gameActive = false; 
+            await saveProgress();
+            window.showScreen('level-select'); 
+        };
+        
+        window.nextStage = () => launchLevel(currentLevel + 1);
+
+        class Enemy {
+            constructor(isBoss = false) {
+                this.isBoss = isBoss;
+                const side = Math.floor(Math.random()*4), offset = 120;
+                if(side===0){this.x=Math.random()*canvas.width;this.y=-offset}
+                else if(side===1){this.x=canvas.width+offset;this.y=Math.random()*canvas.height}
+                else if(side===2){this.x=Math.random()*canvas.width;this.y=canvas.height+offset}
+                else{this.x=-offset;this.y=Math.random()*canvas.height}
+                const lvlPwr = currentLevel * 30;
+                this.maxHp = isBoss ? lvlPwr * 35 : 45 + lvlPwr;
+                this.hp = this.maxHp;
+                this.spd = (isBoss ? 0.35 : 0.5 + Math.random()*0.3 + (currentLevel*0.02)) * globalScale;
+                this.val = isBoss ? 1500 : 15 + Math.floor(Math.random()*15);
+                this.walk = Math.random()*10; this.flash = 0; this.shield = false;
+                this.scale = isBoss ? 4.5 : 1;
+            }
+            update() {
+                const dx = canvas.width/2-this.x, dy = canvas.height/2-this.y, dist = Math.sqrt(dx*dx+dy*dy);
+                this.x += (dx/dist)*this.spd; this.y += (dy/dist)*this.spd;
+                this.walk += 0.12; if(this.flash > 0) this.flash--;
+                if (this.isBoss) {
+                    const cyc = Date.now() % 5000;
+                    this.shield = cyc > 3500;
+                    document.getElementById('boss-hp-bar').style.width = (this.hp/this.maxHp * 100) + '%';
+                    document.getElementById('shield-indicator').classList.toggle('hidden', !this.shield);
+                }
+                if(dist < 75*globalScale){ takeHit(this.isBoss ? 80 : 12); this.hp = 0; }
+            }
+            draw() {
+                const s = globalScale * this.scale, bob = Math.sin(this.walk)*2*s;
+                ctx.save(); ctx.translate(this.x, this.y); ctx.scale(s, s);
+                if (!this.isBoss) {
+                    const p = Math.max(0, this.hp/this.maxHp);
+                    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(-15,-45+bob/s,30,2);
+                    ctx.fillStyle=p>0.5?'#10b981':'#f43f5e'; ctx.fillRect(-15,-45+bob/s,30*p,2);
+                }
+                if (this.shield) {
+                    ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 3; ctx.beginPath();
+                    ctx.arc(0, -10, 24, 0, Math.PI*2); ctx.stroke();
+                }
+                ctx.fillStyle=this.flash>0?'#fff':(this.isBoss ? '#1e1b4b' : '#1e293b');
+                drawRoundedRect(ctx, -12,-8+bob/s, 24,26,6); ctx.fill();
+                ctx.fillStyle='#fecdd3'; ctx.beginPath(); ctx.arc(0,-12+bob/s,10,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=this.isBoss ? '#fbbf24' : '#ef4444';
+                ctx.beginPath(); ctx.moveTo(-15,-15+bob/s); ctx.lineTo(15,-15+bob/s); ctx.lineTo(0,-45+bob/s); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Shot {
+            constructor(tx, ty) {
+                const cx=canvas.width/2, cy=canvas.height/2, dx=tx-cx, dy=ty-cy, d=Math.sqrt(dx*dx+dy*dy);
+                this.x=cx; this.y=cy; this.vx=(dx/d)*22*globalScale; this.vy=(dy/d)*22*globalScale;
+                this.life=100; crystalPulse=25;
+            }
+            update() {
+                this.x+=this.vx; this.y+=this.vy; this.life--;
+                enemies.forEach(e => { 
+                    if(Math.sqrt((this.x-e.x)**2+(this.y-e.y)**2) < (e.isBoss ? 80 : 38)*globalScale){
+                        let dmg = clickDmg; if (e.shield) dmg *= 0.1; e.hp-=dmg; e.flash=3; this.life = 0; 
+                    }
+                });
+            }
+            draw() { ctx.fillStyle='#fff'; ctx.shadowBlur=15; ctx.shadowColor='#67e8f9'; ctx.beginPath(); ctx.arc(this.x,this.y,6.5*globalScale,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
+        }
+
+        function takeHit(a) { health -= a; document.getElementById('hp-bar').style.width = Math.max(0,health)+'%'; if(health<=0) finishStage(false); }
+        
+        window.upgrade = (t) => {
+            if(globalGold >= costs[t]) {
+                globalGold -= costs[t]; // 扣除全局积分
+                if(t==='damage'){clickDmg+=60; costs.damage=Math.floor(costs.damage*1.6)}
+                else if(t==='speed'){autoRate=Math.max(80,autoRate-200); costs.speed=Math.floor(costs.speed*1.7)}
+                else if(t==='tower'){autoCount++; costs.tower=Math.floor(costs.tower*2.5)}
+                else if(t==='heal'){health=Math.min(100,health+50); document.getElementById('hp-bar').style.width=health+'%'}
+                updateGameUI();
+                saveProgress(); // 消费后立刻异步保存
+            }
+        };
+
+        function updateGameUI() {
+            document.getElementById('gold-val').innerText = globalGold;
+            ['damage','speed','tower','heal'].forEach(id => {
+                const b = document.getElementById('btn-'+id), c = document.getElementById('cost-'+id);
+                if(c) c.innerText = costs[id];
+                if(b) b.disabled = globalGold < costs[id] || (id==='heal' && health>=100);
+            });
+        }
+
+        function drawBackdrop() {
+            if (scenicBgReady) {
+                const canvasRatio = canvas.width / canvas.height;
+                const imageRatio = scenicBg.width / scenicBg.height;
+                let sx = 0, sy = 0, sw = scenicBg.width, sh = scenicBg.height;
+
+                if (imageRatio > canvasRatio) {
+                    sw = scenicBg.height * canvasRatio;
+                    sx = (scenicBg.width - sw) * 0.5;
+                } else {
+                    sh = scenicBg.width / canvasRatio;
+                    sy = (scenicBg.height - sh) * 0.5;
+                }
+                ctx.drawImage(scenicBg, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+            }
+
+            // 保持游戏画面层次和文字对比度
+            const bg = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 80, canvas.width/2, canvas.height/2, canvas.width * 0.9);
+            bg.addColorStop(0,'rgba(5, 55, 34, 0.45)');
+            bg.addColorStop(1,'rgba(1, 14, 9, 0.92)');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+        }
+
+        function render(time) {
+            drawBackdrop();
+            staticGrass.forEach(g=> { ctx.fillStyle='#021a11'; ctx.fillRect(g.x,g.y,2*globalScale,-g.h); });
+            trees.sort((a,b)=>a.y-b.y).forEach(t=>{
+                ctx.save(); ctx.translate(t.x,t.y); ctx.globalAlpha=0.4+t.depth*0.6; ctx.fillStyle='#261a0f'; ctx.fillRect(-(t.size*0.04),-(t.size*0.5),t.size*0.08,t.size*0.5);
+                ctx.fillStyle='#01261a'; if(t.type==='oak'){ctx.beginPath();ctx.arc(0,-(t.size*0.4),t.size*0.35,0,Math.PI*2);ctx.fill()}else{ctx.beginPath();ctx.moveTo(0,-(t.size*0.9));ctx.lineTo(t.size*0.3,-(t.size*0.4));ctx.lineTo(-(t.size*0.3),-(t.size*0.4));ctx.fill()} ctx.restore();
+            });
+            const cx=canvas.width/2, cy=canvas.height/2, s=globalScale;
+            ctx.save(); ctx.translate(cx,cy); ctx.scale(s,s); ctx.translate(0,Math.sin(time*0.001)*10);
+            const cp=Math.sin(time/400)*5+(crystalPulse*0.6);
+            ctx.shadowBlur=25+cp; ctx.shadowColor='#06b6d4'; ctx.fillStyle='#22d3ee';
+            ctx.beginPath(); ctx.moveTo(0,-75-cp); ctx.lineTo(30,0); ctx.lineTo(0,35); ctx.lineTo(-30,0); ctx.closePath(); ctx.fill(); ctx.shadowBlur=0;
+            for(let i=0; i<autoCount; i++) {
+                const a=(i*Math.PI*2/autoCount)+(time*0.002), ox=Math.cos(a)*70, oy=Math.sin(a)*45-20;
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ox,oy,6,0,Math.PI*2); ctx.fill();
+            }
+            ctx.restore(); if(crystalPulse>0)crystalPulse*=0.9;
+
+            if(!gameActive){requestAnimationFrame(render); return}
+            if(autoCount>0 && time-lastAuto>autoRate && enemies.length>0){ 
+                const target = enemies.sort((a,b) => (Math.hypot(a.x-cx,a.y-cy) - Math.hypot(b.x-cx,b.y-cy)))[0];
+                bullets.push(new Shot(target.x,target.y)); lastAuto=time 
+            }
+            bullets=bullets.filter(b=>{b.update();b.draw();return b.life>0});
+            enemies = enemies.filter(e=>{
+                e.update(); e.draw();
+                if(e.hp<=0){
+                    globalGold += e.val; // 杀敌获得积分累积到全局
+                    score++; updateGameUI();
+                    if(e.isBoss) bossDefeated = true;
+                    return false;
+                }
+                return true;
+            });
+            const isBossLvl = currentLevel >= 50 && currentLevel % 10 === 0;
+            if (!isBossLvl) { if (enemies.length === 0 && score >= (5 + currentLevel * 4)) finishStage(true); }
+            else { if (bossDefeated && enemies.length === 0) finishStage(true); }
+            requestAnimationFrame(render);
+        }
+
+        function startLevelLogic() {
+            const count = 5 + currentLevel * 4;
+            const isBossLvl = currentLevel >= 50 && currentLevel % 10 === 0;
+            for(let i=0; i<count; i++) { setTimeout(() => { if(gameActive) enemies.push(new Enemy(false)); }, i*1000); }
+            if (isBossLvl) {
+                setTimeout(() => {
+                    if (gameActive) {
+                        document.getElementById('boss-warning').style.display = 'block';
+                        setTimeout(() => {
+                            document.getElementById('boss-warning').style.display = 'none';
+                            enemies.push(new Enemy(true));
+                            bossHasSpawned = true;
+                            document.getElementById('boss-ui').classList.remove('hidden');
+                        }, 2500);
+                    }
+                }, 3000);
+            }
+        }
+
+        async function finishStage(victory) {
+            gameActive = false;
+            document.getElementById('boss-ui').classList.add('hidden');
+            const resT = document.getElementById('res-title'), resD = document.getElementById('res-desc');
+            
+            await saveProgress(); // 结算时保存所有资产
+
+            if(victory) {
+                resT.innerText = "挑战成功"; resT.style.color="#34d399";
+                resD.innerText = `关卡 ${currentLevel} 已收复！`;
+                if(currentLevel >= unlockedLevel && unlockedLevel < 100) {
+                    unlockedLevel = currentLevel + 1;
+                    await saveProgress();
+                }
+                document.getElementById('btn-next').classList.remove('hidden');
+            } else {
+                resT.innerText = "魔晶碎裂"; resT.style.color="#f43f5e";
+                resD.innerText = `在第 ${currentLevel} 关不幸败北...但积攒的精华依然存在。`;
+                document.getElementById('btn-next').classList.add('hidden');
+            }
+            window.showScreen('result');
+        }
+
+        function getCanvasPoint(e) {
+            const rect = canvas.getBoundingClientRect();
+            const src = e.touches && e.touches.length ? e.touches[0] : e;
+            return {
+                x: src.clientX - rect.left,
+                y: src.clientY - rect.top
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!gameActive) return;
+            bullets.push(new Shot(e.clientX, e.clientY));
+        });
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameActive) return;
+            e.preventDefault();
+            const p = getCanvasPoint(e);
+            bullets.push(new Shot(p.x, p.y));
+        }, { passive: false });
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius); ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height); ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius); ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y); ctx.closePath();
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            globalScale = Math.max(0.7, Math.min(1.2, Math.min(canvas.width, canvas.height) / 850));
+            trees = []; staticGrass = [];
+            for(let i=0; i<80; i++) staticGrass.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, h: (5+Math.random()*5)*globalScale });
+            for(let i=0; i<35; i++) {
+                const tx = Math.random()*canvas.width, ty = Math.random()*canvas.height;
+                if (Math.sqrt((tx-canvas.width/2)**2 + (ty-canvas.height/2)**2) > 220*globalScale) trees.push({ x: tx, y: ty, size: (80+Math.random()*100)*globalScale, depth: Math.random(), type: Math.random()>0.4?'oak':'pine' });
+            }
+        }
+        window.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', () => setTimeout(resize, 50));
+        window.onload = () => { resize(); loadLocalProgress(); requestAnimationFrame(render); };
+    </script>
+</body>
+</html>
