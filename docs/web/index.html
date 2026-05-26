@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>quizit web 首页</title>
+    <style>
+        :root {
+            --bg0: #07130f;
+            --bg1: #0d1f18;
+            --panel: rgba(8, 24, 18, 0.78);
+            --panel-2: rgba(255, 255, 255, 0.06);
+            --line: rgba(255, 255, 255, 0.1);
+            --text: #ecfff4;
+            --muted: rgba(236, 255, 244, 0.68);
+            --accent: #34d399;
+            --accent-2: #fbbf24;
+            --danger: #fb7185;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { width: 100%; min-height: 100%; }
+        body {
+            margin: 0;
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(52, 211, 153, 0.14), transparent 34%),
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.12), transparent 28%),
+                linear-gradient(160deg, var(--bg0), var(--bg1) 65%, #06100c);
+        }
+
+        .wrap {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .shell {
+            width: min(980px, 100%);
+            position: relative;
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+            backdrop-filter: blur(18px);
+        }
+
+        .shell::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(120deg, rgba(255,255,255,0.06), transparent 40%),
+                radial-gradient(circle at 30% 20%, rgba(52, 211, 153, 0.16), transparent 25%);
+            pointer-events: none;
+        }
+
+        .hero {
+            position: relative;
+            padding: 28px 28px 20px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 16px rgba(52, 211, 153, 0.9);
+        }
+
+        h1 {
+            margin: 14px 0 10px;
+            font-size: clamp(2.2rem, 6vw, 5rem);
+            line-height: 0.95;
+            letter-spacing: -0.06em;
+        }
+
+        .sub {
+            max-width: 54rem;
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1.4fr 0.9fr;
+            gap: 18px;
+            padding: 18px;
+        }
+
+        .panel {
+            position: relative;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .panel h2 {
+            margin: 0 0 10px;
+            font-size: 1.05rem;
+            letter-spacing: 0.02em;
+        }
+
+        .lead {
+            margin: 0 0 18px;
+            color: var(--muted);
+            line-height: 1.65;
+        }
+
+        .primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-radius: 999px;
+            color: #062215;
+            background: linear-gradient(180deg, #7ef0be, #34d399);
+            text-decoration: none;
+            font-weight: 800;
+            box-shadow: 0 18px 36px rgba(52, 211, 153, 0.25);
+        }
+
+        .primary:hover { filter: brightness(1.04); }
+
+        .secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px 18px;
+            border-radius: 999px;
+            color: var(--text);
+            border: 1px solid var(--line);
+            background: var(--panel-2);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .list {
+            display: grid;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .item {
+            display: block;
+            padding: 14px 14px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.03);
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .item:hover { border-color: rgba(52, 211, 153, 0.35); }
+
+        .item .name {
+            display: block;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .item .desc {
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .meta {
+            padding: 14px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--line);
+        }
+
+        .meta .k {
+            display: block;
+            font-size: 12px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(236, 255, 244, 0.54);
+            margin-bottom: 6px;
+        }
+
+        .meta .v {
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+
+        .note {
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .tag {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(251, 191, 36, 0.12);
+            color: #fde68a;
+            border: 1px solid rgba(251, 191, 36, 0.22);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 800px) {
+            .content { grid-template-columns: 1fr; }
+            .meta-grid { grid-template-columns: 1fr; }
+            .hero { padding: 24px 20px 18px; }
+            .panel { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <section class="shell">
+            <header class="hero">
+                <div class="eyebrow"><span class="dot"></span> quizit web</div>
+                <h1>静态页面首页</h1>
+                <p class="sub">
+                    这里是 `docs/web/` 的入口页。你可以从这里直接进入游戏，或者打开同目录下的其他静态页面。
+                    这个首页不依赖任何外部资源，适合 GitHub Pages 直接发布。
+                </p>
+            </header>
+
+            <div class="content">
+                <section class="panel">
+                    <h2>推荐入口</h2>
+                    <p class="lead">
+                        如果你想先测试最完整的页面，直接进入「堡垒保卫战」。
+                    </p>
+                    <div class="actions">
+                        <a class="primary" href="./%E5%A0%A1%E5%9E%92%E4%BF%9D%E5%8D%AB%E6%88%981.html">进入堡垒保卫战</a>
+                        <a class="secondary" href="./%E5%A0%A1%E5%9E%92%E4%BF%9D%E5%8D%AB%E6%88%981.html" target="_blank" rel="noreferrer">新标签打开</a>
+                    </div>
+                    <div class="meta-grid">
+                        <div class="meta">
+                            <span class="k">路径</span>
+                            <span class="v">/web/</span>
+                        </div>
+                        <div class="meta">
+                            <span class="k">模式</span>
+                            <span class="v">纯静态</span>
+                        </div>
+                    </div>
+                    <div class="tag">提示: 中文文件名已使用 URL 编码，兼容 GitHub Pages</div>
+                </section>
+
+                <aside class="panel">
+                    <h2>页面列表</h2>
+                    <div class="list">
+                        <a class="item" href="./%E5%A0%A1%E5%9E%92%E4%BF%9D%E5%8D%AB%E6%88%981.html">
+                            <span class="name">堡垒保卫战1</span>
+                            <span class="desc">离线友好的单文件小游戏首页入口。</span>
+                        </a>
+                        <a class="item" href="./daofa_8b_logic.html">
+                            <span class="name">daofa_8b_logic</span>
+                            <span class="desc">同目录下的静态 HTML 页面。</span>
+                        </a>
+                        <a class="item" href="./daofa_8b_unit1_logic.html">
+                            <span class="name">daofa_8b_unit1_logic</span>
+                            <span class="desc">同目录下的静态 HTML 页面。</span>
+                        </a>
+                        <a class="item" href="./daofa_unit1_logic.html">
+                            <span class="name">daofa_unit1_logic</span>
+                            <span class="desc">同目录下的静态 HTML 页面。</span>
+                        </a>
+                        <a class="item" href="./daofa__logic.html">
+                            <span class="name">daofa__logic</span>
+                            <span class="desc">同目录下的静态 HTML 页面。</span>
+                        </a>
+                    </div>
+                    <p class="note">
+                        如果你想把这个首页设成 GitHub Pages 的默认入口，仓库发布目录里需要有这个 `index.html`。
+                    </p>
+                </aside>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
