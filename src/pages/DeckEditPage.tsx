@@ -5,7 +5,7 @@ import { type DeckItem, type DeckRow, theDeckService } from "../../lib/DeckServi
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, RotateCcw, Image, Link, CornerUpLeft } from "lucide-react";
+import { Trash2, Check, Layers, RotateCcw, Image, Link, CornerUpLeft, ChevronDown, Pencil, X, Printer } from "lucide-react";
 
 interface CardRow {
     id: string;
@@ -159,6 +159,8 @@ const DeckEditPage: React.FC = () => {
 
     const [deck, setDeck] = useState<DeckRow | null>(null);
     const [cards, setCards] = useState<CardRow[]>([]);
+    const [cardSearch, setCardSearch] = useState("");
+    const [submittedCardSearch, setSubmittedCardSearch] = useState("");
     const [exportJson, setExportJson] = useState("");
     const [error, setError] = useState<string | null>(null);
 
@@ -170,6 +172,8 @@ const DeckEditPage: React.FC = () => {
     const [editingDesc, setEditingDesc] = useState(false);
     const [savingTitle, setSavingTitle] = useState(false);
     const [savingDesc, setSavingDesc] = useState(false);
+    const [showImportExportCard, setShowImportExportCard] = useState(false);
+    const [editingCards, setEditingCards] = useState(false);
     const [resetting, setResetting] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const titleEditRef = useRef<HTMLDivElement | null>(null);
@@ -527,8 +531,13 @@ const DeckEditPage: React.FC = () => {
                 return new Set<string>();
             }
             // 否则 → 选中当前列表所有卡片
-            return new Set<string>(cards.map((c) => c.id));
+            return new Set<string>(visibleCards.map((c) => c.id));
         });
+    }
+
+    function handleCancelCardEditing() {
+        setSelectedIds(new Set<string>());
+        setEditingCards(false);
     }
 
     async function handleResetDeckStats() {
@@ -688,8 +697,12 @@ const DeckEditPage: React.FC = () => {
             </div>
         );
     }
+    const normalizedCardSearch = submittedCardSearch.trim().toLowerCase();
+    const visibleCards = normalizedCardSearch
+        ? cards.filter((card) => card.front.toLowerCase().includes(normalizedCardSearch))
+        : cards;
     const isAllSelected =
-        cards.length > 0 && selectedIds.size === cards.length;
+        visibleCards.length > 0 && visibleCards.every((card) => selectedIds.has(card.id));
     const descriptionUrl = getHttpUrl(deck?.description);
     const openDeckApp = () => {
         if (!descriptionUrl) return;
@@ -699,8 +712,18 @@ const DeckEditPage: React.FC = () => {
         }
     };
 
+    const handlePrintCards = () => {
+        if (visibleCards.length === 0) {
+            setSaveMetaMessage("没有可打印的卡片。");
+            return;
+        }
+        setError(null);
+        window.print();
+    };
+
     return (
-        <div className="space-y-6 text-slate-900 dark:text-slate-100 px-4 py-6 w-fit mx-auto">
+        <>
+        <div className="screen-only space-y-6 text-slate-900 dark:text-slate-100 px-4 py-6 w-fit mx-auto">
             {/* 顶部标题区 */}
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -883,15 +906,18 @@ const DeckEditPage: React.FC = () => {
             )}
 
             {/* 2️⃣ 导入 / 导出 cards */}
-            <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 space-y-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
-                <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">导入 / 导出卡片（cards）</div>
-                    <div className="space-x-2">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 px-3 py-1 space-y-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+                <div className="flex min-h-8 items-center justify-between gap-3 whitespace-nowrap">
+                    <div className="shrink-0 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                        导入 / 导出卡片（cards）
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
                         <Button
                             variant="link"
                             type="button"
                             onClick={handleExport}
-                            className="text-sm"
+                            className="h-7 px-2 py-0 text-xs"
+                            disabled={!showImportExportCard}
                         >
                             导出当前 cards
                         </Button>
@@ -899,8 +925,8 @@ const DeckEditPage: React.FC = () => {
                             variant="outline"
                             type="button"
                             onClick={handleImport}
-                            className="text-sm w-30 font-light"
-                            disabled={importing}
+                            className="h-7 px-2.5 py-0 text-xs font-light"
+                            disabled={importing || !showImportExportCard}
                         >
                             {importing ? "导入中..." : "导入这些卡片"}
                         </Button>
@@ -908,23 +934,32 @@ const DeckEditPage: React.FC = () => {
                             variant="ghost"
                             type="button"
                             onClick={handleImportFileClick}
-                            className="text-sm"
+                            className="h-7 px-2 py-0 text-xs"
+                            disabled={!showImportExportCard}
                         >
                             从文件…
                         </Button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv,text/csv"
-                            className="hidden"
-                            onChange={handleFileSelected}
-                        />
+                        <button
+                            type="button"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                            aria-label={showImportExportCard ? "收起导入导出卡片" : "展开导入导出卡片"}
+                            aria-expanded={showImportExportCard}
+                            aria-controls="deck-import-export-panel"
+                            onClick={() => setShowImportExportCard((prev) => !prev)}
+                        >
+                            <ChevronDown
+                                className={`w-4 h-4 transition-transform ${showImportExportCard ? "rotate-180" : ""}`}
+                                aria-hidden="true"
+                            />
+                        </button>
                     </div>
                 </div>
 
-                <textarea
-                    className="w-full h-48 text-xs font-mono bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/80 dark:border-slate-700 dark:text-slate-100"
-                    placeholder={`支持两种格式（自动识别）：
+                {showImportExportCard && (
+                    <div id="deck-import-export-panel">
+                        <textarea
+                            className="w-full h-48 text-xs font-mono bg-slate-50/80 rounded-xl p-2 text-slate-900 outline-none focus:ring-1 focus:ring-emerald-200 dark:bg-slate-950/40 dark:text-slate-100 dark:focus:ring-sky-300/30"
+                            placeholder={`支持两种格式（自动识别）：
 ① JSON：
 [
   { "front": "光在真空中的速度是多少？", "back": "3.0×10^8 m/s" },
@@ -936,62 +971,133 @@ front,back
 光在真空中的速度是多少？,3.0×10^8 m/s
 声音的传播需要什么？,介质
 `}
-                    value={exportJson}
-                    onChange={(e) => setExportJson(e.target.value)}
+                            value={exportJson}
+                            onChange={(e) => setExportJson(e.target.value)}
+                        />
+                    </div>
+                )}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleFileSelected}
                 />
             </div>
 
             {/* 3️⃣ 卡片列表（预览 + 多选删除） */}
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
                 <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-semibold">
-                        {cardsLoading ? "卡片预览（加载中…）" : `卡片预览（${cards.length} 条）`}
+                    <div className="flex items-center gap-3">
+                        <div className="text-sm font-semibold">
+                            {cardsLoading ? "卡片预览（加载中…）" : `卡片预览（${visibleCards.length} 条）`}
+                        </div>
+                        <input
+                            type="search"
+                            className="h-8 w-48 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-300/30"
+                            placeholder="搜索卡片"
+                            aria-label="搜索卡片"
+                            value={cardSearch}
+                            onChange={(event) => setCardSearch(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                    setSubmittedCardSearch(cardSearch);
+                                }
+                            }}
+                        />
                     </div>
                     <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-400">
-            已选中：{selectedIds.size} 张
-        </span>
+                        {editingCards && (
+                            <>
+                                <span className="text-xs text-slate-400">
+                                    已选中：{selectedIds.size} 张
+                                </span>
 
-                        {/* 全选 / 全不选 */}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={handleToggleSelectAll}
-                            disabled={cards.length === 0}
-                            className="px-2 py-1 text-xs text-slate-300 hover:text-slate-50 hover:bg-slate-700/60 disabled:text-slate-500 disabled:hover:bg-transparent"
-                        >
-                            {isAllSelected ? "全不选" : "全选"}
-                        </Button>
+                                {/* 全选 / 全不选 */}
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={handleToggleSelectAll}
+                                    disabled={visibleCards.length === 0}
+                                    className="px-2 py-1 text-xs text-slate-300 hover:text-slate-50 hover:bg-slate-700/60 disabled:text-slate-500 disabled:hover:bg-transparent"
+                                >
+                                    {isAllSelected ? "全不选" : "全选"}
+                                </Button>
 
-                        {/* 删除选中 */}
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setShowDeleteConfirm(true)}
-                            disabled={deleting || selectedIds.size === 0}
-                            className="px-3 py-1.5 text-xs text-rose-300 border-rose-500 hover:bg-rose-500/10 hover:text-rose-100 disabled:text-slate-500 disabled:border-slate-600"
-                        >
-                            删除选中卡片
-                        </Button>
+                                {/* 删除选中 */}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    disabled={deleting || selectedIds.size === 0}
+                                    className="px-3 py-1.5 text-xs text-rose-300 border-rose-500 hover:bg-rose-500/10 hover:text-rose-100 disabled:text-slate-500 disabled:border-slate-600"
+                                >
+                                    删除选中卡片
+                                </Button>
+                            </>
+                        )}
+                        {editingCards ? (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="iconGhost"
+                                    className="h-9 w-9 rounded-lg p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                    aria-label="取消编辑卡片"
+                                    title="取消"
+                                    onClick={handleCancelCardEditing}
+                                >
+                                    <X className="h-8 w-8" aria-hidden="true" />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="iconGhost"
+                                    className="h-9 w-9 rounded-lg p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                    aria-label="编辑卡片"
+                                    title="编辑卡片"
+                                    onClick={() => setEditingCards(true)}
+                                >
+                                    <Pencil className="h-7 w-7" aria-hidden="true" />
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="iconGhost"
+                                    className="h-9 w-9 rounded-lg p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                    aria-label="打印卡片"
+                                    title="打印卡片"
+                                    onClick={handlePrintCards}
+                                >
+                                    <Printer className="h-8 w-8" aria-hidden="true" />
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
                 {cardsLoading ? (
                     <div className="text-xs text-slate-500">正在加载卡片…</div>
                 ) : cards.length === 0 ? (
                     <div className="text-xs text-slate-500">当前 deck 还没有卡片。</div>
+                ) : visibleCards.length === 0 ? (
+                    <div className="text-xs text-slate-500">没有匹配的卡片。</div>
                 ) : (
                     <ul className="space-y-2 pr-2">
-                        {cards.map((c, idx) => (
+                        {visibleCards.map((c, idx) => (
                             <li
                                 key={c.id}
                                 className="border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs flex items-start gap-2 shadow-sm dark:border-slate-700 dark:bg-slate-900"
                             >
-                                <input
-                                    type="checkbox"
-                                    className="mt-1 h-3.5 w-3.5 rounded border-slate-500 bg-slate-900"
-                                    checked={selectedIds.has(c.id)}
-                                    onChange={() => toggleSelectCard(c.id)}
-                                />
+                                <div className="mt-1 h-3.5 w-3.5 shrink-0">
+                                    {editingCards && (
+                                        <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-slate-500 bg-slate-900"
+                                            checked={selectedIds.has(c.id)}
+                                            onChange={() => toggleSelectCard(c.id)}
+                                        />
+                                    )}
+                                </div>
                                 <div className="flex-1">
                                     {/* 顶部：编号 + id（缩短一点防止太长） */}
                                     <div className="flex items-center justify-between mb-1 text-slate-500 dark:text-slate-400">
@@ -1003,13 +1109,13 @@ front,back
                                     <div className="flex gap-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="text-[10px] text-slate-500 mb-0.5">front</div>
-                                            <div className="text-slate-900 dark:text-slate-100 whitespace-pre-wrap break-words">
+                                            <div className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap break-words">
                                                 {c.front}
                                             </div>
                                         </div>
                                         <div className="flex-1 min-w-0 border-l border-slate-700 pl-3">
                                             <div className="text-[10px] text-slate-500 mb-0.5">back</div>
-                                            <div className="text-slate-800 dark:text-slate-300 whitespace-pre-wrap break-words">
+                                            <div className="text-sm text-slate-800 dark:text-slate-300 whitespace-pre-wrap break-words">
                                                 {c.back || <span className="text-slate-500 dark:text-slate-500">（空）</span>}
                                             </div>
                                         </div>
@@ -1070,6 +1176,38 @@ front,back
                 }}
             />
         </div>
+        <div className="print-only">
+            <header className="print-header">
+                <h1>{deck?.title ?? "未命名 Deck"}</h1>
+                <div className="print-meta">卡片数量：{visibleCards.length}</div>
+                {normalizedCardSearch && (
+                    <div className="print-meta">筛选：{submittedCardSearch.trim()}</div>
+                )}
+            </header>
+            <table className="print-card-table">
+                <thead>
+                <tr>
+                    <th className="print-index-cell">#</th>
+                    <th>front</th>
+                    <th>back</th>
+                </tr>
+                </thead>
+                <tbody>
+                {visibleCards.map((card, index) => (
+                    <tr key={card.id}>
+                        <td className="print-index-cell">{index + 1}</td>
+                        <td>
+                            <div className="print-content">{card.front}</div>
+                        </td>
+                        <td>
+                            <div className="print-content">{card.back.trim() ? card.back : "（空）"}</div>
+                        </td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+        </div>
+        </>
     );
 };
 

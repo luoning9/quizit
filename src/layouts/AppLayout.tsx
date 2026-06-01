@@ -117,9 +117,9 @@ export function AppLayout() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-50">
+        <div className="app-layout-shell min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-50">
             {/* 顶部导航 */}
-            <header className="border-b border-transparent bg-emerald-700 text-white shadow-md backdrop-blur dark:bg-slate-900/80 dark:border-slate-700 dark:text-slate-100">
+            <header className="app-layout-header border-b border-transparent bg-emerald-700 text-white shadow-md backdrop-blur dark:bg-slate-900/80 dark:border-slate-700 dark:text-slate-100">
                 <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
                     {/* 左侧 LOGO */}
                     <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export function AppLayout() {
             </header>
 
             {/* 页面内容 */}
-            <main className="mx-auto max-w-5xl px-4 py-6 bg-white/90 dark:bg-slate-900/70 rounded-2xl shadow-sm dark:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)]">
+            <main className="app-layout-main mx-auto max-w-5xl px-4 py-6 bg-white/90 dark:bg-slate-900/70 rounded-2xl shadow-sm dark:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)]">
                 <Outlet context={{ setNavDueCount, setNavRecentNewCount }} />
             </main>
         </div>
