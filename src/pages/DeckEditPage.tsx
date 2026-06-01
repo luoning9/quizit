@@ -1101,23 +1101,20 @@ front,back
                                         />
                                     )}
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                     {/* 顶部：编号 + id（缩短一点防止太长） */}
-                                    <div className="flex items-center justify-between mb-1 text-slate-500 dark:text-slate-400">
+                                    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 mb-1 text-slate-500 dark:text-slate-400">
                                         <span>#{idx + 1}</span>
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <span className="text-right break-all">{c.id}</span>
-                                            <Button
-                                                type="button"
-                                                variant="iconGhost"
-                                                className="h-7 w-7 shrink-0 rounded-md p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                                                aria-label="查看完整闪卡"
-                                                title="查看完整闪卡"
-                                                onClick={() => setViewingCardId(c.id)}
-                                            >
-                                                <Eye className="h-5 w-5" aria-hidden="true" />
-                                            </Button>
-                                        </div>
+                                        <button
+                                            type="button"
+                                            className="mx-auto inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                            aria-label="查看完整闪卡"
+                                            title="查看完整闪卡"
+                                            onClick={() => setViewingCardId(c.id)}
+                                        >
+                                            <Eye className="h-4 w-4" aria-hidden="true" />
+                                        </button>
+                                        <span className="text-right break-all">{c.id}</span>
                                     </div>
 
                                     {/* 主体：左右两栏 front / back */}
