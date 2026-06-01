@@ -5,7 +5,8 @@ import { type DeckItem, type DeckRow, theDeckService } from "../../lib/DeckServi
 import Papa, {type ParseResult} from "papaparse";
 import {Button} from "../components/ui/Button.tsx";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog.tsx";
-import { Trash2, Check, Layers, RotateCcw, Image, Link, CornerUpLeft, ChevronDown, Pencil, X, Printer } from "lucide-react";
+import { Trash2, Check, Layers, RotateCcw, Image, Link, CornerUpLeft, ChevronDown, Pencil, X, Printer, Eye } from "lucide-react";
+import { CardViewModal } from "../components/CardViewModal";
 
 interface CardRow {
     id: string;
@@ -174,6 +175,7 @@ const DeckEditPage: React.FC = () => {
     const [savingDesc, setSavingDesc] = useState(false);
     const [showImportExportCard, setShowImportExportCard] = useState(false);
     const [editingCards, setEditingCards] = useState(false);
+    const [viewingCardId, setViewingCardId] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const titleEditRef = useRef<HTMLDivElement | null>(null);
@@ -703,6 +705,7 @@ const DeckEditPage: React.FC = () => {
         : cards;
     const isAllSelected =
         visibleCards.length > 0 && visibleCards.every((card) => selectedIds.has(card.id));
+    const viewingCard = viewingCardId ? cards.find((card) => card.id === viewingCardId) ?? null : null;
     const descriptionUrl = getHttpUrl(deck?.description);
     const openDeckApp = () => {
         if (!descriptionUrl) return;
@@ -1102,7 +1105,19 @@ front,back
                                     {/* 顶部：编号 + id（缩短一点防止太长） */}
                                     <div className="flex items-center justify-between mb-1 text-slate-500 dark:text-slate-400">
                                         <span>#{idx + 1}</span>
-                                        <span className="text-right break-all">{c.id}</span>
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <span className="text-right break-all">{c.id}</span>
+                                            <Button
+                                                type="button"
+                                                variant="iconGhost"
+                                                className="h-7 w-7 shrink-0 rounded-md p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                                aria-label="查看完整闪卡"
+                                                title="查看完整闪卡"
+                                                onClick={() => setViewingCardId(c.id)}
+                                            >
+                                                <Eye className="h-5 w-5" aria-hidden="true" />
+                                            </Button>
+                                        </div>
                                     </div>
 
                                     {/* 主体：左右两栏 front / back */}
@@ -1175,6 +1190,7 @@ front,back
                     setShowDeleteDeckConfirm(false);
                 }}
             />
+            <CardViewModal card={viewingCard} onClose={() => setViewingCardId(null)} />
         </div>
         <div className="print-only">
             <header className="print-header">
